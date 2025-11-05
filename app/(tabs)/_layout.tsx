@@ -315,10 +315,15 @@ export default function TabLayout() {
           tabBarStyle: { 
             backgroundColor: Colors.light.surface,
             borderTopWidth: 1,
-            borderTopColor: Colors.light.surfaceLight,
+            borderTopColor: Colors.light.border,
             height: 80,
             paddingBottom: 10,
             paddingTop: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 8,
           },
           headerStyle: { 
             backgroundColor: Colors.light.background,

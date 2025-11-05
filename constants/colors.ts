@@ -1,41 +1,44 @@
-const red = "#DC2626" as const;
-const redDark = "#B91C1C" as const;
-const redBright = "#EF4444" as const;
-const black = "#000000" as const;
-const darkGray = "#2A2A2A" as const;
-const surface = "#121212" as const;
-const surfaceLight = "#1A1A1A" as const;
-const text = "#FFFFFF" as const;
-const textMuted = "#9CA3AF" as const;
+const primary = "#FF5A5F" as const;
+const primaryDark = "#E6474C" as const;
+const primaryLight = "#FF7B7F" as const;
+const background = "#F9FAFB" as const;
+const surface = "#FFFFFF" as const;
+const surfaceLight = "#F3F4F6" as const;
+const text = "#111827" as const;
+const textMuted = "#6B7280" as const;
+const textLight = "#9CA3AF" as const;
 const success = "#10B981" as const;
 const warning = "#F59E0B" as const;
-const accent = "#FF0000" as const;
-const border = "#1F1F1F" as const;
-const cardBackground = "#0F0F0F" as const;
-const mutedLight = "#6B7280" as const;
-const error = redBright;
+const error = "#EF4444" as const;
+const border = "#E5E7EB" as const;
+const borderLight = "#F3F4F6" as const;
+const accent = "#8B5CF6" as const;
+const accentLight = "#A78BFA" as const;
 
 export default {
   light: {
     text,
-    background: darkGray,
-    tint: red,
+    background,
+    tint: primary,
     tabIconDefault: textMuted,
-    tabIconSelected: red,
-    primary: red,
-    primaryDark: redDark,
-    primaryBright: redBright,
+    tabIconSelected: primary,
+    primary,
+    primaryDark,
+    primaryLight,
+    primaryBright: primaryLight,
     surface,
     surfaceLight,
-    darkGray,
+    darkGray: surfaceLight,
     muted: textMuted,
+    mutedLight: textLight,
     success,
     warning,
-    danger: redBright,
-    accent,
-    border,
-    cardBackground,
-    mutedLight,
+    danger: error,
     error,
+    accent,
+    accentLight,
+    border,
+    borderLight,
+    cardBackground: surface,
   },
 } as const;
