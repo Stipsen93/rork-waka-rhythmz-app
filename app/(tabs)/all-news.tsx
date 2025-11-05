@@ -25,7 +25,7 @@ export default function AllNewsScreen() {
       />
       
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.push("/(tabs)/assignments")} style={styles.backButton}>
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerTextContainer}>
