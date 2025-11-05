@@ -1,18 +1,224 @@
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
+import { useState } from "react";
+import { User, Lock, Calendar, MapPin, Phone, Mail } from "lucide-react-native";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
+  
+  const [name, setName] = useState<string>("Jan de Vries");
+  const [currentPassword, setCurrentPassword] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [age, setAge] = useState<string>("25");
+  const [address, setAddress] = useState<string>("Hoofdstraat 123");
+  const [phone, setPhone] = useState<string>("+31 6 12345678");
+  const [email, setEmail] = useState<string>("jan@example.com");
+  
+  const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
+
+  const handleSavePassword = () => {
+    if (newPassword === confirmPassword && newPassword.length >= 6) {
+      console.log("Wachtwoord opgeslagen");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setIsEditingPassword(false);
+    }
+  };
+
+  const handleSaveProfile = () => {
+    console.log("Profiel opgeslagen", { name, age, address, phone, email });
+  };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Account</Text>
-          <Text style={styles.subtitle}>Account instellingen komen hier</Text>
+          <Text style={styles.subtitle}>Beheer je persoonlijke gegevens</Text>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Persoonlijke informatie</Text>
+            
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconWrapper}>
+                <User size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Naam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Voer je naam in"
+                  placeholderTextColor={Colors.light.mutedLight}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconWrapper}>
+                <Calendar size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Leeftijd</Text>
+                <TextInput
+                  style={styles.input}
+                  value={age}
+                  onChangeText={setAge}
+                  placeholder="Voer je leeftijd in"
+                  keyboardType="number-pad"
+                  placeholderTextColor={Colors.light.mutedLight}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconWrapper}>
+                <MapPin size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Adres</Text>
+                <TextInput
+                  style={styles.input}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Voer je adres in"
+                  placeholderTextColor={Colors.light.mutedLight}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconWrapper}>
+                <Phone size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Telefoonnummer</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Voer je telefoonnummer in"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={Colors.light.mutedLight}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIconWrapper}>
+                <Mail size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Voer je email in"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholderTextColor={Colors.light.mutedLight}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
+              <Text style={styles.saveButtonText}>Profiel opslaan</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Lock size={20} color={Colors.light.text} />
+              <Text style={styles.sectionTitle}>Wachtwoord</Text>
+            </View>
+            
+            {!isEditingPassword ? (
+              <TouchableOpacity 
+                style={styles.changePasswordButton}
+                onPress={() => setIsEditingPassword(true)}
+              >
+                <Text style={styles.changePasswordButtonText}>Wachtwoord wijzigen</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <View style={styles.passwordInputContainer}>
+                  <Text style={styles.inputLabel}>Huidig wachtwoord</Text>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    placeholder="Voer huidig wachtwoord in"
+                    secureTextEntry
+                    placeholderTextColor={Colors.light.mutedLight}
+                  />
+                </View>
+
+                <View style={styles.passwordInputContainer}>
+                  <Text style={styles.inputLabel}>Nieuw wachtwoord</Text>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder="Voer nieuw wachtwoord in"
+                    secureTextEntry
+                    placeholderTextColor={Colors.light.mutedLight}
+                  />
+                </View>
+
+                <View style={styles.passwordInputContainer}>
+                  <Text style={styles.inputLabel}>Bevestig nieuw wachtwoord</Text>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Bevestig nieuw wachtwoord"
+                    secureTextEntry
+                    placeholderTextColor={Colors.light.mutedLight}
+                  />
+                </View>
+
+                {newPassword !== confirmPassword && confirmPassword.length > 0 && (
+                  <Text style={styles.errorText}>Wachtwoorden komen niet overeen</Text>
+                )}
+
+                {newPassword.length > 0 && newPassword.length < 6 && (
+                  <Text style={styles.errorText}>Wachtwoord moet minimaal 6 tekens bevatten</Text>
+                )}
+
+                <View style={styles.passwordButtonContainer}>
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={() => {
+                      setIsEditingPassword(false);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Annuleren</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[
+                      styles.savePasswordButton,
+                      (newPassword !== confirmPassword || newPassword.length < 6) && styles.savePasswordButtonDisabled
+                    ]}
+                    onPress={handleSavePassword}
+                    disabled={newPassword !== confirmPassword || newPassword.length < 6}
+                  >
+                    <Text style={styles.savePasswordButtonText}>Opslaan</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
         </ScrollView>
       </View>
     </>
@@ -26,15 +232,139 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 32,
     fontWeight: "800" as const,
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
     color: Colors.light.muted,
+    marginBottom: 32,
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    overflow: "hidden",
+  },
+  inputIconWrapper: {
+    padding: 16,
+    backgroundColor: Colors.light.cardBackground,
+  },
+  inputWrapper: {
+    flex: 1,
+    paddingRight: 16,
+    paddingVertical: 12,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    color: Colors.light.muted,
+    marginBottom: 4,
+  },
+  input: {
+    fontSize: 16,
+    color: Colors.light.text,
+    padding: 0,
+  },
+  saveButton: {
+    backgroundColor: Colors.light.primary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#fff",
+  },
+  changePasswordButton: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  changePasswordButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.primary,
+  },
+  passwordInputContainer: {
+    marginBottom: 12,
+  },
+  passwordInput: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.light.error,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  passwordButtonContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  savePasswordButton: {
+    flex: 1,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+  },
+  savePasswordButtonDisabled: {
+    opacity: 0.5,
+  },
+  savePasswordButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#fff",
   },
 });

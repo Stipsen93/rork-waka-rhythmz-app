@@ -10,6 +10,10 @@ const textMuted = "#9CA3AF" as const;
 const success = "#10B981" as const;
 const warning = "#F59E0B" as const;
 const accent = "#FF0000" as const;
+const border = "#1F1F1F" as const;
+const cardBackground = "#0F0F0F" as const;
+const mutedLight = "#6B7280" as const;
+const error = redBright;
 
 export default {
   light: {
@@ -29,5 +33,9 @@ export default {
     warning,
     danger: redBright,
     accent,
+    border,
+    cardBackground,
+    mutedLight,
+    error,
   },
 } as const;
