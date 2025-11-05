@@ -170,8 +170,8 @@ function PracticeScheduleWidget() {
                 </Text>
               </View>
               <View style={styles.calendarGrid}>
-                {['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'].map(day => (
-                  <View key={day} style={styles.calendarDayHeader}>
+                {['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'].map((day, index) => (
+                  <View key={`day-header-${index}`} style={styles.calendarDayHeader}>
                     <Text style={styles.calendarDayHeaderText}>{day}</Text>
                   </View>
                 ))}
