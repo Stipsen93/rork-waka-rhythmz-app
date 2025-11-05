@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import createContextHook from "@nkzw/create-context-hook";
 
 export type Role = "admin" | "member";
@@ -318,7 +318,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return allMedia.slice(0, 5);
   }, [library]);
 
-  const value = useMemo<AppStateValue>(() => ({
+  const value: AppStateValue = {
     users,
     currentUser,
     setCurrentUser,
@@ -337,7 +337,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     practiceSchedule,
     updatePracticeSchedule,
     getRecentMedia,
-  }), [users, currentUser, addUser, setRole, permissions, setPermissions, library, addFolder, deleteFolders, assignments, events, performances, addPerformance, updatePerformance, practiceSchedule, updatePracticeSchedule, getRecentMedia]);
+  };
 
   return value;
 });
