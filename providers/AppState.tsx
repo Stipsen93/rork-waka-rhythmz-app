@@ -47,8 +47,11 @@ export interface Assignment {
   id: string;
   title: string;
   description: string;
-  mediaToWatchId?: string;
+  assignedUserIds: string[];
   dueDate?: string;
+  mediaUri?: string;
+  mediaType?: 'video' | 'image' | 'audio';
+  createdAt: string;
   submissions: { userId: string; videoUri: string; createdAt: string }[];
 }
 
@@ -91,6 +94,7 @@ export interface AppStateValue {
   addFolder: (name: string, path: string[]) => void;
   deleteFolders: (folderIds: string[], path: string[]) => void;
   assignments: Assignment[];
+  addAssignment: (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => void;
   events: CalendarEvent[];
   performances: Performance[];
   addPerformance: (perf: Omit<Performance, 'id'>) => void;
@@ -163,13 +167,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     },
   ]);
 
-  const [assignments] = useState<Assignment[]>([
+  const [assignments, setAssignments] = useState<Assignment[]>([
     {
       id: "a1",
       title: "Groove A Homework",
       description: "Kijk de video en upload je eigen take (30s).",
-      mediaToWatchId: "m1",
+      assignedUserIds: [],
       dueDate: new Date(Date.now() + 7 * 86400000).toISOString(),
+      createdAt: new Date().toISOString(),
       submissions: [],
     },
   ]);
@@ -318,6 +323,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return allMedia.slice(0, 5);
   }, [library]);
 
+  const addAssignment = useCallback((assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => {
+    const newAssignment: Assignment = {
+      ...assignment,
+      id: genId("a"),
+      createdAt: new Date().toISOString(),
+      submissions: [],
+    };
+    setAssignments((prev) => [newAssignment, ...prev]);
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -330,6 +345,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     addFolder,
     deleteFolders,
     assignments,
+    addAssignment,
     events,
     performances,
     addPerformance,

@@ -12,7 +12,7 @@ export default function AllAssignmentsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const getMediaIcon = (mediaType?: string) => {
+  const getMediaIcon = (mediaType?: 'video' | 'image' | 'audio') => {
     if (!mediaType) return null;
     
     switch (mediaType) {
@@ -22,8 +22,6 @@ export default function AllAssignmentsScreen() {
         return ImageIcon;
       case "audio":
         return Music;
-      default:
-        return Video;
     }
   };
 
@@ -51,7 +49,7 @@ export default function AllAssignmentsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 20 }]}
         renderItem={({ item }) => {
-          const MediaIcon = getMediaIcon(item.mediaToWatchId ? "video" : undefined);
+          const MediaIcon = getMediaIcon(item.mediaType);
           
           return (
             <Pressable style={styles.widget} testID={`assignment-${item.id}`}>
