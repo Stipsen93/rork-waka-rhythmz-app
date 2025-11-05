@@ -2,7 +2,7 @@ const red = "#DC2626" as const;
 const redDark = "#B91C1C" as const;
 const redBright = "#EF4444" as const;
 const black = "#000000" as const;
-const darkGray = "#0A0A0A" as const;
+const darkGray = "#2A2A2A" as const;
 const surface = "#121212" as const;
 const surfaceLight = "#1A1A1A" as const;
 const text = "#FFFFFF" as const;
@@ -18,7 +18,7 @@ const error = redBright;
 export default {
   light: {
     text,
-    background: black,
+    background: darkGray,
     tint: red,
     tabIconDefault: textMuted,
     tabIconSelected: red,

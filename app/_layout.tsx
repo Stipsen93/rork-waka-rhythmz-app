@@ -6,6 +6,8 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppStateProvider } from "@/providers/AppState";
 import { trpc, trpcClient } from "@/lib/trpc";
+import { StyleSheet } from "react-native";
+import Colors from "@/constants/colors";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -28,7 +30,7 @@ export default function RootLayout() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
+        <GestureHandlerRootView style={styles.container}>
           <AppStateProvider>
             <RootLayoutNav />
           </AppStateProvider>
@@ -37,3 +39,10 @@ export default function RootLayout() {
     </trpc.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+});
