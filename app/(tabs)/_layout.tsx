@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from "expo-router";
-import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon } from "lucide-react-native";
+import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell } from "lucide-react-native";
 import React, { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,9 +40,9 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
                 testID="menu-admin"
               >
                 <View style={localStyles.menuIconContainer}>
-                  <Settings color={Colors.light.primary} size={22} strokeWidth={2.5} />
+                  <Users color={Colors.light.primary} size={22} strokeWidth={2.5} />
                 </View>
-                <Text style={localStyles.menuItemText}>Beheer</Text>
+                <Text style={localStyles.menuItemText}>Leden</Text>
                 <ChevronRight color={Colors.light.muted} size={20} />
               </TouchableOpacity>
               
@@ -62,6 +62,96 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
               </TouchableOpacity>
             </>
           )}
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/account");
+            }}
+            testID="menu-account"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <UserIcon color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Account</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/repetitie");
+            }}
+            testID="menu-repetitie"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <CalendarCheck color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Repetitie</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/nieuws");
+            }}
+            testID="menu-nieuws"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Nieuws</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/huiswerk");
+            }}
+            testID="menu-huiswerk"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <BookOpen color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Huiswerk</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/meldingen");
+            }}
+            testID="menu-meldingen"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <Bell color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Meldingen</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/instellingen");
+            }}
+            testID="menu-instellingen"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <Settings color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Instellingen</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -278,6 +368,12 @@ export default function TabLayout() {
         <Tabs.Screen name="all-assignments" options={{ href: null }} />
         <Tabs.Screen name="all-news" options={{ href: null }} />
         <Tabs.Screen name="all-practices" options={{ href: null }} />
+        <Tabs.Screen name="account" options={{ href: null }} />
+        <Tabs.Screen name="repetitie" options={{ href: null }} />
+        <Tabs.Screen name="nieuws" options={{ href: null }} />
+        <Tabs.Screen name="huiswerk" options={{ href: null }} />
+        <Tabs.Screen name="meldingen" options={{ href: null }} />
+        <Tabs.Screen name="instellingen" options={{ href: null }} />
       </Tabs>
       <MenuModal 
         visible={showMenuModal} 
