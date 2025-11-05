@@ -1,7 +1,7 @@
 import { Tabs, useRouter } from "expo-router";
 import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell } from "lucide-react-native";
 import React, { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Role } from "@/providers/AppState";
@@ -19,13 +19,19 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
       onRequestClose={onClose}
     >
       <View style={localStyles.modalOverlay}>
-        <View style={[localStyles.menuModalContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+        <View style={[localStyles.menuModalContent, { paddingTop: insets.top + 20 }]}>
           <View style={localStyles.modalHeader}>
             <Text style={localStyles.modalTitle}>Menu</Text>
             <Pressable onPress={onClose} testID="close-menu-modal">
               <X color={Colors.light.text} size={28} strokeWidth={2.5} />
             </Pressable>
           </View>
+
+          <ScrollView
+            style={localStyles.scrollView}
+            contentContainerStyle={[localStyles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+            showsVerticalScrollIndicator={true}
+          >
 
           {currentUser?.role === "admin" && (
             <>
@@ -152,6 +158,7 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
             <Text style={localStyles.menuItemText}>Instellingen</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -584,6 +591,12 @@ const localStyles = StyleSheet.create({
   menuModalContent: {
     flex: 1,
     backgroundColor: Colors.light.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   menuItem: {
     flexDirection: 'row',
