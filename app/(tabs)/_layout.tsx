@@ -274,6 +274,10 @@ export default function TabLayout() {
         <Tabs.Screen name="admin" options={{ href: null }} />
         <Tabs.Screen name="index" options={{ href: null }} />
         <Tabs.Screen name="deleted" options={{ href: null }} />
+        <Tabs.Screen name="all-media" options={{ href: null }} />
+        <Tabs.Screen name="all-assignments" options={{ href: null }} />
+        <Tabs.Screen name="all-news" options={{ href: null }} />
+        <Tabs.Screen name="all-practices" options={{ href: null }} />
       </Tabs>
       <MenuModal 
         visible={showMenuModal} 

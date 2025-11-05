@@ -1,14 +1,16 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
 import { Clock, Video, Music, Calendar, Users, AlertCircle, CheckCircle } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
   const { assignments, getRecentMedia, performances, practiceSchedule } = useAppState();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const recentMedia = getRecentMedia();
   const nextAssignment = assignments[0];
   const nextPerformance = performances[0];
@@ -51,7 +53,11 @@ export default function AssignmentsScreen() {
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.widgetsRow}>
-          <View style={[styles.widget, styles.widgetHalf]}>
+          <TouchableOpacity 
+            style={[styles.widget, styles.widgetHalf]} 
+            onPress={() => router.push("/all-media")}
+            testID="recente-media-widget"
+          >
             <View style={styles.widgetHeader}>
               <View style={styles.widgetIconContainer}>
                 <Video color={Colors.light.primary} size={20} strokeWidth={2.5} />
@@ -69,9 +75,13 @@ export default function AssignmentsScreen() {
                 <Text style={styles.emptyText}>Geen recente media</Text>
               )}
             </View>
-          </View>
+          </TouchableOpacity>
 
-          <View style={[styles.widget, styles.widgetHalf]}>
+          <TouchableOpacity 
+            style={[styles.widget, styles.widgetHalf]}
+            onPress={() => router.push("/all-assignments")}
+            testID="huiswerk-widget"
+          >
             <View style={styles.widgetHeader}>
               <View style={styles.widgetIconContainer}>
                 <Clock color={Colors.light.primary} size={20} strokeWidth={2.5} />
@@ -99,10 +109,14 @@ export default function AssignmentsScreen() {
                 <Text style={styles.emptyText}>Geen huiswerk</Text>
               )}
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.widget}>
+        <TouchableOpacity 
+          style={styles.widget}
+          onPress={() => router.push("/all-news")}
+          testID="nieuws-widget"
+        >
           <View style={styles.widgetHeader}>
             <View style={styles.widgetIconContainer}>
               <Music color={Colors.light.primary} size={20} strokeWidth={2.5} />
@@ -143,9 +157,13 @@ export default function AssignmentsScreen() {
               <Text style={styles.emptyText}>Geen aankomende optredens</Text>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.widget}>
+        <TouchableOpacity 
+          style={styles.widget}
+          onPress={() => router.push("/all-practices")}
+          testID="oefening-widget"
+        >
           <View style={styles.widgetHeader}>
             <View style={styles.widgetIconContainer}>
               <AlertCircle color={Colors.light.primary} size={20} strokeWidth={2.5} />
@@ -178,7 +196,7 @@ export default function AssignmentsScreen() {
               })}
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
