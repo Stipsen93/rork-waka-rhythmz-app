@@ -33,42 +33,6 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
             showsVerticalScrollIndicator={true}
           >
 
-          {currentUser?.role === "admin" && (
-            <>
-              <TouchableOpacity
-                style={localStyles.menuItem}
-                onPress={() => {
-                  onClose();
-                  if (typeof onAdminPress === 'function') {
-                    onAdminPress();
-                  }
-                }}
-                testID="menu-admin"
-              >
-                <View style={localStyles.menuIconContainer}>
-                  <Users color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                </View>
-                <Text style={localStyles.menuItemText}>Leden</Text>
-                <ChevronRight color={Colors.light.muted} size={20} />
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={localStyles.menuItem}
-                onPress={() => {
-                  onClose();
-                  router.push("/deleted");
-                }}
-                testID="menu-deleted"
-              >
-                <View style={localStyles.menuIconContainer}>
-                  <Trash2 color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                </View>
-                <Text style={localStyles.menuItemText}>Verwijderd</Text>
-                <ChevronRight color={Colors.light.muted} size={20} />
-              </TouchableOpacity>
-            </>
-          )}
-
           <TouchableOpacity
             style={localStyles.menuItem}
             onPress={() => {
@@ -84,6 +48,25 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
+          {currentUser?.role === "admin" && (
+            <TouchableOpacity
+              style={localStyles.menuItem}
+              onPress={() => {
+                onClose();
+                if (typeof onAdminPress === 'function') {
+                  onAdminPress();
+                }
+              }}
+              testID="menu-admin"
+            >
+              <View style={localStyles.menuIconContainer}>
+                <Users color={Colors.light.primary} size={22} strokeWidth={2.5} />
+              </View>
+              <Text style={localStyles.menuItemText}>Leden</Text>
+              <ChevronRight color={Colors.light.muted} size={20} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={localStyles.menuItem}
             onPress={() => {
@@ -96,21 +79,6 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
               <CalendarCheck color={Colors.light.primary} size={22} strokeWidth={2.5} />
             </View>
             <Text style={localStyles.menuItemText}>Repetitie</Text>
-            <ChevronRight color={Colors.light.muted} size={20} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={localStyles.menuItem}
-            onPress={() => {
-              onClose();
-              router.push("/nieuws");
-            }}
-            testID="menu-nieuws"
-          >
-            <View style={localStyles.menuIconContainer}>
-              <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            </View>
-            <Text style={localStyles.menuItemText}>Nieuws</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
@@ -133,6 +101,21 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
             style={localStyles.menuItem}
             onPress={() => {
               onClose();
+              router.push("/nieuws");
+            }}
+            testID="menu-nieuws"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Nieuws</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
               router.push("/meldingen");
             }}
             testID="menu-meldingen"
@@ -143,6 +126,23 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
             <Text style={localStyles.menuItemText}>Meldingen</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
+
+          {currentUser?.role === "admin" && (
+            <TouchableOpacity
+              style={localStyles.menuItem}
+              onPress={() => {
+                onClose();
+                router.push("/deleted");
+              }}
+              testID="menu-deleted"
+            >
+              <View style={localStyles.menuIconContainer}>
+                <Trash2 color={Colors.light.primary} size={22} strokeWidth={2.5} />
+              </View>
+              <Text style={localStyles.menuItemText}>Verwijderd</Text>
+              <ChevronRight color={Colors.light.muted} size={20} />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={localStyles.menuItem}
