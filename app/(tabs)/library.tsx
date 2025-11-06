@@ -40,6 +40,23 @@ export default function LibraryScreen() {
     return (node as CategoryNode) ?? { children: library };
   }, [library, path]);
 
+  const breadcrumbText = useMemo(() => {
+    if (path.length === 0) return '';
+    
+    const names: string[] = [];
+    let nodes: CategoryNode[] = library;
+    
+    for (const id of path) {
+      const node = nodes.find((n) => n.id === id);
+      if (node) {
+        names.push(node.name);
+        nodes = node.children ?? [];
+      }
+    }
+    
+    return names.join(' > ');
+  }, [library, path]);
+
   type Item = { kind: "folder"; node: CategoryNode } | { kind: "media"; media: MediaItem };
   const items: Item[] = [
     ...(current.children ?? []).map((c: CategoryNode) => ({ kind: "folder" as const, node: c })),
@@ -57,9 +74,9 @@ export default function LibraryScreen() {
       <View style={styles.header}>
         <Text style={styles.appName}>WAKA RHYTHMZ</Text>
         <Text style={styles.title}>Bibliotheek</Text>
-        {path.length > 0 && (
+        {path.length > 0 && breadcrumbText && (
           <Text style={styles.breadcrumb}>
-            {path.length} {path.length === 1 ? 'niveau' : 'niveaus'} diep
+            {breadcrumbText}
           </Text>
         )}
       </View>
