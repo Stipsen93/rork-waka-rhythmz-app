@@ -216,9 +216,24 @@ export default function AssignmentsScreen() {
                     })}
                   </Text>
                 </View>
-                {nextPractice.trainings.map((training, idx) => (
+                {nextPractice.trainings.map((training, idx) => {
+                  const isCancelled = practiceSchedule.cancelledDates.some(
+                    cd => cd.date === nextPractice.dateStr
+                  );
+                  
+                  return (
                   <View key={training.id} style={styles.nextTrainingCard}>
-                    <Text style={styles.nextTrainingName}>{training.name}</Text>
+                    <View style={styles.trainingNameRow}>
+                      <Text style={styles.nextTrainingName}>{training.name}</Text>
+                      <View style={[
+                        styles.statusBadge,
+                        isCancelled ? styles.statusBadgeCancelled : styles.statusBadgeActive
+                      ]}>
+                        <Text style={styles.statusBadgeText}>
+                          {isCancelled ? "Gaat niet door" : "Gaat door"}
+                        </Text>
+                      </View>
+                    </View>
                     <View style={styles.nextTrainingDetails}>
                       <View style={styles.nextTrainingDetailItem}>
                         <Clock color={Colors.light.muted} size={16} strokeWidth={2} />
@@ -229,7 +244,8 @@ export default function AssignmentsScreen() {
                       </View>
                     </View>
                   </View>
-                ))}
+                  );
+                })}
                 {nextPractice.trainings.length > 1 && (
                   <View style={styles.multipleTrainingsBadgeInline}>
                     <Text style={styles.multipleTrainingsTextInline}>
@@ -565,10 +581,35 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 8,
   },
+  trainingNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 4,
+  },
   nextTrainingName: {
     color: Colors.light.text,
     fontSize: 16,
     fontWeight: "700" as const,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeActive: {
+    backgroundColor: Colors.light.success,
+  },
+  statusBadgeCancelled: {
+    backgroundColor: Colors.light.error,
+  },
+  statusBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700" as const,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
   nextTrainingDetails: {
     flexDirection: "row",
