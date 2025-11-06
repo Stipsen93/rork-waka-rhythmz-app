@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, PracticeDay, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock } from "lucide-react-native";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
@@ -28,6 +28,9 @@ export default function RepetitieScreen() {
   const [selectedCancelDates, setSelectedCancelDates] = useState<string[]>([]);
   const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
   const [currentMonth] = useState(new Date());
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [tempHour, setTempHour] = useState(19);
+  const [tempMinute, setTempMinute] = useState(0);
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -233,6 +236,121 @@ export default function RepetitieScreen() {
     return `${dayOfWeek} ${day} ${month}`;
   };
 
+  const openTimePicker = () => {
+    if (!isAdmin) return;
+    const [hours, minutes] = time.split(':').map(Number);
+    setTempHour(hours);
+    setTempMinute(minutes);
+    setTimePickerOpen(true);
+  };
+
+  const handleTimeConfirm = () => {
+    const formattedTime = `${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`;
+    setTime(formattedTime);
+    setTimePickerOpen(false);
+  };
+
+  const renderCircularTimePicker = () => {
+    const radius = 100;
+    const centerX = 140;
+    const centerY = 140;
+
+    return (
+      <Modal
+        visible={timePickerOpen}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setTimePickerOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.timePickerModal}>
+            <Text style={styles.timePickerTitle}>Selecteer tijd</Text>
+            
+            <View style={styles.timeDisplayContainer}>
+              <Text style={styles.timeDisplay}>
+                {String(tempHour).padStart(2, '0')}:{String(tempMinute).padStart(2, '0')}
+              </Text>
+            </View>
+
+            <View style={styles.clockContainer}>
+              <View style={styles.clockFace}>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const hour = i === 0 ? 12 : i;
+                  const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
+                  const x = centerX + radius * Math.cos(angle) - 20;
+                  const y = centerY + radius * Math.sin(angle) - 20;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={`hour-${i}`}
+                      style={[styles.clockNumber, { left: x, top: y }]}
+                      onPress={() => setTempHour(hour)}
+                    >
+                      <Text style={[
+                        styles.clockNumberText,
+                        tempHour === hour && styles.clockNumberTextActive
+                      ]}>{hour}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                
+                <View style={[styles.clockHand, styles.clockHourHand, {
+                  left: centerX - 2,
+                  top: centerY - 2,
+                  transform: [{ rotate: `${(tempHour % 12) * 30}deg` }]
+                }]} />
+                
+                <View style={[styles.clockHand, styles.clockMinuteHand, {
+                  left: centerX - 2,
+                  top: centerY - 2,
+                  transform: [{ rotate: `${tempMinute * 6}deg` }]
+                }]} />
+                
+                <View style={[styles.clockCenter, { left: centerX - 6, top: centerY - 6 }]} />
+              </View>
+            </View>
+
+            <View style={styles.minuteButtonsContainer}>
+              <Text style={styles.minuteLabel}>Minuten:</Text>
+              <View style={styles.minuteButtons}>
+                {[0, 15, 30, 45].map(minute => (
+                  <TouchableOpacity
+                    key={minute}
+                    style={[
+                      styles.minuteButton,
+                      tempMinute === minute && styles.minuteButtonActive
+                    ]}
+                    onPress={() => setTempMinute(minute)}
+                  >
+                    <Text style={[
+                      styles.minuteButtonText,
+                      tempMinute === minute && styles.minuteButtonTextActive
+                    ]}>{String(minute).padStart(2, '0')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.timePickerActions}>
+              <TouchableOpacity
+                style={styles.timePickerButton}
+                onPress={() => setTimePickerOpen(false)}
+              >
+                <Text style={styles.timePickerButtonText}>Annuleren</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.timePickerButton, styles.timePickerButtonPrimary]}
+                onPress={handleTimeConfirm}
+              >
+                <Text style={[styles.timePickerButtonText, styles.timePickerButtonTextPrimary]}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -271,14 +389,14 @@ export default function RepetitieScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tijd</Text>
-            <TextInput
-              style={[styles.input, !isAdmin && styles.inputDisabled]}
-              value={time}
-              onChangeText={setTime}
-              placeholder="19:00"
-              placeholderTextColor={Colors.light.mutedLight}
-              editable={isAdmin}
-            />
+            <TouchableOpacity
+              style={[styles.timeInput, !isAdmin && styles.inputDisabled]}
+              onPress={openTimePicker}
+              disabled={!isAdmin}
+            >
+              <Clock color={Colors.light.primary} size={20} />
+              <Text style={styles.timeInputText}>{time}</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
@@ -393,6 +511,7 @@ export default function RepetitieScreen() {
         </ScrollView>
       </View>
       {renderCalendarModal()}
+      {renderCircularTimePicker()}
     </>
   );
 }
@@ -666,6 +785,167 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
   },
   calendarButtonTextPrimary: {
+    color: "#FFFFFF",
+  },
+  timeInput: {
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  timeInputText: {
+    fontSize: 16,
+    color: Colors.light.text,
+    fontWeight: "600" as const,
+  },
+  timePickerModal: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: "90%",
+    maxWidth: 360,
+    alignItems: "center",
+  },
+  timePickerTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginBottom: 20,
+  },
+  timeDisplayContainer: {
+    backgroundColor: Colors.light.primary + "15",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  timeDisplay: {
+    fontSize: 36,
+    fontWeight: "700" as const,
+    color: Colors.light.primary,
+    letterSpacing: 2,
+  },
+  clockContainer: {
+    width: 280,
+    height: 280,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  clockFace: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+    position: "relative",
+  },
+  clockNumber: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 20,
+  },
+  clockNumberText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  clockNumberTextActive: {
+    color: Colors.light.primary,
+    fontSize: 18,
+    fontWeight: "800" as const,
+  },
+  clockHand: {
+    position: "absolute",
+    backgroundColor: Colors.light.primary,
+    transformOrigin: "top center",
+  },
+  clockHourHand: {
+    width: 4,
+    height: 50,
+    borderRadius: 2,
+  },
+  clockMinuteHand: {
+    width: 3,
+    height: 80,
+    borderRadius: 1.5,
+    opacity: 0.7,
+  },
+  clockCenter: {
+    position: "absolute",
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.light.primary,
+    borderWidth: 2,
+    borderColor: Colors.light.surface,
+  },
+  minuteButtonsContainer: {
+    width: "100%",
+    marginBottom: 24,
+  },
+  minuteLabel: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.light.muted,
+    marginBottom: 12,
+  },
+  minuteButtons: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  minuteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    alignItems: "center",
+  },
+  minuteButtonActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primaryDark,
+  },
+  minuteButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  minuteButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  timePickerActions: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  timePickerButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: Colors.light.surfaceLight,
+  },
+  timePickerButtonPrimary: {
+    backgroundColor: Colors.light.primary,
+  },
+  timePickerButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  timePickerButtonTextPrimary: {
     color: "#FFFFFF",
   },
 });
