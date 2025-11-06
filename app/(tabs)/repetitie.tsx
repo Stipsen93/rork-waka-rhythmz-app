@@ -716,10 +716,11 @@ const styles = StyleSheet.create({
   },
   trainingActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: 4,
+    marginRight: 4,
   },
   actionButton: {
-    padding: 8,
+    padding: 4,
   },
   weekdaysContainer: {
     flexDirection: "row",
