@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2 } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2 } from "lucide-react-native";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
@@ -160,6 +160,15 @@ export default function RepetitieScreen() {
       const newReasons = { ...prev };
       delete newReasons[dateStr];
       return newReasons;
+    });
+  };
+
+  const undoCancelledTraining = (dateStr: string) => {
+    if (!isAdmin) return;
+    
+    updatePracticeSchedule({
+      ...practiceSchedule,
+      cancelledDates: practiceSchedule.cancelledDates.filter(cd => cd.date !== dateStr),
     });
   };
 
@@ -620,11 +629,23 @@ export default function RepetitieScreen() {
               {practiceSchedule.cancelledDates
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map(cancelled => (
-                  <View key={cancelled.date} style={styles.cancelledItem}>
-                    <Text style={styles.cancelledDateText}>{formatDate(cancelled.date)}</Text>
-                    {cancelled.reason && (
-                      <Text style={styles.cancelledReasonText}>{cancelled.reason}</Text>
-                    )}
+                  <View key={cancelled.date} style={styles.cancelledItemContainer}>
+                    <View style={styles.cancelledItem}>
+                      <View style={styles.cancelledInfo}>
+                        <Text style={styles.cancelledDateText}>{formatDate(cancelled.date)}</Text>
+                        {cancelled.reason && (
+                          <Text style={styles.cancelledReasonText}>{cancelled.reason}</Text>
+                        )}
+                      </View>
+                      {isAdmin && (
+                        <TouchableOpacity
+                          style={styles.undoButton}
+                          onPress={() => undoCancelledTraining(cancelled.date)}
+                        >
+                          <Undo2 color={Colors.light.primary} size={22} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 ))}
             </View>
@@ -878,13 +899,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700" as const,
   },
+  cancelledItemContainer: {
+    marginBottom: 12,
+  },
   cancelledItem: {
     backgroundColor: Colors.light.surface,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     borderLeftWidth: 4,
     borderLeftColor: Colors.light.error,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cancelledInfo: {
+    flex: 1,
   },
   cancelledDateText: {
     fontSize: 16,
@@ -895,6 +924,10 @@ const styles = StyleSheet.create({
   cancelledReasonText: {
     fontSize: 14,
     color: Colors.light.muted,
+  },
+  undoButton: {
+    padding: 8,
+    marginLeft: 12,
   },
   modalOverlay: {
     flex: 1,
