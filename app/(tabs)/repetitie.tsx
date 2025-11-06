@@ -458,18 +458,18 @@ export default function RepetitieScreen() {
                         <>
                           <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => removeTraining(training.id)}
-                          >
-                            <X color={Colors.light.error} size={20} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.actionButton}
                             onPress={() => {
                               toggleTrainingLock(training.id);
                               saveTrainingChanges();
                             }}
                           >
                             <Check color={Colors.light.success} size={20} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => removeTraining(training.id)}
+                          >
+                            <X color={Colors.light.error} size={20} />
                           </TouchableOpacity>
                         </>
                       ) : (
