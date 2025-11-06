@@ -87,18 +87,26 @@ export default function RepetitieScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    let currentDate = new Date(today);
     const selectedDays = trainings.map(t => t.dayOfWeek);
+    
+    if (selectedDays.length === 0) {
+      return [];
+    }
+    
+    let currentDate = new Date(today);
+    currentDate.setDate(currentDate.getDate() + 1);
     
     while (dates.length < count) {
       const dayOfWeek = currentDate.getDay();
       if (selectedDays.includes(dayOfWeek)) {
         const dateStr = currentDate.toISOString().split('T')[0];
-        if (!practiceSchedule.cancelledDates.some(cd => cd.date === dateStr)) {
-          dates.push(dateStr);
-        }
+        dates.push(dateStr);
       }
       currentDate.setDate(currentDate.getDate() + 1);
+      
+      if (currentDate.getTime() - today.getTime() > 365 * 24 * 60 * 60 * 1000) {
+        break;
+      }
     }
     
     return dates;
