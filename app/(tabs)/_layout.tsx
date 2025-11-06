@@ -630,3 +630,17 @@ const localStyles = StyleSheet.create({
     fontWeight: '700' as const,
   },
 });
+
+export function MenuButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable 
+      onPress={onPress} 
+      style={localStyles.menuButton}
+      testID="menu-button"
+    >
+      <Menu color={Colors.light.primary} size={24} strokeWidth={2.5} />
+    </Pressable>
+  );
+}
+
+export { MenuModal };

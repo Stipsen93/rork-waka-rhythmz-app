@@ -6,6 +6,7 @@ import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState } from "react";
 import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2 } from "lucide-react-native";
+import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
@@ -333,11 +334,26 @@ export default function HuiswerkScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <Stack.Screen 
+        options={{ 
+          headerShown: true,
+          headerTitle: "WAKA RHYTHMZ",
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: "800" as const,
+            letterSpacing: 1,
+          },
+          headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
+          headerStyle: { backgroundColor: Colors.light.background },
+          headerShadowVisible: false,
+        }} 
+      />
+      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Huiswerk</Text>
         </View>
@@ -488,6 +504,12 @@ export default function HuiswerkScreen() {
               </View>
             </View>
           </Modal>
+
+          <MenuModal 
+            visible={showMenuModal} 
+            onClose={() => setShowMenuModal(false)} 
+            onAdminPress={() => setShowAdminModal(true)}
+          />
         </>
       )}
     </>

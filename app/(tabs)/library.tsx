@@ -6,6 +6,8 @@ import Colors from "@/constants/colors";
 import { CategoryNode, MediaItem, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, Plus, X, Trash2, CheckCircle2 } from "lucide-react-native";
+import { Stack } from "expo-router";
+import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 const countAllItems = (node: CategoryNode): number => {
   let count = node.media?.length ?? 0;
@@ -29,6 +31,8 @@ export default function LibraryScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInfo, setDeleteInfo] = useState({ totalItems: 0, folderCount: 0 });
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const current = useMemo<{ children?: CategoryNode[]; media?: MediaItem[] }>(() => {
     let nodes: CategoryNode[] = library;
@@ -64,7 +68,22 @@ export default function LibraryScreen() {
   ];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="library-screen">
+    <>
+      <Stack.Screen 
+        options={{ 
+          headerShown: true,
+          headerTitle: "WAKA RHYTHMZ",
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: "800" as const,
+            letterSpacing: 1,
+          },
+          headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
+          headerStyle: { backgroundColor: Colors.light.background },
+          headerShadowVisible: false,
+        }} 
+      />
+      <View style={styles.container} testID="library-screen">
       <LinearGradient 
         colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
         style={styles.headerBg} 
@@ -493,7 +512,14 @@ export default function LibraryScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      <MenuModal 
+        visible={showMenuModal} 
+        onClose={() => setShowMenuModal(false)} 
+        onAdminPress={() => setShowAdminModal(true)}
+      />
+      </View>
+    </>
   );
 }
 

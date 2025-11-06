@@ -5,6 +5,7 @@ import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
 import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2 } from "lucide-react-native";
+import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
@@ -31,6 +32,8 @@ export default function RepetitieScreen() {
   const [tempMinute, setTempMinute] = useState(0);
   const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
   const [lockedTrainings, setLockedTrainings] = useState<Set<string>>(new Set());
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -435,8 +438,21 @@ export default function RepetitieScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <Stack.Screen 
+        options={{ 
+          headerShown: true,
+          headerTitle: "WAKA RHYTHMZ",
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: "800" as const,
+            letterSpacing: 1,
+          },
+          headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
+          headerStyle: { backgroundColor: Colors.light.background },
+          headerShadowVisible: false,
+        }} 
+      />
+      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title}>Repetitie Planning</Text>
 
@@ -660,6 +676,11 @@ export default function RepetitieScreen() {
       </View>
       {renderCalendarModal()}
       {renderCircularTimePicker()}
+      <MenuModal 
+        visible={showMenuModal} 
+        onClose={() => setShowMenuModal(false)} 
+        onAdminPress={() => setShowAdminModal(true)}
+      />
     </>
   );
 }
