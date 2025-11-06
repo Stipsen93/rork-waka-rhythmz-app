@@ -325,9 +325,8 @@ export default function RepetitieScreen() {
   };
 
   const renderCircularTimePicker = () => {
-    const radius = 100;
-    const centerX = 140;
-    const centerY = 140;
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const minutes = [0, 15, 30, 45];
 
     return (
       <Modal
@@ -346,62 +345,59 @@ export default function RepetitieScreen() {
               </Text>
             </View>
 
-            <View style={styles.clockContainer}>
-              <View style={styles.clockFace}>
-                {Array.from({ length: 12 }, (_, i) => {
-                  const hour = i === 0 ? 12 : i;
-                  const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
-                  const x = centerX + radius * Math.cos(angle) - 20;
-                  const y = centerY + radius * Math.sin(angle) - 20;
-                  
-                  return (
+            <View style={styles.scrollPickersContainer}>
+              <View style={styles.scrollPickerColumn}>
+                <Text style={styles.scrollPickerLabel}>Uur</Text>
+                <ScrollView 
+                  style={styles.scrollPicker}
+                  contentContainerStyle={styles.scrollPickerContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {hours.map((hour) => (
                     <TouchableOpacity
-                      key={`hour-${i}`}
-                      style={[styles.clockNumber, { left: x, top: y }]}
+                      key={hour}
+                      style={[
+                        styles.scrollPickerItem,
+                        tempHour === hour && styles.scrollPickerItemActive
+                      ]}
                       onPress={() => setTempHour(hour)}
                     >
                       <Text style={[
-                        styles.clockNumberText,
-                        tempHour === hour && styles.clockNumberTextActive
-                      ]}>{hour}</Text>
+                        styles.scrollPickerItemText,
+                        tempHour === hour && styles.scrollPickerItemTextActive
+                      ]}>
+                        {String(hour).padStart(2, '0')}
+                      </Text>
                     </TouchableOpacity>
-                  );
-                })}
-                
-                <View style={[styles.clockHand, styles.clockHourHand, {
-                  left: centerX - 2,
-                  top: centerY - 2,
-                  transform: [{ rotate: `${(tempHour % 12) * 30}deg` }]
-                }]} />
-                
-                <View style={[styles.clockHand, styles.clockMinuteHand, {
-                  left: centerX - 2,
-                  top: centerY - 2,
-                  transform: [{ rotate: `${tempMinute * 6}deg` }]
-                }]} />
-                
-                <View style={[styles.clockCenter, { left: centerX - 6, top: centerY - 6 }]} />
+                  ))}
+                </ScrollView>
               </View>
-            </View>
 
-            <View style={styles.minuteButtonsContainer}>
-              <Text style={styles.minuteLabel}>Minuten:</Text>
-              <View style={styles.minuteButtons}>
-                {[0, 15, 30, 45].map(minute => (
-                  <TouchableOpacity
-                    key={minute}
-                    style={[
-                      styles.minuteButton,
-                      tempMinute === minute && styles.minuteButtonActive
-                    ]}
-                    onPress={() => setTempMinute(minute)}
-                  >
-                    <Text style={[
-                      styles.minuteButtonText,
-                      tempMinute === minute && styles.minuteButtonTextActive
-                    ]}>{String(minute).padStart(2, '0')}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.scrollPickerColumn}>
+                <Text style={styles.scrollPickerLabel}>Minuut</Text>
+                <ScrollView 
+                  style={styles.scrollPicker}
+                  contentContainerStyle={styles.scrollPickerContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {minutes.map((minute) => (
+                    <TouchableOpacity
+                      key={minute}
+                      style={[
+                        styles.scrollPickerItem,
+                        tempMinute === minute && styles.scrollPickerItemActive
+                      ]}
+                      onPress={() => setTempMinute(minute)}
+                    >
+                      <Text style={[
+                        styles.scrollPickerItemText,
+                        tempMinute === minute && styles.scrollPickerItemTextActive
+                      ]}>
+                        {String(minute).padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             </View>
 
@@ -460,14 +456,12 @@ export default function RepetitieScreen() {
                     <View style={styles.trainingActions}>
                       {!isLocked ? (
                         <>
-                          {trainings.length > 1 && (
-                            <TouchableOpacity
-                              style={styles.actionButton}
-                              onPress={() => removeTraining(training.id)}
-                            >
-                              <X color={Colors.light.error} size={20} />
-                            </TouchableOpacity>
-                          )}
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => removeTraining(training.id)}
+                          >
+                            <X color={Colors.light.error} size={20} />
+                          </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.actionButton}
                             onPress={() => {
@@ -1052,100 +1046,50 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     letterSpacing: 2,
   },
-  clockContainer: {
-    width: 280,
-    height: 280,
-    justifyContent: "center",
-    alignItems: "center",
+  scrollPickersContainer: {
+    flexDirection: "row",
+    gap: 16,
     marginBottom: 24,
-  },
-  clockFace: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: Colors.light.surfaceLight,
-    borderWidth: 2,
-    borderColor: Colors.light.border,
-    position: "relative",
-  },
-  clockNumber: {
-    position: "absolute",
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 20,
-  },
-  clockNumberText: {
-    fontSize: 16,
-    fontWeight: "600" as const,
-    color: Colors.light.text,
-  },
-  clockNumberTextActive: {
-    color: Colors.light.primary,
-    fontSize: 18,
-    fontWeight: "800" as const,
-  },
-  clockHand: {
-    position: "absolute",
-    backgroundColor: Colors.light.primary,
-    transformOrigin: "top center",
-  },
-  clockHourHand: {
-    width: 4,
-    height: 50,
-    borderRadius: 2,
-  },
-  clockMinuteHand: {
-    width: 3,
-    height: 80,
-    borderRadius: 1.5,
-    opacity: 0.7,
-  },
-  clockCenter: {
-    position: "absolute",
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.light.primary,
-    borderWidth: 2,
-    borderColor: Colors.light.surface,
-  },
-  minuteButtonsContainer: {
     width: "100%",
-    marginBottom: 24,
   },
-  minuteLabel: {
+  scrollPickerColumn: {
+    flex: 1,
+    alignItems: "center",
+  },
+  scrollPickerLabel: {
     fontSize: 14,
     fontWeight: "600" as const,
     color: Colors.light.muted,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  minuteButtons: {
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "space-between",
-  },
-  minuteButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+  scrollPicker: {
     backgroundColor: Colors.light.surfaceLight,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.light.border,
+    maxHeight: 200,
+    width: "100%",
+  },
+  scrollPickerContent: {
+    paddingVertical: 8,
+  },
+  scrollPickerItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
-  minuteButtonActive: {
-    backgroundColor: Colors.light.primary,
-    borderColor: Colors.light.primaryDark,
+  scrollPickerItemActive: {
+    backgroundColor: Colors.light.primary + "20",
   },
-  minuteButtonText: {
-    fontSize: 14,
+  scrollPickerItemText: {
+    fontSize: 18,
     fontWeight: "600" as const,
     color: Colors.light.text,
   },
-  minuteButtonTextActive: {
-    color: "#FFFFFF",
+  scrollPickerItemTextActive: {
+    color: Colors.light.primary,
+    fontWeight: "800" as const,
+    fontSize: 20,
   },
   timePickerActions: {
     flexDirection: "row",
