@@ -11,19 +11,25 @@ export default function AssignmentsScreen() {
   const { assignments, getRecentMedia, practiceSchedule, announcements, performances } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const recentMedia = getRecentMedia();
+  const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
   const nextAssignment = assignments[0];
   
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const upcomingAnnouncements = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return announcements.filter(a => new Date(a.date) >= today);
+  }, [announcements]);
   
-  const upcomingAnnouncements = announcements.filter(a => new Date(a.date) >= today);
-  const upcomingPerformances = performances.filter(p => new Date(p.date) >= today);
+  const upcomingPerformances = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return performances.filter(p => new Date(p.date) >= today);
+  }, [performances]);
   
   const latestAnnouncement = upcomingAnnouncements[0];
   const latestPerformance = upcomingPerformances[0];
 
-  const getNextPracticeDate = () => {
+  const getNextPracticeDate = React.useCallback(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -63,9 +69,9 @@ export default function AssignmentsScreen() {
     
     console.log('[Dashboard] No next practice found');
     return null;
-  };
+  }, [practiceSchedule.trainings, practiceSchedule.cancelledDates]);
 
-  const nextPractice = getNextPracticeDate();
+  const nextPractice = React.useMemo(() => getNextPracticeDate(), [getNextPracticeDate]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="assignments-screen">
