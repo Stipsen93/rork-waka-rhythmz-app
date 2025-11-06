@@ -105,6 +105,17 @@ export interface Announcement {
   createdAt: string;
 }
 
+export interface Appointment {
+  id: string;
+  name: string;
+  category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag';
+  date: string;
+  time: string;
+  location: string;
+  memberIds: string[];
+  createdAt: string;
+}
+
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
@@ -131,6 +142,10 @@ export interface AppStateValue {
   addAnnouncement: (announcement: Omit<Announcement, 'id' | 'createdAt'>) => void;
   updateAnnouncement: (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => void;
   deleteAnnouncements: (ids: string[]) => void;
+  appointments: Appointment[];
+  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => void;
+  updateAppointment: (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => void;
+  deleteAppointments: (ids: string[]) => void;
 }
 
 function genId(prefix: string): string {
@@ -254,6 +269,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const setRole = useCallback((userId: string, role: Role) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
@@ -413,6 +430,29 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setAnnouncements((prev) => prev.filter((a) => !idSet.has(a.id)));
   }, []);
 
+  const addAppointment = useCallback((appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
+    const newAppointment: Appointment = {
+      ...appointment,
+      id: genId("ap"),
+      createdAt: new Date().toISOString(),
+    };
+    setAppointments((prev) => [...prev, newAppointment].sort((a, b) => 
+      new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
+    ));
+  }, []);
+
+  const updateAppointment = useCallback((id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => {
+    setAppointments((prev) => 
+      prev.map((a) => (a.id === id ? { ...a, ...appointment } : a))
+        .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
+    );
+  }, []);
+
+  const deleteAppointments = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setAppointments((prev) => prev.filter((a) => !idSet.has(a.id)));
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -439,6 +479,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     addAnnouncement,
     updateAnnouncement,
     deleteAnnouncements,
+    appointments,
+    addAppointment,
+    updateAppointment,
+    deleteAppointments,
   };
 
   return value;
