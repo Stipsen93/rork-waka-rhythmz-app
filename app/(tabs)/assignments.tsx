@@ -205,17 +205,35 @@ export default function AssignmentsScreen() {
               </View>
             </View>
             <View style={styles.practiceScheduleList}>
-              {practiceSchedule.regularDays.map((day, idx) => {
+              {practiceSchedule.trainings.map((training, idx) => {
                 const dayNames = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+                const trainingsOnSameDay = practiceSchedule.trainings.filter(t => t.dayOfWeek === training.dayOfWeek);
+                const isFirstOnDay = trainingsOnSameDay[0].id === training.id;
+                
+                if (!isFirstOnDay) return null;
+                
                 return (
                   <View key={idx} style={styles.practiceDay}>
                     <View style={styles.practiceDayBullet} />
-                    <Text style={styles.practiceDayText}>
-                      {dayNames[day.dayOfWeek]} om {day.time}
-                    </Text>
+                    <View style={styles.practiceDayContent}>
+                      <Text style={styles.practiceDayText}>
+                        {dayNames[training.dayOfWeek]}
+                      </Text>
+                      {trainingsOnSameDay.map((t, i) => (
+                        <View key={t.id} style={styles.trainingDetail}>
+                          <Text style={styles.trainingName}>{t.name}</Text>
+                          <Text style={styles.trainingTime}>{t.time} - {t.location}</Text>
+                        </View>
+                      ))}
+                      {trainingsOnSameDay.length > 1 && (
+                        <View style={styles.multipleTrainingsBadge}>
+                          <Text style={styles.multipleTrainingsText}>{trainingsOnSameDay.length} trainingen</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 );
-              })}
+              }).filter(Boolean)}
             </View>
           </View>
         </TouchableOpacity>
@@ -469,19 +487,54 @@ const styles = StyleSheet.create({
   },
   practiceDay: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 10,
+    marginBottom: 12,
   },
   practiceDayBullet: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: Colors.light.muted,
+    marginTop: 6,
+  },
+  practiceDayContent: {
+    flex: 1,
+    gap: 6,
   },
   practiceDayText: {
     color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: "700" as const,
+  },
+  trainingDetail: {
+    backgroundColor: Colors.light.darkGray,
+    padding: 10,
+    borderRadius: 8,
+    gap: 2,
+  },
+  trainingName: {
+    color: Colors.light.text,
     fontSize: 14,
+    fontWeight: "600" as const,
+  },
+  trainingTime: {
+    color: Colors.light.muted,
+    fontSize: 13,
     fontWeight: "500" as const,
+  },
+  multipleTrainingsBadge: {
+    backgroundColor: Colors.light.primary + "20",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  multipleTrainingsText: {
+    color: Colors.light.primary,
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
   countBadge: {
     backgroundColor: Colors.light.error,

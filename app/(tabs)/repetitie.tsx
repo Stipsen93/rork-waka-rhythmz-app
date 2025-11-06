@@ -2,26 +2,24 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal 
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
-import { useAppState, PracticeDay, CancelledPractice } from "@/providers/AppState";
+import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown, Clock } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock, Plus, X } from "lucide-react-native";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
 
 type CancelOption = "next1" | "next2" | "next3" | "custom";
 
+function genId(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function RepetitieScreen() {
   const insets = useSafeAreaInsets();
   const { practiceSchedule, updatePracticeSchedule, currentUser } = useAppState();
   
-  const [selectedDays, setSelectedDays] = useState<number[]>(
-    practiceSchedule.regularDays.map(d => d.dayOfWeek)
-  );
-  const [time, setTime] = useState<string>(
-    practiceSchedule.regularDays[0]?.time || "19:00"
-  );
-  const [location, setLocation] = useState<string>(practiceSchedule.location);
+  const [trainings, setTrainings] = useState<Training[]>(practiceSchedule.trainings);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedCancelOption, setSelectedCancelOption] = useState<CancelOption | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
@@ -31,14 +29,38 @@ export default function RepetitieScreen() {
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempHour, setTempHour] = useState(19);
   const [tempMinute, setTempMinute] = useState(0);
+  const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
 
   const isAdmin = currentUser?.role === "admin";
 
-  const toggleDay = (day: number) => {
+  const updateTraining = (trainingId: string, updates: Partial<Training>) => {
     if (!isAdmin) return;
-    setSelectedDays(prev => 
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
-    );
+    setTrainings(prev => prev.map(t => t.id === trainingId ? { ...t, ...updates } : t));
+  };
+
+  const toggleDay = (trainingId: string, day: number) => {
+    if (!isAdmin) return;
+    const training = trainings.find(t => t.id === trainingId);
+    if (!training) return;
+    
+    updateTraining(trainingId, { dayOfWeek: day });
+  };
+
+  const addTraining = () => {
+    if (!isAdmin) return;
+    const newTraining: Training = {
+      id: genId("t"),
+      name: "Nieuwe training",
+      dayOfWeek: 1,
+      time: "19:00",
+      location: "Zaal 3",
+    };
+    setTrainings(prev => [...prev, newTraining]);
+  };
+
+  const removeTraining = (trainingId: string) => {
+    if (!isAdmin) return;
+    setTrainings(prev => prev.filter(t => t.id !== trainingId));
   };
 
   const getNextPracticeDates = (count: number): string[] => {
@@ -47,6 +69,7 @@ export default function RepetitieScreen() {
     today.setHours(0, 0, 0, 0);
     
     let currentDate = new Date(today);
+    const selectedDays = trainings.map(t => t.dayOfWeek);
     
     while (dates.length < count) {
       const dayOfWeek = currentDate.getDay();
@@ -90,6 +113,7 @@ export default function RepetitieScreen() {
 
   const isScheduledPracticeDay = (date: Date): boolean => {
     const dayOfWeek = date.getDay();
+    const selectedDays = trainings.map(t => t.dayOfWeek);
     return selectedDays.includes(dayOfWeek) && date >= new Date(new Date().setHours(0, 0, 0, 0));
   };
 
@@ -115,11 +139,6 @@ export default function RepetitieScreen() {
   const handleSave = () => {
     if (!isAdmin) return;
 
-    const regularDays: PracticeDay[] = selectedDays.map(day => ({
-      dayOfWeek: day,
-      time: time,
-    }));
-
     const cancelledDates: CancelledPractice[] = selectedCancelDates.map(date => ({
       date,
       reason: cancelReasons[date],
@@ -133,10 +152,11 @@ export default function RepetitieScreen() {
     ];
 
     updatePracticeSchedule({
-      regularDays,
-      location,
+      regularDays: trainings.map(t => ({ dayOfWeek: t.dayOfWeek, time: t.time })),
+      location: trainings[0]?.location || "Zaal 3",
       cancelledDates: allCancelledDates,
       isActive: true,
+      trainings: trainings,
     });
 
     setSelectedCancelDates([]);
@@ -236,18 +256,25 @@ export default function RepetitieScreen() {
     return `${dayOfWeek} ${day} ${month}`;
   };
 
-  const openTimePicker = () => {
+  const openTimePicker = (trainingId: string) => {
     if (!isAdmin) return;
-    const [hours, minutes] = time.split(':').map(Number);
+    const training = trainings.find(t => t.id === trainingId);
+    if (!training) return;
+    
+    const [hours, minutes] = training.time.split(':').map(Number);
     setTempHour(hours);
     setTempMinute(minutes);
+    setEditingTrainingId(trainingId);
     setTimePickerOpen(true);
   };
 
   const handleTimeConfirm = () => {
-    const formattedTime = `${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`;
-    setTime(formattedTime);
+    if (editingTrainingId) {
+      const formattedTime = `${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`;
+      updateTraining(editingTrainingId, { time: formattedTime });
+    }
     setTimePickerOpen(false);
+    setEditingTrainingId(null);
   };
 
   const renderCircularTimePicker = () => {
@@ -365,50 +392,77 @@ export default function RepetitieScreen() {
           )}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Weekdagen</Text>
-            <View style={styles.weekdaysContainer}>
-              {WEEKDAYS.map((day, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.weekdayButton,
-                    selectedDays.includes(index) && styles.weekdayButtonActive,
-                    !isAdmin && styles.weekdayButtonDisabled,
-                  ]}
-                  onPress={() => toggleDay(index)}
-                  disabled={!isAdmin}
-                >
-                  <Text style={[
-                    styles.weekdayButtonText,
-                    selectedDays.includes(index) && styles.weekdayButtonTextActive,
-                  ]}>{day}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+            <Text style={styles.sectionTitle}>Trainingen</Text>
+            
+            {trainings.map((training) => (
+              <View key={training.id} style={styles.trainingBadge}>
+                <View style={styles.trainingHeader}>
+                  <TextInput
+                    style={[styles.trainingNameInput, !isAdmin && styles.inputDisabled]}
+                    value={training.name}
+                    onChangeText={(text) => updateTraining(training.id, { name: text })}
+                    placeholder="Training naam"
+                    placeholderTextColor={Colors.light.mutedLight}
+                    editable={isAdmin}
+                  />
+                  {isAdmin && trainings.length > 1 && (
+                    <TouchableOpacity
+                      style={styles.deleteTrainingButton}
+                      onPress={() => removeTraining(training.id)}
+                    >
+                      <X color={Colors.light.error} size={20} />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tijd</Text>
-            <TouchableOpacity
-              style={[styles.timeInput, !isAdmin && styles.inputDisabled]}
-              onPress={openTimePicker}
-              disabled={!isAdmin}
-            >
-              <Clock color={Colors.light.primary} size={20} />
-              <Text style={styles.timeInputText}>{time}</Text>
-            </TouchableOpacity>
-          </View>
+                <View style={styles.weekdaysContainer}>
+                  {WEEKDAYS.map((day, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.weekdayButton,
+                        training.dayOfWeek === index && styles.weekdayButtonActive,
+                        !isAdmin && styles.weekdayButtonDisabled,
+                      ]}
+                      onPress={() => toggleDay(training.id, index)}
+                      disabled={!isAdmin}
+                    >
+                      <Text style={[
+                        styles.weekdayButtonText,
+                        training.dayOfWeek === index && styles.weekdayButtonTextActive,
+                      ]}>{day}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Plaats</Text>
-            <TextInput
-              style={[styles.input, !isAdmin && styles.inputDisabled]}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Locatie"
-              placeholderTextColor={Colors.light.mutedLight}
-              editable={isAdmin}
-            />
+                <View style={styles.trainingDetailsRow}>
+                  <TouchableOpacity
+                    style={[styles.timeInput, !isAdmin && styles.inputDisabled]}
+                    onPress={() => openTimePicker(training.id)}
+                    disabled={!isAdmin}
+                  >
+                    <Clock color={Colors.light.primary} size={18} />
+                    <Text style={styles.timeInputText}>{training.time}</Text>
+                  </TouchableOpacity>
+
+                  <TextInput
+                    style={[styles.locationInput, !isAdmin && styles.inputDisabled]}
+                    value={training.location}
+                    onChangeText={(text) => updateTraining(training.id, { location: text })}
+                    placeholder="Locatie"
+                    placeholderTextColor={Colors.light.mutedLight}
+                    editable={isAdmin}
+                  />
+                </View>
+              </View>
+            ))}
+
+            {isAdmin && (
+              <TouchableOpacity style={styles.addTrainingButton} onPress={addTraining}>
+                <Plus color={Colors.light.primary} size={24} strokeWidth={2.5} />
+                <Text style={styles.addTrainingText}>Training toevoegen</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {isAdmin && (
@@ -552,17 +606,47 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     marginBottom: 12,
   },
+  trainingBadge: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  trainingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  trainingNameInput: {
+    flex: 1,
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+  },
+  deleteTrainingButton: {
+    padding: 8,
+  },
   weekdaysContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
+    marginBottom: 12,
   },
   weekdayButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 10,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: Colors.light.surfaceLight,
     borderWidth: 2,
     borderColor: Colors.light.border,
     alignItems: "center",
@@ -581,6 +665,56 @@ const styles = StyleSheet.create({
   },
   weekdayButtonTextActive: {
     color: "#FFFFFF",
+  },
+  trainingDetailsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  timeInput: {
+    flex: 1,
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  timeInputText: {
+    fontSize: 15,
+    color: Colors.light.text,
+    fontWeight: "600" as const,
+  },
+  locationInput: {
+    flex: 1,
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: Colors.light.text,
+    fontWeight: "600" as const,
+  },
+  addTrainingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    paddingVertical: 16,
+    borderWidth: 2,
+    borderColor: Colors.light.primary,
+    borderStyle: "dashed",
+  },
+  addTrainingText: {
+    color: Colors.light.primary,
+    fontSize: 16,
+    fontWeight: "700" as const,
   },
   input: {
     backgroundColor: Colors.light.surface,
@@ -786,22 +920,6 @@ const styles = StyleSheet.create({
   },
   calendarButtonTextPrimary: {
     color: "#FFFFFF",
-  },
-  timeInput: {
-    backgroundColor: Colors.light.surface,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  timeInputText: {
-    fontSize: 16,
-    color: Colors.light.text,
-    fontWeight: "600" as const,
   },
   timePickerModal: {
     backgroundColor: Colors.light.surface,

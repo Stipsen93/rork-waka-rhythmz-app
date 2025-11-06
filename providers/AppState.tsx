@@ -71,6 +71,14 @@ export interface Performance {
   signedUpCount: number;
 }
 
+export interface Training {
+  id: string;
+  name: string;
+  dayOfWeek: number;
+  time: string;
+  location: string;
+}
+
 export interface PracticeDay {
   dayOfWeek: number;
   time: string;
@@ -86,6 +94,7 @@ export interface PracticeSchedule {
   location: string;
   cancelledDates: CancelledPractice[];
   isActive: boolean;
+  trainings: Training[];
 }
 
 export interface AppStateValue {
@@ -212,6 +221,22 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     location: "Zaal 3",
     cancelledDates: [],
     isActive: true,
+    trainings: [
+      {
+        id: "t1",
+        name: "Hoofdtraining",
+        dayOfWeek: 2,
+        time: "19:00",
+        location: "Zaal 3",
+      },
+      {
+        id: "t2",
+        name: "Hoofdtraining",
+        dayOfWeek: 4,
+        time: "19:00",
+        location: "Zaal 3",
+      },
+    ],
   });
 
   const setRole = useCallback((userId: string, role: Role) => {
