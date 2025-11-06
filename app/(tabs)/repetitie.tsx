@@ -113,7 +113,11 @@ export default function RepetitieScreen() {
       iterations++;
       currentDate.setDate(currentDate.getDate() + 1);
       const dayOfWeek = currentDate.getDay();
-      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       
       console.log('Iteration', iterations, '- Checking date:', dateStr, 'dayOfWeek:', dayOfWeek, WEEKDAYS_FULL[dayOfWeek], 'matches:', selectedDays.includes(dayOfWeek));
       
