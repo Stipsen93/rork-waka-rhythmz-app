@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState } from "react";
@@ -309,14 +310,6 @@ export default function HuiswerkScreen() {
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Huiswerk</Text>
-          {currentUser?.role === "admin" && (
-            <Pressable
-              style={styles.addButton}
-              onPress={() => setShowAddModal(true)}
-            >
-              <Plus color={Colors.light.text} size={24} strokeWidth={2.5} />
-            </Pressable>
-          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -334,10 +327,26 @@ export default function HuiswerkScreen() {
       </View>
 
       {currentUser?.role === "admin" && (
-        <AddAssignmentModal
-          visible={showAddModal}
-          onClose={() => setShowAddModal(false)}
-        />
+        <>
+          <Pressable 
+            style={[styles.fab, { bottom: insets.bottom + 20 }]} 
+            onPress={() => setShowAddModal(true)}
+          >
+            <LinearGradient
+              colors={[Colors.light.primary, '#B91C1C']}
+              style={styles.fabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Plus color={Colors.light.text} size={28} strokeWidth={3} />
+            </LinearGradient>
+          </Pressable>
+
+          <AddAssignmentModal
+            visible={showAddModal}
+            onClose={() => setShowAddModal(false)}
+          />
+        </>
       )}
     </>
   );
@@ -359,14 +368,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800" as const,
     color: Colors.light.text,
-  },
-  addButton: {
-    backgroundColor: Colors.light.primary,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   scrollContent: {
     padding: 20,
@@ -428,6 +429,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.light.muted,
     flex: 1,
+  },
+  fab: {
+    position: "absolute",
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 
