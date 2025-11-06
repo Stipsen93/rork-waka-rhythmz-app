@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown, Clock, Plus, X } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2 } from "lucide-react-native";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
@@ -30,6 +30,7 @@ export default function RepetitieScreen() {
   const [tempHour, setTempHour] = useState(19);
   const [tempMinute, setTempMinute] = useState(0);
   const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
+  const [lockedTrainings, setLockedTrainings] = useState<Set<string>>(new Set());
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -61,6 +62,24 @@ export default function RepetitieScreen() {
   const removeTraining = (trainingId: string) => {
     if (!isAdmin) return;
     setTrainings(prev => prev.filter(t => t.id !== trainingId));
+    setLockedTrainings(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(trainingId);
+      return newSet;
+    });
+  };
+
+  const toggleTrainingLock = (trainingId: string) => {
+    if (!isAdmin) return;
+    setLockedTrainings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(trainingId)) {
+        newSet.delete(trainingId);
+      } else {
+        newSet.add(trainingId);
+      }
+      return newSet;
+    });
   };
 
   const getNextPracticeDates = (count: number): string[] => {
@@ -133,6 +152,17 @@ export default function RepetitieScreen() {
       const newReasons = { ...prev };
       delete newReasons[dateStr];
       return newReasons;
+    });
+  };
+
+  const saveTrainingChanges = () => {
+    if (!isAdmin) return;
+    
+    updatePracticeSchedule({
+      ...practiceSchedule,
+      regularDays: trainings.map(t => ({ dayOfWeek: t.dayOfWeek, time: t.time })),
+      location: trainings[0]?.location || "Zaal 3",
+      trainings: trainings,
     });
   };
 
@@ -394,24 +424,52 @@ export default function RepetitieScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Trainingen</Text>
             
-            {trainings.map((training) => (
+            {trainings.map((training) => {
+              const isLocked = lockedTrainings.has(training.id);
+              const isEditable = isAdmin && !isLocked;
+              
+              return (
               <View key={training.id} style={styles.trainingBadge}>
                 <View style={styles.trainingHeader}>
                   <TextInput
-                    style={[styles.trainingNameInput, !isAdmin && styles.inputDisabled]}
+                    style={[styles.trainingNameInput, (!isEditable) && styles.inputDisabled]}
                     value={training.name}
                     onChangeText={(text) => updateTraining(training.id, { name: text })}
                     placeholder="Training naam"
                     placeholderTextColor={Colors.light.mutedLight}
-                    editable={isAdmin}
+                    editable={isEditable}
                   />
-                  {isAdmin && trainings.length > 1 && (
-                    <TouchableOpacity
-                      style={styles.deleteTrainingButton}
-                      onPress={() => removeTraining(training.id)}
-                    >
-                      <X color={Colors.light.error} size={20} />
-                    </TouchableOpacity>
+                  {isAdmin && (
+                    <View style={styles.trainingActions}>
+                      {!isLocked ? (
+                        <>
+                          {trainings.length > 1 && (
+                            <TouchableOpacity
+                              style={styles.actionButton}
+                              onPress={() => removeTraining(training.id)}
+                            >
+                              <X color={Colors.light.error} size={20} />
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => {
+                              toggleTrainingLock(training.id);
+                              saveTrainingChanges();
+                            }}
+                          >
+                            <Check color={Colors.light.success} size={20} />
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => toggleTrainingLock(training.id)}
+                        >
+                          <Edit2 color={Colors.light.primary} size={20} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   )}
                 </View>
 
@@ -422,10 +480,10 @@ export default function RepetitieScreen() {
                       style={[
                         styles.weekdayButton,
                         training.dayOfWeek === index && styles.weekdayButtonActive,
-                        !isAdmin && styles.weekdayButtonDisabled,
+                        !isEditable && styles.weekdayButtonDisabled,
                       ]}
                       onPress={() => toggleDay(training.id, index)}
-                      disabled={!isAdmin}
+                      disabled={!isEditable}
                     >
                       <Text style={[
                         styles.weekdayButtonText,
@@ -437,25 +495,26 @@ export default function RepetitieScreen() {
 
                 <View style={styles.trainingDetailsRow}>
                   <TouchableOpacity
-                    style={[styles.timeInput, !isAdmin && styles.inputDisabled]}
+                    style={[styles.timeInput, !isEditable && styles.inputDisabled]}
                     onPress={() => openTimePicker(training.id)}
-                    disabled={!isAdmin}
+                    disabled={!isEditable}
                   >
                     <Clock color={Colors.light.primary} size={18} />
                     <Text style={styles.timeInputText}>{training.time}</Text>
                   </TouchableOpacity>
 
                   <TextInput
-                    style={[styles.locationInput, !isAdmin && styles.inputDisabled]}
+                    style={[styles.locationInput, !isEditable && styles.inputDisabled]}
                     value={training.location}
                     onChangeText={(text) => updateTraining(training.id, { location: text })}
                     placeholder="Locatie"
                     placeholderTextColor={Colors.light.mutedLight}
-                    editable={isAdmin}
+                    editable={isEditable}
                   />
                 </View>
               </View>
-            ))}
+              );
+            })}
 
             {isAdmin && (
               <TouchableOpacity style={styles.addTrainingButton} onPress={addTraining}>
@@ -632,7 +691,11 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     color: Colors.light.text,
   },
-  deleteTrainingButton: {
+  trainingActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionButton: {
     padding: 8,
   },
   weekdaysContainer: {
