@@ -90,13 +90,18 @@ export default function RepetitieScreen() {
     
     console.log('getNextPracticeDates - selected days:', selectedDays);
     console.log('getNextPracticeDates - trainings:', trainings);
+    console.log('getNextPracticeDates - current day:', now.getDay(), 'current date:', now.toISOString());
     
     if (selectedDays.length === 0) {
+      console.log('No training days selected');
       return [];
     }
     
     let currentDate = new Date(now);
     currentDate.setHours(0, 0, 0, 0);
+    
+    const todayDayOfWeek = currentDate.getDay();
+    console.log('Today is day:', todayDayOfWeek, WEEKDAYS_FULL[todayDayOfWeek]);
     
     let iterations = 0;
     const maxIterations = 365;
@@ -105,11 +110,13 @@ export default function RepetitieScreen() {
       iterations++;
       currentDate.setDate(currentDate.getDate() + 1);
       const dayOfWeek = currentDate.getDay();
-      console.log('Checking date:', currentDate.toISOString(), 'dayOfWeek:', dayOfWeek, 'matches:', selectedDays.includes(dayOfWeek));
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      console.log('Iteration', iterations, '- Checking date:', dateStr, 'dayOfWeek:', dayOfWeek, WEEKDAYS_FULL[dayOfWeek], 'matches:', selectedDays.includes(dayOfWeek));
+      
       if (selectedDays.includes(dayOfWeek)) {
-        const dateStr = currentDate.toISOString().split('T')[0];
         dates.push(dateStr);
-        console.log('Added date:', dateStr);
+        console.log('✓ Added date:', dateStr, WEEKDAYS_FULL[dayOfWeek]);
       }
     }
     
