@@ -129,6 +129,7 @@ export interface AppStateValue {
   getRecentMedia: () => MediaItem[];
   announcements: Announcement[];
   addAnnouncement: (announcement: Omit<Announcement, 'id' | 'createdAt'>) => void;
+  updateAnnouncement: (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => void;
   deleteAnnouncements: (ids: string[]) => void;
 }
 
@@ -400,6 +401,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     ));
   }, []);
 
+  const updateAnnouncement = useCallback((id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => {
+    setAnnouncements((prev) => 
+      prev.map((a) => (a.id === id ? { ...a, ...announcement } : a))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    );
+  }, []);
+
   const deleteAnnouncements = useCallback((ids: string[]) => {
     const idSet = new Set(ids);
     setAnnouncements((prev) => prev.filter((a) => !idSet.has(a.id)));
@@ -429,6 +437,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     getRecentMedia,
     announcements,
     addAnnouncement,
+    updateAnnouncement,
     deleteAnnouncements,
   };
 

@@ -5,18 +5,22 @@ import Colors from "@/constants/colors";
 import { useState } from "react";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { useAppState } from "@/providers/AppState";
-import { Plus, X, Trash2, Calendar } from "lucide-react-native";
+import { Plus, X, Trash2, Calendar, Edit2 } from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import type { Announcement } from "@/providers/AppState";
 
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const { announcements, addAnnouncement, deleteAnnouncements, currentUser } = useAppState();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser } = useAppState();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -45,13 +49,66 @@ export default function NieuwsScreen() {
     setShowAddModal(false);
   };
 
-  const handleDeleteAnnouncement = (id: string) => {
+
+
+  const handleOpenEditModal = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setName(announcement.name);
+    setDescription(announcement.description);
+    setSelectedDate(new Date(announcement.date));
+    setShowEditModal(true);
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingAnnouncement(null);
+    setName("");
+    setDescription("");
+    setSelectedDate(new Date());
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingAnnouncement) return;
+    
+    if (!name.trim()) {
+      Alert.alert("Fout", "Naam is verplicht");
+      return;
+    }
+    if (!description.trim()) {
+      Alert.alert("Fout", "Omschrijving is verplicht");
+      return;
+    }
+    
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    updateAnnouncement(editingAnnouncement.id, {
+      name: name.trim(),
+      description: description.trim(),
+      date: dateStr
+    });
+    
+    handleCancelEdit();
+  };
+
+  const handleDeleteFromEdit = () => {
+    if (!editingAnnouncement) return;
+    
     Alert.alert(
       "Mededeling verwijderen",
       "Weet je zeker dat je deze mededeling wilt verwijderen?",
       [
         { text: "Annuleer", style: "cancel" },
-        { text: "Verwijder", style: "destructive", onPress: () => deleteAnnouncements([id]) },
+        { 
+          text: "Verwijder", 
+          style: "destructive", 
+          onPress: () => {
+            deleteAnnouncements([editingAnnouncement.id]);
+            handleCancelEdit();
+          } 
+        },
       ]
     );
   };
@@ -102,16 +159,18 @@ export default function NieuwsScreen() {
           ) : (
             <View style={styles.announcementsList}>
               {announcements.map((announcement) => (
-                <View key={announcement.id} style={styles.announcementCard}>
+                <TouchableOpacity 
+                  key={announcement.id} 
+                  style={styles.announcementCard}
+                  onPress={() => isAdmin ? handleOpenEditModal(announcement) : null}
+                  activeOpacity={isAdmin ? 0.7 : 1}
+                >
                   <View style={styles.announcementHeader}>
                     <Text style={styles.announcementName}>{announcement.name}</Text>
                     {isAdmin && (
-                      <TouchableOpacity
-                        onPress={() => handleDeleteAnnouncement(announcement.id)}
-                        style={styles.deleteButton}
-                      >
-                        <Trash2 color={Colors.light.error} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
+                      <View style={styles.editIndicator}>
+                        <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                      </View>
                     )}
                   </View>
                   <Text style={styles.announcementDescription}>{announcement.description}</Text>
@@ -125,7 +184,7 @@ export default function NieuwsScreen() {
                       })}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -230,6 +289,120 @@ export default function NieuwsScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCancelEdit}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Mededeling Bewerken</Text>
+            <TouchableOpacity onPress={handleCancelEdit} style={styles.closeButton}>
+              <X color={Colors.light.text} size={24} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Naam *</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Bijv. Nieuw trainingsschema"
+                placeholderTextColor={Colors.light.muted}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Omschrijving *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Beschrijf de mededeling..."
+                placeholderTextColor={Colors.light.muted}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Datum *</Text>
+              {Platform.OS === 'web' ? (
+                <TextInput
+                  style={styles.input}
+                  value={selectedDate.toISOString().split('T')[0]}
+                  onChangeText={(text) => {
+                    const date = new Date(text);
+                    if (!isNaN(date.getTime())) {
+                      setSelectedDate(date);
+                    }
+                  }}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.light.muted}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={styles.datePickerButton}
+                    onPress={() => setShowEditDatePicker(true)}
+                  >
+                    <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.datePickerButtonText}>
+                      {selectedDate.toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+                  {showEditDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={(event, date) => {
+                        setShowEditDatePicker(false);
+                        if (date) {
+                          setSelectedDate(date);
+                        }
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSaveEdit}
+            >
+              <Text style={styles.submitButtonText}>Opslaan</Text>
+            </TouchableOpacity>
+            <View style={styles.editModalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancelEdit}
+              >
+                <Text style={styles.cancelButtonText}>Annuleren</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteButtonLarge}
+                onPress={handleDeleteFromEdit}
+              >
+                <Trash2 color={Colors.light.background} size={20} strokeWidth={2.5} />
+                <Text style={styles.deleteButtonText}>Verwijderen</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <MenuModal 
         visible={showMenuModal} 
         onClose={() => setShowMenuModal(false)} 
@@ -328,6 +501,42 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 4,
   },
+  editIndicator: {
+    padding: 4,
+  },
+  editModalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  cancelButtonText: {
+    color: Colors.light.text,
+    fontSize: 17,
+    fontWeight: "700" as const,
+  },
+  deleteButtonLarge: {
+    flex: 1,
+    backgroundColor: Colors.light.error,
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  deleteButtonText: {
+    color: Colors.light.background,
+    fontSize: 17,
+    fontWeight: "700" as const,
+  },
   announcementDescription: {
     fontSize: 15,
     color: Colors.light.text,
@@ -400,6 +609,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: Colors.light.surfaceLight,
+    gap: 12,
   },
   submitButton: {
     backgroundColor: Colors.light.primary,
