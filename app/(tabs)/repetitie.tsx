@@ -88,6 +88,9 @@ export default function RepetitieScreen() {
     
     const selectedDays = trainings.map(t => t.dayOfWeek);
     
+    console.log('getNextPracticeDates - selected days:', selectedDays);
+    console.log('getNextPracticeDates - trainings:', trainings);
+    
     if (selectedDays.length === 0) {
       return [];
     }
@@ -99,15 +102,18 @@ export default function RepetitieScreen() {
     const maxIterations = 365;
     
     while (dates.length < count && iterations < maxIterations) {
+      iterations++;
       currentDate.setDate(currentDate.getDate() + 1);
       const dayOfWeek = currentDate.getDay();
+      console.log('Checking date:', currentDate.toISOString(), 'dayOfWeek:', dayOfWeek, 'matches:', selectedDays.includes(dayOfWeek));
       if (selectedDays.includes(dayOfWeek)) {
         const dateStr = currentDate.toISOString().split('T')[0];
         dates.push(dateStr);
+        console.log('Added date:', dateStr);
       }
-      iterations++;
     }
     
+    console.log('Final dates:', dates);
     return dates;
   }
 
