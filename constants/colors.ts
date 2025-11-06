@@ -1,9 +1,9 @@
 const primary = "#FF5A5F" as const;
 const primaryDark = "#E6474C" as const;
 const primaryLight = "#FF7B7F" as const;
-const background = "#808080" as const;
-const surface = "#FFFFFF" as const;
-const surfaceLight = "#F3F4F6" as const;
+const background = "#000000" as const;
+const surface = "#2A2A2A" as const;
+const surfaceLight = "#3A3A3A" as const;
 const text = "#111827" as const;
 const textMuted = "#6B7280" as const;
 const textLight = "#9CA3AF" as const;
