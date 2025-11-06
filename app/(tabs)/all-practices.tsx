@@ -26,8 +26,11 @@ export default function AllPracticesScreen() {
       
       const hasPractice = practiceSchedule.regularDays.some(d => d.dayOfWeek === dayOfWeek);
       if (hasPractice) {
-        const dateStr = date.toISOString().split('T')[0];
-        const isCancelled = practiceSchedule.cancelledDates.includes(dateStr);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === dateStr);
         pastDates.push({ date, cancelled: isCancelled });
       }
     }
@@ -47,8 +50,11 @@ export default function AllPracticesScreen() {
       
       const practiceDay = practiceSchedule.regularDays.find(d => d.dayOfWeek === dayOfWeek);
       if (practiceDay) {
-        const dateStr = date.toISOString().split('T')[0];
-        const isCancelled = practiceSchedule.cancelledDates.includes(dateStr);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === dateStr);
         upcomingDates.push({ date, cancelled: isCancelled, time: practiceDay.time });
       }
     }
