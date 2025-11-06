@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal } from "rea
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
-import { Clock, Video, Music, Calendar, Users, AlertCircle, CheckCircle, X } from "lucide-react-native";
+import { Clock, Video, Music, Calendar, Users, AlertCircle, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
@@ -16,27 +16,37 @@ export default function AssignmentsScreen() {
   const nextPerformance = performances[0];
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
 
-  const getNextPracticeStatus = () => {
+  const getNextPracticeDate = () => {
     const today = new Date();
-    const todayDay = today.getDay();
+    today.setHours(0, 0, 0, 0);
     
-    const todayDateStr = today.toISOString().split('T')[0];
-    const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === todayDateStr);
+    let currentDate = new Date(today);
+    const maxDays = 30;
+    let daysChecked = 0;
     
-    if (isCancelled) {
-      return { status: "cancelled" as const, text: "Oefening gaat niet door", color: "#DC2626" };
+    while (daysChecked < maxDays) {
+      const dayOfWeek = currentDate.getDay();
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      const trainingsOnDay = practiceSchedule.trainings?.filter(t => t.dayOfWeek === dayOfWeek) || [];
+      const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === dateStr);
+      
+      if (trainingsOnDay.length > 0 && !isCancelled) {
+        return {
+          date: currentDate,
+          dateStr: dateStr,
+          trainings: trainingsOnDay
+        };
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+      daysChecked++;
     }
     
-    const hasPracticeToday = practiceSchedule.regularDays.some(d => d.dayOfWeek === todayDay);
-    
-    if (hasPracticeToday && practiceSchedule.isActive) {
-      return { status: "active" as const, text: "Gaat door", color: "#16A34A" };
-    }
-    
-    return { status: "active" as const, text: "Gaat door", color: "#16A34A" };
+    return null;
   };
 
-  const practiceStatus = getNextPracticeStatus();
+  const nextPractice = getNextPracticeDate();
 
   const getUpcomingCancelledPractices = () => {
     const today = new Date();
@@ -193,48 +203,44 @@ export default function AssignmentsScreen() {
             <Text style={styles.widgetTitle}>Eerst Volgende Oefening</Text>
           </View>
           <View style={styles.widgetContent}>
-            <View style={styles.practiceStatusContainer}>
-              <Text style={styles.practiceStatusLabel}>Status: </Text>
-              <View style={[styles.practiceBadge, { backgroundColor: practiceStatus.color }]}>
-                {practiceStatus.status === "active" ? (
-                  <CheckCircle color={Colors.light.text} size={16} strokeWidth={2.5} />
-                ) : (
-                  <AlertCircle color={Colors.light.text} size={16} strokeWidth={2.5} />
-                )}
-                <Text style={styles.practiceBadgeText}>{practiceStatus.text}</Text>
-              </View>
-            </View>
-            <View style={styles.practiceScheduleList}>
-              {practiceSchedule.trainings?.map((training, idx) => {
-                const dayNames = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
-                const trainingsOnSameDay = practiceSchedule.trainings.filter(t => t.dayOfWeek === training.dayOfWeek);
-                const isFirstOnDay = trainingsOnSameDay[0].id === training.id;
-                
-                if (!isFirstOnDay) return null;
-                
-                return (
-                  <View key={idx} style={styles.practiceDay}>
-                    <View style={styles.practiceDayBullet} />
-                    <View style={styles.practiceDayContent}>
-                      <Text style={styles.practiceDayText}>
-                        {dayNames[training.dayOfWeek]}
-                      </Text>
-                      {trainingsOnSameDay.map((t, i) => (
-                        <View key={t.id} style={styles.trainingDetail}>
-                          <Text style={styles.trainingName}>{t.name}</Text>
-                          <Text style={styles.trainingTime}>{t.time} - {t.location}</Text>
-                        </View>
-                      ))}
-                      {trainingsOnSameDay.length > 1 && (
-                        <View style={styles.multipleTrainingsBadge}>
-                          <Text style={styles.multipleTrainingsText}>{trainingsOnSameDay.length} trainingen</Text>
-                        </View>
-                      )}
+            {nextPractice ? (
+              <>
+                <View style={styles.nextPracticeDateContainer}>
+                  <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                  <Text style={styles.nextPracticeDate}>
+                    {nextPractice.date.toLocaleDateString('nl-NL', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                </View>
+                {nextPractice.trainings.map((training, idx) => (
+                  <View key={training.id} style={styles.nextTrainingCard}>
+                    <Text style={styles.nextTrainingName}>{training.name}</Text>
+                    <View style={styles.nextTrainingDetails}>
+                      <View style={styles.nextTrainingDetailItem}>
+                        <Clock color={Colors.light.muted} size={16} strokeWidth={2} />
+                        <Text style={styles.nextTrainingDetailText}>{training.time}</Text>
+                      </View>
+                      <View style={styles.nextTrainingDetailItem}>
+                        <Text style={styles.nextTrainingDetailText}>{training.location}</Text>
+                      </View>
                     </View>
                   </View>
-                );
-              }).filter(Boolean)}
-            </View>
+                ))}
+                {nextPractice.trainings.length > 1 && (
+                  <View style={styles.multipleTrainingsBadgeInline}>
+                    <Text style={styles.multipleTrainingsTextInline}>
+                      {nextPractice.trainings.length} trainingen op deze dag
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={styles.emptyText}>Geen aankomende trainingen</Text>
+            )}
           </View>
         </TouchableOpacity>
 
@@ -534,6 +540,61 @@ const styles = StyleSheet.create({
   multipleTrainingsText: {
     color: Colors.light.primary,
     fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  nextPracticeDateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.light.darkGray,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  nextPracticeDate: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: "700" as const,
+    flex: 1,
+  },
+  nextTrainingCard: {
+    backgroundColor: Colors.light.darkGray,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 8,
+  },
+  nextTrainingName: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
+  nextTrainingDetails: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap" as const,
+  },
+  nextTrainingDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  nextTrainingDetailText: {
+    color: Colors.light.muted,
+    fontSize: 14,
+    fontWeight: "600" as const,
+  },
+  multipleTrainingsBadgeInline: {
+    backgroundColor: Colors.light.primary + "20",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  multipleTrainingsTextInline: {
+    color: Colors.light.primary,
+    fontSize: 13,
     fontWeight: "700" as const,
   },
   countBadge: {
