@@ -224,11 +224,6 @@ export default function AssignmentsScreen() {
                             year: 'numeric'
                           })}
                         </Text>
-                        {isCancelled && (
-                          <View style={styles.statusBadgeCancelled}>
-                            <Text style={styles.statusBadgeText}>gaat niet door</Text>
-                          </View>
-                        )}
                       </View>
                       {isCancelled && cancelledInfo?.reason && (
                         <View style={styles.cancelReasonBanner}>
@@ -239,6 +234,15 @@ export default function AssignmentsScreen() {
                         <View key={training.id} style={styles.nextTrainingCard}>
                           <View style={styles.trainingNameRow}>
                             <Text style={styles.nextTrainingName}>{training.name}</Text>
+                            {isCancelled ? (
+                              <View style={styles.statusBadgeCancelled}>
+                                <Text style={styles.statusBadgeText}>gaat niet door</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.statusBadgeActive}>
+                                <Text style={styles.statusBadgeText}>gaat door</Text>
+                              </View>
+                            )}
                           </View>
                           <View style={styles.nextTrainingDetails}>
                             <View style={styles.nextTrainingDetailItem}>
