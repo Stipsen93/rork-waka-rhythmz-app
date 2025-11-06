@@ -267,10 +267,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         return [...prev, newFolder];
       }
 
-      const addToNode = (nodes: CategoryNode[]): CategoryNode[] => {
+      const addToNode = (nodes: CategoryNode[], currentPath: string[]): CategoryNode[] => {
         return nodes.map((node) => {
-          if (node.id === path[0]) {
-            if (path.length === 1) {
+          if (node.id === currentPath[0]) {
+            if (currentPath.length === 1) {
               return {
                 ...node,
                 children: [...(node.children ?? []), newFolder],
@@ -278,7 +278,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             } else {
               return {
                 ...node,
-                children: addToNode(node.children ?? []),
+                children: addToNode(node.children ?? [], currentPath.slice(1)),
               };
             }
           }
@@ -286,7 +286,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         });
       };
 
-      return addToNode(prev);
+      return addToNode(prev, path);
     });
   }, []);
 
