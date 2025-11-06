@@ -205,7 +205,7 @@ export default function AssignmentsScreen() {
               </View>
             </View>
             <View style={styles.practiceScheduleList}>
-              {practiceSchedule.trainings.map((training, idx) => {
+              {practiceSchedule.trainings?.map((training, idx) => {
                 const dayNames = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
                 const trainingsOnSameDay = practiceSchedule.trainings.filter(t => t.dayOfWeek === training.dayOfWeek);
                 const isFirstOnDay = trainingsOnSameDay[0].id === training.id;
