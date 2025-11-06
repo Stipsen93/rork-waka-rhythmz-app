@@ -84,8 +84,7 @@ export default function RepetitieScreen() {
 
   const getNextPracticeDates = (count: number): string[] => {
     const dates: string[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     
     const selectedDays = trainings.map(t => t.dayOfWeek);
     
@@ -93,20 +92,21 @@ export default function RepetitieScreen() {
       return [];
     }
     
-    let currentDate = new Date(today);
+    let currentDate = new Date(now);
+    currentDate.setHours(0, 0, 0, 0);
     currentDate.setDate(currentDate.getDate() + 1);
     
-    while (dates.length < count) {
+    let iterations = 0;
+    const maxIterations = 365;
+    
+    while (dates.length < count && iterations < maxIterations) {
       const dayOfWeek = currentDate.getDay();
       if (selectedDays.includes(dayOfWeek)) {
         const dateStr = currentDate.toISOString().split('T')[0];
         dates.push(dateStr);
       }
       currentDate.setDate(currentDate.getDate() + 1);
-      
-      if (currentDate.getTime() - today.getTime() > 365 * 24 * 60 * 60 * 1000) {
-        break;
-      }
+      iterations++;
     }
     
     return dates;
