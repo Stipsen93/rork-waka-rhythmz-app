@@ -94,23 +94,22 @@ export default function RepetitieScreen() {
     
     let currentDate = new Date(now);
     currentDate.setHours(0, 0, 0, 0);
-    currentDate.setDate(currentDate.getDate() + 1);
     
     let iterations = 0;
     const maxIterations = 365;
     
     while (dates.length < count && iterations < maxIterations) {
+      currentDate.setDate(currentDate.getDate() + 1);
       const dayOfWeek = currentDate.getDay();
       if (selectedDays.includes(dayOfWeek)) {
         const dateStr = currentDate.toISOString().split('T')[0];
         dates.push(dateStr);
       }
-      currentDate.setDate(currentDate.getDate() + 1);
       iterations++;
     }
     
     return dates;
-  };
+  }
 
   const handleCancelOptionSelect = (option: CancelOption) => {
     setSelectedCancelOption(option);
