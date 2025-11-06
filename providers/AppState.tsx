@@ -101,6 +101,7 @@ export interface Announcement {
   id: string;
   name: string;
   description: string;
+  date: string;
   createdAt: string;
 }
 
@@ -394,7 +395,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       id: genId("an"),
       createdAt: new Date().toISOString(),
     };
-    setAnnouncements((prev) => [newAnnouncement, ...prev]);
+    setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    ));
   }, []);
 
   const deleteAnnouncements = useCallback((ids: string[]) => {

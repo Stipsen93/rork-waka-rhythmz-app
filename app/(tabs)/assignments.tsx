@@ -8,12 +8,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, practiceSchedule, announcements } = useAppState();
+  const { assignments, getRecentMedia, practiceSchedule, announcements, performances } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = getRecentMedia();
   const nextAssignment = assignments[0];
-  const latestAnnouncement = announcements[0];
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const upcomingAnnouncements = announcements.filter(a => new Date(a.date) >= today);
+  const upcomingPerformances = performances.filter(p => new Date(p.date) >= today);
+  
+  const latestAnnouncement = upcomingAnnouncements[0];
+  const latestPerformance = upcomingPerformances[0];
 
   const getNextPracticeDate = () => {
     const today = new Date();
@@ -86,23 +94,45 @@ export default function AssignmentsScreen() {
             <Text style={styles.widgetTitle}>Nieuws</Text>
           </View>
           <View style={styles.widgetContent}>
-            {latestAnnouncement ? (
-              <>
-                <Text style={styles.announcementName}>{latestAnnouncement.name}</Text>
-                <Text style={styles.announcementDescription} numberOfLines={3}>{latestAnnouncement.description}</Text>
-                <View style={styles.announcementDateContainer}>
+            {latestAnnouncement && (
+              <View style={styles.newsItemCard}>
+                <View style={styles.newsItemBadge}>
+                  <Text style={styles.newsItemBadgeText}>Mededeling</Text>
+                </View>
+                <Text style={styles.newsItemName}>{latestAnnouncement.name}</Text>
+                <Text style={styles.newsItemDescription} numberOfLines={2}>{latestAnnouncement.description}</Text>
+                <View style={styles.newsItemDateContainer}>
                   <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
-                  <Text style={styles.announcementDateText}>
-                    {new Date(latestAnnouncement.createdAt).toLocaleDateString('nl-NL', {
+                  <Text style={styles.newsItemDateText}>
+                    {new Date(latestAnnouncement.date).toLocaleDateString('nl-NL', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
                     })}
                   </Text>
                 </View>
-              </>
-            ) : (
-              <Text style={styles.emptyText}>Geen mededelingen</Text>
+              </View>
+            )}
+            {latestPerformance && (
+              <View style={[styles.newsItemCard, latestAnnouncement && styles.newsItemCardSpaced]}>
+                <View style={[styles.newsItemBadge, styles.newsItemBadgePerformance]}>
+                  <Text style={styles.newsItemBadgeText}>Optreden</Text>
+                </View>
+                <Text style={styles.newsItemName}>{latestPerformance.location}</Text>
+                <View style={styles.newsItemDateContainer}>
+                  <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
+                  <Text style={styles.newsItemDateText}>
+                    {new Date(latestPerformance.date).toLocaleDateString('nl-NL', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })} • {latestPerformance.time}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {!latestAnnouncement && !latestPerformance && (
+              <Text style={styles.emptyText}>Geen nieuws</Text>
             )}
           </View>
         </TouchableOpacity>
@@ -620,6 +650,54 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.light.surfaceLight,
   },
   announcementDateText: {
+    fontSize: 13,
+    color: Colors.light.muted,
+    fontWeight: "600" as const,
+  },
+  newsItemCard: {
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    padding: 14,
+  },
+  newsItemCardSpaced: {
+    marginTop: 10,
+  },
+  newsItemBadge: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    marginBottom: 10,
+  },
+  newsItemBadgePerformance: {
+    backgroundColor: Colors.light.success,
+  },
+  newsItemBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700" as const,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+  },
+  newsItemName: {
+    fontSize: 17,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginBottom: 6,
+  },
+  newsItemDescription: {
+    fontSize: 14,
+    color: Colors.light.text,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  newsItemDateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  newsItemDateText: {
     fontSize: 13,
     color: Colors.light.muted,
     fontWeight: "600" as const,

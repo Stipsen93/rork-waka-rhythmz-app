@@ -3,18 +3,23 @@ import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
-import { Calendar, Users, MapPin, ArrowLeft, Music } from "lucide-react-native";
+import { Calendar, Users, MapPin, ArrowLeft, Music, FileText } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
+type NewsItem = 
+  | { type: 'announcement'; id: string; name: string; description: string; date: string }
+  | { type: 'performance'; id: string; location: string; date: string; time: string; signedUpCount: number };
+
 export default function AllNewsScreen() {
-  const { performances } = useAppState();
+  const { performances, announcements } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const sortedPerformances = [...performances].sort((a, b) => 
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  const newsItems: NewsItem[] = [
+    ...announcements.map(a => ({ type: 'announcement' as const, ...a })),
+    ...performances.map(p => ({ type: 'performance' as const, ...p }))
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="all-news-screen">
@@ -30,18 +35,53 @@ export default function AllNewsScreen() {
         </Pressable>
         <View style={styles.headerTextContainer}>
           <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-          <Text style={styles.title}>Nieuws - Optredens</Text>
-          <Text style={styles.subtitle}>{performances.length} optredens</Text>
+          <Text style={styles.title}>Nieuws</Text>
+          <Text style={styles.subtitle}>{newsItems.length} items</Text>
         </View>
       </View>
 
       <FlatList
-        data={sortedPerformances}
-        keyExtractor={(item) => item.id}
+        data={newsItems}
+        keyExtractor={(item) => `${item.type}-${item.id}`}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 20 }]}
         renderItem={({ item }) => {
-          const performanceDate = new Date(item.date);
-          const isUpcoming = performanceDate >= new Date();
+          const itemDate = new Date(item.date);
+          const isUpcoming = itemDate >= new Date();
+          
+          if (item.type === 'announcement') {
+            return (
+              <Pressable style={styles.card} testID={`announcement-${item.id}`}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.statusBadge, styles.statusBadgeAnnouncement]}>
+                    <FileText color={Colors.light.text} size={16} strokeWidth={2.5} />
+                    <Text style={styles.statusBadgeText}>Mededeling</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.cardContent}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardDescription}>{item.description}</Text>
+                  
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <Calendar color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                    </View>
+                    <View style={styles.infoTextContainer}>
+                      <Text style={styles.infoLabel}>Datum</Text>
+                      <Text style={styles.infoValue}>
+                        {itemDate.toLocaleDateString('nl-NL', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          }
           
           return (
             <Pressable style={styles.card} testID={`performance-${item.id}`}>
@@ -49,12 +89,14 @@ export default function AllNewsScreen() {
                 <View style={[styles.statusBadge, isUpcoming ? styles.statusBadgeUpcoming : styles.statusBadgePast]}>
                   <Music color={Colors.light.text} size={16} strokeWidth={2.5} />
                   <Text style={styles.statusBadgeText}>
-                    {isUpcoming ? "Aankomend" : "Afgelopen"}
+                    {isUpcoming ? "Aankomend Optreden" : "Afgelopen Optreden"}
                   </Text>
                 </View>
               </View>
               
               <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>{item.location}</Text>
+                
                 <View style={styles.infoRow}>
                   <View style={styles.infoIconContainer}>
                     <Calendar color={Colors.light.primary} size={18} strokeWidth={2.5} />
@@ -62,7 +104,7 @@ export default function AllNewsScreen() {
                   <View style={styles.infoTextContainer}>
                     <Text style={styles.infoLabel}>Datum</Text>
                     <Text style={styles.infoValue}>
-                      {performanceDate.toLocaleDateString('nl-NL', {
+                      {itemDate.toLocaleDateString('nl-NL', {
                         weekday: 'long',
                         day: 'numeric',
                         month: 'long',
@@ -104,7 +146,7 @@ export default function AllNewsScreen() {
         }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Geen optredens beschikbaar</Text>
+            <Text style={styles.emptyText}>Geen nieuws beschikbaar</Text>
           </View>
         }
       />
@@ -187,10 +229,13 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   statusBadgeUpcoming: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.success,
   },
   statusBadgePast: {
     backgroundColor: Colors.light.muted,
+  },
+  statusBadgeAnnouncement: {
+    backgroundColor: Colors.light.primary,
   },
   statusBadgeText: {
     color: Colors.light.text,
@@ -199,6 +244,18 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     gap: 14,
+  },
+  cardTitle: {
+    color: Colors.light.text,
+    fontSize: 22,
+    fontWeight: "800" as const,
+    marginBottom: 4,
+  },
+  cardDescription: {
+    color: Colors.light.text,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 6,
   },
   infoRow: {
     flexDirection: "row",

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
@@ -6,6 +6,7 @@ import { useState } from "react";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { useAppState } from "@/providers/AppState";
 import { Plus, X, Trash2, Calendar } from "lucide-react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
@@ -14,6 +15,8 @@ export default function NieuwsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -26,9 +29,19 @@ export default function NieuwsScreen() {
       Alert.alert("Fout", "Omschrijving is verplicht");
       return;
     }
-    addAnnouncement({ name: name.trim(), description: description.trim() });
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    addAnnouncement({ 
+      name: name.trim(), 
+      description: description.trim(),
+      date: dateStr
+    });
     setName("");
     setDescription("");
+    setSelectedDate(new Date());
     setShowAddModal(false);
   };
 
@@ -105,7 +118,7 @@ export default function NieuwsScreen() {
                   <View style={styles.announcementFooter}>
                     <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
                     <Text style={styles.announcementDate}>
-                      {new Date(announcement.createdAt).toLocaleDateString('nl-NL', {
+                      {new Date(announcement.date).toLocaleDateString('nl-NL', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric'
@@ -157,6 +170,53 @@ export default function NieuwsScreen() {
                 numberOfLines={6}
                 textAlignVertical="top"
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Datum *</Text>
+              {Platform.OS === 'web' ? (
+                <TextInput
+                  style={styles.input}
+                  value={selectedDate.toISOString().split('T')[0]}
+                  onChangeText={(text) => {
+                    const date = new Date(text);
+                    if (!isNaN(date.getTime())) {
+                      setSelectedDate(date);
+                    }
+                  }}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.light.muted}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={styles.datePickerButton}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.datePickerButtonText}>
+                      {selectedDate.toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={(event, date) => {
+                        setShowDatePicker(false);
+                        if (date) {
+                          setSelectedDate(date);
+                        }
+                      }}
+                    />
+                  )}
+                </>
+              )}
             </View>
           </ScrollView>
 
@@ -351,5 +411,21 @@ const styles = StyleSheet.create({
     color: Colors.light.background,
     fontSize: 17,
     fontWeight: "700" as const,
+  },
+  datePickerButton: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  datePickerButtonText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: "600" as const,
+    flex: 1,
   },
 });
