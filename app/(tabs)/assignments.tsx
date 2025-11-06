@@ -30,6 +30,7 @@ export default function AssignmentsScreen() {
     console.log('[Dashboard] Trainings:', practiceSchedule.trainings);
     
     while (daysChecked < maxDays) {
+      currentDate.setDate(currentDate.getDate() + 1);
       const dayOfWeek = currentDate.getDay();
       const dateStr = currentDate.toISOString().split('T')[0];
       
@@ -46,7 +47,6 @@ export default function AssignmentsScreen() {
         };
       }
       
-      currentDate.setDate(currentDate.getDate() + 1);
       daysChecked++;
     }
     
@@ -216,12 +216,13 @@ export default function AssignmentsScreen() {
                 {(() => {
                   console.log('[Dashboard Badge] Checking if cancelled');
                   console.log('[Dashboard Badge] nextPractice.dateStr:', nextPractice.dateStr);
-                  console.log('[Dashboard Badge] cancelledDates:', practiceSchedule.cancelledDates);
+                  console.log('[Dashboard Badge] cancelledDates:', JSON.stringify(practiceSchedule.cancelledDates));
                   
                   const isCancelled = practiceSchedule.cancelledDates.some(
                     cd => {
-                      console.log('[Dashboard Badge] Comparing:', cd.date, '===', nextPractice.dateStr, '?', cd.date === nextPractice.dateStr);
-                      return cd.date === nextPractice.dateStr;
+                      const match = cd.date === nextPractice.dateStr;
+                      console.log('[Dashboard Badge] Comparing:', cd.date, '===', nextPractice.dateStr, '?', match);
+                      return match;
                     }
                   );
                   
