@@ -29,9 +29,8 @@ export default function AssignmentsScreen() {
       const dateStr = currentDate.toISOString().split('T')[0];
       
       const trainingsOnDay = practiceSchedule.trainings?.filter(t => t.dayOfWeek === dayOfWeek) || [];
-      const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === dateStr);
       
-      if (trainingsOnDay.length > 0 && !isCancelled) {
+      if (trainingsOnDay.length > 0) {
         return {
           date: currentDate,
           dateStr: dateStr,
@@ -205,54 +204,63 @@ export default function AssignmentsScreen() {
           <View style={styles.widgetContent}>
             {nextPractice ? (
               <>
-                <View style={styles.nextPracticeDateContainer}>
-                  <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                  <Text style={styles.nextPracticeDate}>
-                    {nextPractice.date.toLocaleDateString('nl-NL', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </Text>
-                </View>
-                {nextPractice.trainings.map((training, idx) => {
+                {(() => {
                   const isCancelled = practiceSchedule.cancelledDates.some(
+                    cd => cd.date === nextPractice.dateStr
+                  );
+                  const cancelledInfo = practiceSchedule.cancelledDates.find(
                     cd => cd.date === nextPractice.dateStr
                   );
                   
                   return (
-                  <View key={training.id} style={styles.nextTrainingCard}>
-                    <View style={styles.trainingNameRow}>
-                      <Text style={styles.nextTrainingName}>{training.name}</Text>
-                      <View style={[
-                        styles.statusBadge,
-                        isCancelled ? styles.statusBadgeCancelled : styles.statusBadgeActive
-                      ]}>
-                        <Text style={styles.statusBadgeText}>
-                          {isCancelled ? "Gaat niet door" : "Gaat door"}
+                    <>
+                      <View style={styles.nextPracticeDateContainer}>
+                        <Calendar color={isCancelled ? Colors.light.error : Colors.light.primary} size={20} strokeWidth={2.5} />
+                        <Text style={styles.nextPracticeDate}>
+                          {nextPractice.date.toLocaleDateString('nl-NL', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
                         </Text>
+                        {isCancelled && (
+                          <View style={styles.statusBadgeCancelled}>
+                            <Text style={styles.statusBadgeText}>gaat niet door</Text>
+                          </View>
+                        )}
                       </View>
-                    </View>
-                    <View style={styles.nextTrainingDetails}>
-                      <View style={styles.nextTrainingDetailItem}>
-                        <Clock color={Colors.light.muted} size={16} strokeWidth={2} />
-                        <Text style={styles.nextTrainingDetailText}>{training.time}</Text>
-                      </View>
-                      <View style={styles.nextTrainingDetailItem}>
-                        <Text style={styles.nextTrainingDetailText}>{training.location}</Text>
-                      </View>
-                    </View>
-                  </View>
+                      {isCancelled && cancelledInfo?.reason && (
+                        <View style={styles.cancelReasonBanner}>
+                          <Text style={styles.cancelReasonText}>{cancelledInfo.reason}</Text>
+                        </View>
+                      )}
+                      {nextPractice.trainings.map((training, idx) => (
+                        <View key={training.id} style={styles.nextTrainingCard}>
+                          <View style={styles.trainingNameRow}>
+                            <Text style={styles.nextTrainingName}>{training.name}</Text>
+                          </View>
+                          <View style={styles.nextTrainingDetails}>
+                            <View style={styles.nextTrainingDetailItem}>
+                              <Clock color={Colors.light.muted} size={16} strokeWidth={2} />
+                              <Text style={styles.nextTrainingDetailText}>{training.time}</Text>
+                            </View>
+                            <View style={styles.nextTrainingDetailItem}>
+                              <Text style={styles.nextTrainingDetailText}>{training.location}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                      {nextPractice.trainings.length > 1 && (
+                        <View style={styles.multipleTrainingsBadgeInline}>
+                          <Text style={styles.multipleTrainingsTextInline}>
+                            {nextPractice.trainings.length} trainingen op deze dag
+                          </Text>
+                        </View>
+                      )}
+                    </>
                   );
-                })}
-                {nextPractice.trainings.length > 1 && (
-                  <View style={styles.multipleTrainingsBadgeInline}>
-                    <Text style={styles.multipleTrainingsTextInline}>
-                      {nextPractice.trainings.length} trainingen op deze dag
-                    </Text>
-                  </View>
-                )}
+                })()}
               </>
             ) : (
               <Text style={styles.emptyText}>Geen aankomende trainingen</Text>
@@ -603,6 +611,21 @@ const styles = StyleSheet.create({
   },
   statusBadgeCancelled: {
     backgroundColor: Colors.light.error,
+  },
+  cancelReasonBanner: {
+    backgroundColor: Colors.light.error + "20",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.error,
+    marginBottom: 12,
+  },
+  cancelReasonText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: "600" as const,
+    fontStyle: "italic" as const,
   },
   statusBadgeText: {
     color: "#FFFFFF",
