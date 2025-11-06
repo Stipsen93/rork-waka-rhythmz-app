@@ -97,6 +97,13 @@ export interface PracticeSchedule {
   trainings: Training[];
 }
 
+export interface Announcement {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+}
+
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
@@ -119,6 +126,9 @@ export interface AppStateValue {
   practiceSchedule: PracticeSchedule;
   updatePracticeSchedule: (schedule: PracticeSchedule) => void;
   getRecentMedia: () => MediaItem[];
+  announcements: Announcement[];
+  addAnnouncement: (announcement: Omit<Announcement, 'id' | 'createdAt'>) => void;
+  deleteAnnouncements: (ids: string[]) => void;
 }
 
 function genId(prefix: string): string {
@@ -240,6 +250,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       },
     ],
   });
+
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const setRole = useCallback((userId: string, role: Role) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
@@ -376,6 +388,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setAssignments((prev) => prev.filter((a) => !idSet.has(a.id)));
   }, []);
 
+  const addAnnouncement = useCallback((announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
+    const newAnnouncement: Announcement = {
+      ...announcement,
+      id: genId("an"),
+      createdAt: new Date().toISOString(),
+    };
+    setAnnouncements((prev) => [newAnnouncement, ...prev]);
+  }, []);
+
+  const deleteAnnouncements = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setAnnouncements((prev) => prev.filter((a) => !idSet.has(a.id)));
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -398,6 +424,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     practiceSchedule,
     updatePracticeSchedule,
     getRecentMedia,
+    announcements,
+    addAnnouncement,
+    deleteAnnouncements,
   };
 
   return value;

@@ -3,17 +3,17 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-nati
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
-import { Clock, Video, Music, Calendar, Users, AlertCircle } from "lucide-react-native";
+import { Clock, Video, Music, Calendar, AlertCircle } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, performances, practiceSchedule } = useAppState();
+  const { assignments, getRecentMedia, practiceSchedule, announcements } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = getRecentMedia();
   const nextAssignment = assignments[0];
-  const nextPerformance = performances[0];
+  const latestAnnouncement = announcements[0];
 
   const getNextPracticeDate = () => {
     const today = new Date();
@@ -74,6 +74,39 @@ export default function AssignmentsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
+        <TouchableOpacity 
+          style={styles.widget}
+          onPress={() => router.push("/all-news")}
+          testID="nieuws-widget"
+        >
+          <View style={styles.widgetHeader}>
+            <View style={styles.widgetIconContainer}>
+              <Music color={Colors.light.primary} size={20} strokeWidth={2.5} />
+            </View>
+            <Text style={styles.widgetTitle}>Nieuws</Text>
+          </View>
+          <View style={styles.widgetContent}>
+            {latestAnnouncement ? (
+              <>
+                <Text style={styles.announcementName}>{latestAnnouncement.name}</Text>
+                <Text style={styles.announcementDescription} numberOfLines={3}>{latestAnnouncement.description}</Text>
+                <View style={styles.announcementDateContainer}>
+                  <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
+                  <Text style={styles.announcementDateText}>
+                    {new Date(latestAnnouncement.createdAt).toLocaleDateString('nl-NL', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.emptyText}>Geen mededelingen</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+
         <View style={styles.widgetsRow}>
           <TouchableOpacity 
             style={[styles.widget, styles.widgetHalf]} 
@@ -133,53 +166,6 @@ export default function AssignmentsScreen() {
             </View>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity 
-          style={styles.widget}
-          onPress={() => router.push("/all-news")}
-          testID="nieuws-widget"
-        >
-          <View style={styles.widgetHeader}>
-            <View style={styles.widgetIconContainer}>
-              <Music color={Colors.light.primary} size={20} strokeWidth={2.5} />
-            </View>
-            <Text style={styles.widgetTitle}>Nieuws - Volgend Optreden</Text>
-          </View>
-          <View style={styles.widgetContent}>
-            {nextPerformance ? (
-              <>
-                <View style={styles.performanceRow}>
-                  <View style={styles.performanceInfo}>
-                    <Text style={styles.performanceLabel}>Datum</Text>
-                    <Text style={styles.performanceValue}>
-                      {new Date(nextPerformance.date).toLocaleDateString('nl-NL', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long'
-                      })}
-                    </Text>
-                  </View>
-                  <View style={styles.performanceInfo}>
-                    <Text style={styles.performanceLabel}>Tijd</Text>
-                    <Text style={styles.performanceValue}>{nextPerformance.time}</Text>
-                  </View>
-                </View>
-                <View style={styles.performanceRow}>
-                  <View style={styles.performanceInfo}>
-                    <Text style={styles.performanceLabel}>Locatie</Text>
-                    <Text style={styles.performanceValue}>{nextPerformance.location}</Text>
-                  </View>
-                  <View style={styles.performanceInfoSmall}>
-                    <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                    <Text style={styles.signupCount}>{nextPerformance.signedUpCount} aangemeld</Text>
-                  </View>
-                </View>
-              </>
-            ) : (
-              <Text style={styles.emptyText}>Geen aankomende optredens</Text>
-            )}
-          </View>
-        </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.widget}
@@ -613,5 +599,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700" as const,
   },
-
+  announcementName: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginBottom: 10,
+  },
+  announcementDescription: {
+    fontSize: 15,
+    color: Colors.light.text,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  announcementDateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.surfaceLight,
+  },
+  announcementDateText: {
+    fontSize: 13,
+    color: Colors.light.muted,
+    fontWeight: "600" as const,
+  },
 });
