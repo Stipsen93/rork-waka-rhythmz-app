@@ -24,13 +24,21 @@ export default function AssignmentsScreen() {
     const maxDays = 30;
     let daysChecked = 0;
     
+    console.log('[Dashboard] Getting next practice date');
+    console.log('[Dashboard] Today:', today.toISOString());
+    console.log('[Dashboard] Cancelled dates:', practiceSchedule.cancelledDates);
+    console.log('[Dashboard] Trainings:', practiceSchedule.trainings);
+    
     while (daysChecked < maxDays) {
       const dayOfWeek = currentDate.getDay();
       const dateStr = currentDate.toISOString().split('T')[0];
       
+      console.log('[Dashboard] Checking date:', dateStr, 'dayOfWeek:', dayOfWeek);
+      
       const trainingsOnDay = practiceSchedule.trainings?.filter(t => t.dayOfWeek === dayOfWeek) || [];
       
       if (trainingsOnDay.length > 0) {
+        console.log('[Dashboard] Found trainings on:', dateStr, trainingsOnDay);
         return {
           date: currentDate,
           dateStr: dateStr,
@@ -42,6 +50,7 @@ export default function AssignmentsScreen() {
       daysChecked++;
     }
     
+    console.log('[Dashboard] No next practice found');
     return null;
   };
 
@@ -205,9 +214,19 @@ export default function AssignmentsScreen() {
             {nextPractice ? (
               <>
                 {(() => {
+                  console.log('[Dashboard Badge] Checking if cancelled');
+                  console.log('[Dashboard Badge] nextPractice.dateStr:', nextPractice.dateStr);
+                  console.log('[Dashboard Badge] cancelledDates:', practiceSchedule.cancelledDates);
+                  
                   const isCancelled = practiceSchedule.cancelledDates.some(
-                    cd => cd.date === nextPractice.dateStr
+                    cd => {
+                      console.log('[Dashboard Badge] Comparing:', cd.date, '===', nextPractice.dateStr, '?', cd.date === nextPractice.dateStr);
+                      return cd.date === nextPractice.dateStr;
+                    }
                   );
+                  
+                  console.log('[Dashboard Badge] isCancelled result:', isCancelled);
+                  
                   const cancelledInfo = practiceSchedule.cancelledDates.find(
                     cd => cd.date === nextPractice.dateStr
                   );
