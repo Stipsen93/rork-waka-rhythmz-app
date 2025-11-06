@@ -1,9 +1,9 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
-import { Clock, Video, Music, Calendar, Users, AlertCircle, CheckCircle } from "lucide-react-native";
+import { Clock, Video, Music, Calendar, Users, AlertCircle, CheckCircle, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
@@ -14,13 +14,14 @@ export default function AssignmentsScreen() {
   const recentMedia = getRecentMedia();
   const nextAssignment = assignments[0];
   const nextPerformance = performances[0];
+  const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
 
   const getNextPracticeStatus = () => {
     const today = new Date();
     const todayDay = today.getDay();
     
     const todayDateStr = today.toISOString().split('T')[0];
-    const isCancelled = practiceSchedule.cancelledDates.includes(todayDateStr);
+    const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === todayDateStr);
     
     if (isCancelled) {
       return { status: "cancelled" as const, text: "Oefening gaat niet door", color: "#DC2626" };
@@ -36,6 +37,27 @@ export default function AssignmentsScreen() {
   };
 
   const practiceStatus = getNextPracticeStatus();
+
+  const getUpcomingCancelledPractices = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return practiceSchedule.cancelledDates
+      .filter(cd => new Date(cd.date) >= today)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  const upcomingCancelled = getUpcomingCancelledPractices();
+  const nextCancelled = upcomingCancelled[0];
+  const additionalCancelled = upcomingCancelled.length - 1;
+
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('nl-NL', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="assignments-screen">
@@ -197,7 +219,63 @@ export default function AssignmentsScreen() {
             </View>
           </View>
         </TouchableOpacity>
+
+        {nextCancelled && (
+          <TouchableOpacity 
+            style={styles.widget}
+            onPress={() => setCancelledModalOpen(true)}
+            testID="cancelled-practices-widget"
+          >
+            <View style={styles.widgetHeader}>
+              <View style={[styles.widgetIconContainer, { backgroundColor: Colors.light.error + "20" }]}>
+                <AlertCircle color={Colors.light.error} size={20} strokeWidth={2.5} />
+              </View>
+              <Text style={styles.widgetTitle}>Geannuleerde Trainingen</Text>
+              {additionalCancelled > 0 && (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>+{additionalCancelled}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.widgetContent}>
+              <Text style={styles.cancelledDateText}>{formatDate(nextCancelled.date)}</Text>
+              {nextCancelled.reason && (
+                <Text style={styles.cancelledReasonText}>{nextCancelled.reason}</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      <Modal
+        visible={cancelledModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setCancelledModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Geannuleerde Trainingen</Text>
+              <TouchableOpacity onPress={() => setCancelledModalOpen(false)}>
+                <X color={Colors.light.text} size={24} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScroll}>
+              {upcomingCancelled.map((cancelled, index) => (
+                <View key={cancelled.date} style={styles.modalItem}>
+                  <View style={styles.modalItemHeader}>
+                    <Text style={styles.modalItemDate}>{formatDate(cancelled.date)}</Text>
+                  </View>
+                  {cancelled.reason && (
+                    <Text style={styles.modalItemReason}>{cancelled.reason}</Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -404,5 +482,76 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 14,
     fontWeight: "500" as const,
+  },
+  countBadge: {
+    backgroundColor: Colors.light.error,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  countBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  cancelledDateText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: "700" as const,
+    marginBottom: 6,
+  },
+  cancelledReasonText: {
+    color: Colors.light.muted,
+    fontSize: 14,
+    fontStyle: "italic" as const,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.light.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "800" as const,
+    color: Colors.light.text,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  modalItem: {
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.error,
+  },
+  modalItemHeader: {
+    marginBottom: 8,
+  },
+  modalItemDate: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+  },
+  modalItemReason: {
+    fontSize: 14,
+    color: Colors.light.muted,
+    fontStyle: "italic" as const,
   },
 });

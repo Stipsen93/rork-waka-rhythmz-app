@@ -76,9 +76,15 @@ export interface PracticeDay {
   time: string;
 }
 
+export interface CancelledPractice {
+  date: string;
+  reason?: string;
+}
+
 export interface PracticeSchedule {
   regularDays: PracticeDay[];
-  cancelledDates: string[];
+  location: string;
+  cancelledDates: CancelledPractice[];
   isActive: boolean;
 }
 
@@ -203,6 +209,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       { dayOfWeek: 2, time: "19:00" },
       { dayOfWeek: 4, time: "19:00" },
     ],
+    location: "Zaal 3",
     cancelledDates: [],
     isActive: true,
   });
