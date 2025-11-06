@@ -19,7 +19,7 @@ export default function RepetitieScreen() {
   const insets = useSafeAreaInsets();
   const { practiceSchedule, updatePracticeSchedule, currentUser } = useAppState();
   
-  const [trainings, setTrainings] = useState<Training[]>(practiceSchedule.trainings);
+  const [trainings, setTrainings] = useState<Training[]>(practiceSchedule.trainings || []);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedCancelOption, setSelectedCancelOption] = useState<CancelOption | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
