@@ -110,6 +110,8 @@ export interface AppStateValue {
   deleteFolders: (folderIds: string[], path: string[]) => void;
   assignments: Assignment[];
   addAssignment: (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => void;
+  updateAssignment: (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => void;
+  deleteAssignments: (ids: string[]) => void;
   events: CalendarEvent[];
   performances: Performance[];
   addPerformance: (perf: Omit<Performance, 'id'>) => void;
@@ -365,6 +367,15 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setAssignments((prev) => [newAssignment, ...prev]);
   }, []);
 
+  const updateAssignment = useCallback((id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => {
+    setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, ...assignment } : a)));
+  }, []);
+
+  const deleteAssignments = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setAssignments((prev) => prev.filter((a) => !idSet.has(a.id)));
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -378,6 +389,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     deleteFolders,
     assignments,
     addAssignment,
+    updateAssignment,
+    deleteAssignments,
     events,
     performances,
     addPerformance,

@@ -1,24 +1,24 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState } from "react";
-import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText } from "lucide-react-native";
+import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2 } from "lucide-react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
-function AddAssignmentModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { addAssignment, users } = useAppState();
+function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
+  const { addAssignment, updateAssignment, users } = useAppState();
   const insets = useSafeAreaInsets();
-  const [title, setTitle] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [dueDate, setDueDate] = useState<Date>(new Date());
+  const [title, setTitle] = useState<string>(editingAssignment?.title ?? "");
+  const [description, setDescription] = useState<string>(editingAssignment?.description ?? "");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(editingAssignment?.assignedUserIds ?? []);
+  const [dueDate, setDueDate] = useState<Date>(editingAssignment?.dueDate ? new Date(editingAssignment.dueDate) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [mediaUri, setMediaUri] = useState<string>("");
-  const [mediaType, setMediaType] = useState<'video' | 'image' | 'audio' | undefined>(undefined);
+  const [mediaUri, setMediaUri] = useState<string>(editingAssignment?.mediaUri ?? "");
+  const [mediaType, setMediaType] = useState<'video' | 'image' | 'audio' | undefined>(editingAssignment?.mediaType);
 
   const resetForm = () => {
     setTitle("");
@@ -35,16 +35,28 @@ function AddAssignmentModal({ visible, onClose }: { visible: boolean; onClose: (
       return;
     }
 
-    addAssignment({
-      title: title.trim(),
-      description: description.trim(),
-      assignedUserIds: selectedUserIds,
-      dueDate: dueDate.toISOString(),
-      mediaUri: mediaUri.trim() || undefined,
-      mediaType,
-    });
+    if (editingAssignment) {
+      updateAssignment(editingAssignment.id, {
+        title: title.trim(),
+        description: description.trim(),
+        assignedUserIds: selectedUserIds,
+        dueDate: dueDate.toISOString(),
+        mediaUri: mediaUri.trim() || undefined,
+        mediaType,
+      });
+      Alert.alert("Succes", "Huiswerk opdracht is bijgewerkt!");
+    } else {
+      addAssignment({
+        title: title.trim(),
+        description: description.trim(),
+        assignedUserIds: selectedUserIds,
+        dueDate: dueDate.toISOString(),
+        mediaUri: mediaUri.trim() || undefined,
+        mediaType,
+      });
+      Alert.alert("Succes", "Huiswerk opdracht is toegevoegd!");
+    }
 
-    Alert.alert("Succes", "Huiswerk opdracht is toegevoegd!");
     resetForm();
     onClose();
   };
@@ -75,7 +87,7 @@ function AddAssignmentModal({ visible, onClose }: { visible: boolean; onClose: (
       <View style={localStyles.modalOverlay}>
         <View style={[localStyles.modalContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
           <View style={localStyles.modalHeader}>
-            <Text style={localStyles.modalTitle}>Nieuwe Opdracht</Text>
+            <Text style={localStyles.modalTitle}>{editingAssignment ? "Opdracht Bewerken" : "Nieuwe Opdracht"}</Text>
             <Pressable onPress={onClose}>
               <X color={Colors.light.text} size={28} strokeWidth={2.5} />
             </Pressable>
@@ -225,7 +237,7 @@ function AddAssignmentModal({ visible, onClose }: { visible: boolean; onClose: (
               onPress={handleSubmit}
             >
               <Plus color={Colors.light.text} size={20} strokeWidth={2.5} />
-              <Text style={localStyles.submitButtonText}>Opdracht Toevoegen</Text>
+              <Text style={localStyles.submitButtonText}>{editingAssignment ? "Opdracht Bijwerken" : "Opdracht Toevoegen"}</Text>
             </Pressable>
           </ScrollView>
         </View>
@@ -234,7 +246,7 @@ function AddAssignmentModal({ visible, onClose }: { visible: boolean; onClose: (
   );
 }
 
-function AssignmentCard({ assignment }: { assignment: Assignment }) {
+function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectionMode }: { assignment: Assignment; onPress: () => void; onLongPress: () => void; isSelected: boolean; selectionMode: boolean }) {
   const { users } = useAppState();
 
   const getMediaIcon = () => {
@@ -266,8 +278,22 @@ function AssignmentCard({ assignment }: { assignment: Assignment }) {
     : "Alle leden";
 
   return (
-    <View style={styles.assignmentCard}>
-      <View style={styles.assignmentHeader}>
+    <TouchableOpacity 
+      style={[styles.assignmentCard, isSelected && styles.cardSelected]} 
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.7}
+    >
+      {selectionMode && (
+        <View style={styles.checkboxContainer}>
+          {isSelected ? (
+            <CheckCircle2 color={Colors.light.primary} size={24} strokeWidth={2.5} />
+          ) : (
+            <View style={styles.checkboxEmpty} />
+          )}
+        </View>
+      )}
+      <View style={[styles.assignmentHeader, !selectionMode && styles.assignmentFullWidth]}>
         <Text style={styles.assignmentTitle}>{assignment.title}</Text>
         {assignment.mediaType && (
           <View style={styles.mediaIconContainer}>
@@ -295,14 +321,18 @@ function AssignmentCard({ assignment }: { assignment: Assignment }) {
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 export default function HuiswerkScreen() {
   const insets = useSafeAreaInsets();
-  const { assignments, currentUser } = useAppState();
+  const { assignments, currentUser, deleteAssignments } = useAppState();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | undefined>(undefined);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <>
@@ -319,33 +349,145 @@ export default function HuiswerkScreen() {
               <Text style={styles.emptyText}>Nog geen huiswerk opdrachten</Text>
             </View>
           ) : (
-            assignments.map(assignment => (
-              <AssignmentCard key={assignment.id} assignment={assignment} />
-            ))
+            assignments.map(assignment => {
+              const isSelected = selectedIds.has(assignment.id);
+              return (
+                <AssignmentCard 
+                  key={assignment.id} 
+                  assignment={assignment}
+                  isSelected={isSelected}
+                  selectionMode={selectionMode}
+                  onPress={() => {
+                    if (selectionMode) {
+                      setSelectedIds((prev) => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(assignment.id)) {
+                          newSet.delete(assignment.id);
+                        } else {
+                          newSet.add(assignment.id);
+                        }
+                        return newSet;
+                      });
+                    } else {
+                      setEditingAssignment(assignment);
+                      setShowAddModal(true);
+                    }
+                  }}
+                  onLongPress={() => {
+                    if (!selectionMode && currentUser?.role === "admin") {
+                      setSelectionMode(true);
+                      setSelectedIds(new Set([assignment.id]));
+                    }
+                  }}
+                />
+              );
+            })
           )}
         </ScrollView>
       </View>
 
       {currentUser?.role === "admin" && (
         <>
-          <Pressable 
-            style={[styles.fab, { bottom: insets.bottom + 20 }]} 
-            onPress={() => setShowAddModal(true)}
-          >
-            <LinearGradient
-              colors={[Colors.light.primary, '#B91C1C']}
-              style={styles.fabGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          {selectionMode ? (
+            <View style={[styles.selectionBar, { bottom: insets.bottom + 20 }]}>
+              <TouchableOpacity
+                style={styles.selectionButton}
+                onPress={() => {
+                  setSelectionMode(false);
+                  setSelectedIds(new Set());
+                }}
+              >
+                <Text style={styles.selectionButtonText}>Annuleren</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteButton, selectedIds.size === 0 && styles.disabledDeleteButton]}
+                onPress={() => {
+                  if (selectedIds.size === 0) return;
+                  setShowDeleteConfirm(true);
+                }}
+                disabled={selectedIds.size === 0}
+              >
+                <Trash2 color={selectedIds.size > 0 ? Colors.light.text : Colors.light.muted} size={20} strokeWidth={2.5} />
+                <Text style={[styles.deleteButtonText, selectedIds.size === 0 && styles.disabledDeleteText]}>
+                  Verwijderen ({selectedIds.size})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Pressable 
+              style={[styles.fab, { bottom: insets.bottom + 20 }]} 
+              onPress={() => {
+                setEditingAssignment(undefined);
+                setShowAddModal(true);
+              }}
             >
-              <Plus color={Colors.light.text} size={28} strokeWidth={3} />
-            </LinearGradient>
-          </Pressable>
+              <LinearGradient
+                colors={[Colors.light.primary, '#B91C1C']}
+                style={styles.fabGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Plus color={Colors.light.text} size={28} strokeWidth={3} />
+              </LinearGradient>
+            </Pressable>
+          )}
 
           <AddAssignmentModal
             visible={showAddModal}
-            onClose={() => setShowAddModal(false)}
+            onClose={() => {
+              setShowAddModal(false);
+              setEditingAssignment(undefined);
+            }}
+            editingAssignment={editingAssignment}
           />
+
+          <Modal
+            visible={showDeleteConfirm}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDeleteConfirm(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContentSmall}>
+                <View style={styles.modalHeaderSmall}>
+                  <Text style={styles.modalTitleSmall}>Bevestigen</Text>
+                </View>
+                
+                <Text style={styles.confirmText}>
+                  Weet je het zeker om {selectedIds.size} {selectedIds.size === 1 ? 'opdracht' : 'opdrachten'} te verwijderen?
+                </Text>
+
+                <View style={styles.modalActions}>
+                  <Pressable
+                    style={[styles.actionButton, styles.cancelButton]}
+                    onPress={() => setShowDeleteConfirm(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Annuleren</Text>
+                  </Pressable>
+                  
+                  <Pressable
+                    style={[styles.actionButton]}
+                    onPress={() => {
+                      deleteAssignments(Array.from(selectedIds));
+                      setSelectionMode(false);
+                      setSelectedIds(new Set());
+                      setShowDeleteConfirm(false);
+                    }}
+                  >
+                    <LinearGradient
+                      colors={['#DC2626', '#991B1B']}
+                      style={styles.createButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text style={styles.createButtonText}>Verwijderen</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </>
       )}
     </>
@@ -391,17 +533,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
     gap: 12,
+    flexDirection: 'row',
   },
   assignmentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flex: 1,
+    gap: 12,
+  },
+  assignmentFullWidth: {
+    flex: 1,
   },
   assignmentTitle: {
     fontSize: 18,
     fontWeight: "700" as const,
     color: Colors.light.text,
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   mediaIconContainer: {
     width: 36,
@@ -410,6 +557,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 10,
   },
   assignmentDescription: {
     fontSize: 14,
@@ -448,6 +596,139 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
+  },
+  cardSelected: {
+    borderColor: Colors.light.primary,
+    borderWidth: 2,
+    shadowColor: Colors.light.primary,
+    shadowOpacity: 0.3,
+  },
+  checkboxContainer: {
+    marginRight: 12,
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+  },
+  checkboxEmpty: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
+  },
+  selectionBar: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  selectionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  selectionButtonText: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 12,
+  },
+  disabledDeleteButton: {
+    backgroundColor: Colors.light.darkGray,
+  },
+  deleteButtonText: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  disabledDeleteText: {
+    color: Colors.light.muted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContentSmall: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  modalHeaderSmall: {
+    marginBottom: 16,
+  },
+  modalTitleSmall: {
+    color: Colors.light.text,
+    fontSize: 24,
+    fontWeight: '800' as const,
+  },
+  confirmText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cancelButton: {
+    backgroundColor: Colors.light.darkGray,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  createButtonGradient: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });
 
