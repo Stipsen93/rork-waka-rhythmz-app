@@ -1,44 +1,125 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
-import { Bell, ChevronDown, ChevronUp, Clock, Newspaper, FileText, Calendar, AlertCircle } from "lucide-react-native";
+import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
+
+type TimeOption = { label: string; hours: number };
+
+const TIME_OPTIONS: TimeOption[] = [
+  { label: "1 uur", hours: 1 },
+  { label: "2 uur", hours: 2 },
+  { label: "3 uur", hours: 3 },
+  { label: "6 uur", hours: 6 },
+  { label: "12 uur", hours: 12 },
+  { label: "24 uur", hours: 24 },
+  { label: "48 uur", hours: 48 },
+  { label: "3 dagen", hours: 72 },
+  { label: "7 dagen", hours: 168 },
+];
 
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
   const { notificationSettings, updateNotificationSettings } = useAppState();
   
   const [newsEnabled, setNewsEnabled] = useState<boolean>(notificationSettings.newsEnabled);
-  const [newsHoursAdvance, setNewsHoursAdvance] = useState<string>(notificationSettings.newsHoursAdvance.toString());
+  const [newsReminders, setNewsReminders] = useState<number[]>([notificationSettings.newsHoursAdvance]);
   
   const [assignmentsEnabled, setAssignmentsEnabled] = useState<boolean>(notificationSettings.assignmentsEnabled);
+  const [assignmentsReminders, setAssignmentsReminders] = useState<number[]>([notificationSettings.newsHoursAdvance]);
   
   const [trainingCancellationEnabled, setTrainingCancellationEnabled] = useState<boolean>(notificationSettings.trainingCancellationEnabled);
-  const [trainingHoursAdvance, setTrainingHoursAdvance] = useState<string>(notificationSettings.trainingHoursAdvance.toString());
+  const [trainingReminders, setTrainingReminders] = useState<number[]>([notificationSettings.trainingHoursAdvance]);
   
   const [performancesEnabled, setPerformancesEnabled] = useState<boolean>(notificationSettings.performancesEnabled);
-  const [performancesHoursAdvance, setPerformancesHoursAdvance] = useState<string>(notificationSettings.performancesHoursAdvance.toString());
+  const [performancesReminders, setPerformancesReminders] = useState<number[]>([notificationSettings.performancesHoursAdvance]);
 
-  const [showNewsTime, setShowNewsTime] = useState<boolean>(false);
-  const [showTrainingTime, setShowTrainingTime] = useState<boolean>(false);
-  const [showPerformanceTime, setShowPerformanceTime] = useState<boolean>(false);
+  const [showDropdown, setShowDropdown] = useState<string | null>(null);
+
+  const getTimeLabel = (hours: number): string => {
+    const option = TIME_OPTIONS.find(opt => opt.hours === hours);
+    return option ? option.label : `${hours} uur`;
+  };
+
+  const addReminder = (type: 'news' | 'assignments' | 'training' | 'performances') => {
+    switch(type) {
+      case 'news':
+        setNewsReminders([...newsReminders, 24]);
+        break;
+      case 'assignments':
+        setAssignmentsReminders([...assignmentsReminders, 24]);
+        break;
+      case 'training':
+        setTrainingReminders([...trainingReminders, 2]);
+        break;
+      case 'performances':
+        setPerformancesReminders([...performancesReminders, 48]);
+        break;
+    }
+  };
+
+  const removeReminder = (type: 'news' | 'assignments' | 'training' | 'performances', index: number) => {
+    switch(type) {
+      case 'news':
+        if (newsReminders.length > 1) {
+          setNewsReminders(newsReminders.filter((_, i) => i !== index));
+        }
+        break;
+      case 'assignments':
+        if (assignmentsReminders.length > 1) {
+          setAssignmentsReminders(assignmentsReminders.filter((_, i) => i !== index));
+        }
+        break;
+      case 'training':
+        if (trainingReminders.length > 1) {
+          setTrainingReminders(trainingReminders.filter((_, i) => i !== index));
+        }
+        break;
+      case 'performances':
+        if (performancesReminders.length > 1) {
+          setPerformancesReminders(performancesReminders.filter((_, i) => i !== index));
+        }
+        break;
+    }
+  };
+
+  const updateReminder = (type: 'news' | 'assignments' | 'training' | 'performances', index: number, hours: number) => {
+    switch(type) {
+      case 'news':
+        const newNewsReminders = [...newsReminders];
+        newNewsReminders[index] = hours;
+        setNewsReminders(newNewsReminders);
+        break;
+      case 'assignments':
+        const newAssignmentsReminders = [...assignmentsReminders];
+        newAssignmentsReminders[index] = hours;
+        setAssignmentsReminders(newAssignmentsReminders);
+        break;
+      case 'training':
+        const newTrainingReminders = [...trainingReminders];
+        newTrainingReminders[index] = hours;
+        setTrainingReminders(newTrainingReminders);
+        break;
+      case 'performances':
+        const newPerformancesReminders = [...performancesReminders];
+        newPerformancesReminders[index] = hours;
+        setPerformancesReminders(newPerformancesReminders);
+        break;
+    }
+  };
 
   const saveSettings = () => {
-    const newsHours = parseInt(newsHoursAdvance) || 24;
-    const trainingHours = parseInt(trainingHoursAdvance) || 2;
-    const performanceHours = parseInt(performancesHoursAdvance) || 48;
-
     updateNotificationSettings({
       newsEnabled,
-      newsHoursAdvance: newsHours,
+      newsHoursAdvance: newsReminders[0] || 24,
       assignmentsEnabled,
       trainingCancellationEnabled,
-      trainingHoursAdvance: trainingHours,
+      trainingHoursAdvance: trainingReminders[0] || 2,
       performancesEnabled,
-      performancesHoursAdvance: performanceHours,
+      performancesHoursAdvance: performancesReminders[0] || 48,
     });
 
     Alert.alert("Opgeslagen", "Notificatie-instellingen zijn bijgewerkt");
@@ -78,30 +159,34 @@ export default function MeldingenScreen() {
             {newsEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding wanneer er een nieuwsbericht wordt geplaatst</Text>
-                <TouchableOpacity
-                  style={styles.timeSelector}
-                  onPress={() => setShowNewsTime(!showNewsTime)}
-                >
-                  <View style={styles.timeSelectorLeft}>
-                    <Clock color={Colors.light.muted} size={18} strokeWidth={2} />
-                    <Text style={styles.timeSelectorText}>Uren van tevoren: {newsHoursAdvance}</Text>
-                  </View>
-                  {showNewsTime ? (
-                    <ChevronUp color={Colors.light.muted} size={20} />
-                  ) : (
-                    <ChevronDown color={Colors.light.muted} size={20} />
-                  )}
-                </TouchableOpacity>
-                {showNewsTime && (
-                  <TextInput
-                    style={styles.hoursInput}
-                    value={newsHoursAdvance}
-                    onChangeText={setNewsHoursAdvance}
-                    keyboardType="number-pad"
-                    placeholder="24"
-                    placeholderTextColor={Colors.light.muted}
-                  />
-                )}
+                <View style={styles.remindersContainer}>
+                  <Text style={styles.remindersTitle}>Herinneringen:</Text>
+                  {newsReminders.map((hours, index) => (
+                    <View key={index} style={styles.reminderRow}>
+                      <TouchableOpacity
+                        style={styles.timeSelector}
+                        onPress={() => setShowDropdown(`news-${index}`)}
+                      >
+                        <Text style={styles.timeSelectorText}>{getTimeLabel(hours)} van tevoren</Text>
+                      </TouchableOpacity>
+                      {newsReminders.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => removeReminder('news', index)}
+                        >
+                          <X color={Colors.light.primaryDark} size={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => addReminder('news')}
+                  >
+                    <Plus color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.addButtonText}>Herinnering toevoegen</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -123,6 +208,34 @@ export default function MeldingenScreen() {
             {assignmentsEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding wanneer er een nieuwe huiswerkopdracht is</Text>
+                <View style={styles.remindersContainer}>
+                  <Text style={styles.remindersTitle}>Herinneringen:</Text>
+                  {assignmentsReminders.map((hours, index) => (
+                    <View key={index} style={styles.reminderRow}>
+                      <TouchableOpacity
+                        style={styles.timeSelector}
+                        onPress={() => setShowDropdown(`assignments-${index}`)}
+                      >
+                        <Text style={styles.timeSelectorText}>{getTimeLabel(hours)} van tevoren</Text>
+                      </TouchableOpacity>
+                      {assignmentsReminders.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => removeReminder('assignments', index)}
+                        >
+                          <X color={Colors.light.primaryDark} size={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => addReminder('assignments')}
+                  >
+                    <Plus color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.addButtonText}>Herinnering toevoegen</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -144,30 +257,34 @@ export default function MeldingenScreen() {
             {trainingCancellationEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding over trainingen die wel of niet doorgaan</Text>
-                <TouchableOpacity
-                  style={styles.timeSelector}
-                  onPress={() => setShowTrainingTime(!showTrainingTime)}
-                >
-                  <View style={styles.timeSelectorLeft}>
-                    <Clock color={Colors.light.muted} size={18} strokeWidth={2} />
-                    <Text style={styles.timeSelectorText}>Uren van tevoren: {trainingHoursAdvance}</Text>
-                  </View>
-                  {showTrainingTime ? (
-                    <ChevronUp color={Colors.light.muted} size={20} />
-                  ) : (
-                    <ChevronDown color={Colors.light.muted} size={20} />
-                  )}
-                </TouchableOpacity>
-                {showTrainingTime && (
-                  <TextInput
-                    style={styles.hoursInput}
-                    value={trainingHoursAdvance}
-                    onChangeText={setTrainingHoursAdvance}
-                    keyboardType="number-pad"
-                    placeholder="2"
-                    placeholderTextColor={Colors.light.muted}
-                  />
-                )}
+                <View style={styles.remindersContainer}>
+                  <Text style={styles.remindersTitle}>Herinneringen:</Text>
+                  {trainingReminders.map((hours, index) => (
+                    <View key={index} style={styles.reminderRow}>
+                      <TouchableOpacity
+                        style={styles.timeSelector}
+                        onPress={() => setShowDropdown(`training-${index}`)}
+                      >
+                        <Text style={styles.timeSelectorText}>{getTimeLabel(hours)} van tevoren</Text>
+                      </TouchableOpacity>
+                      {trainingReminders.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => removeReminder('training', index)}
+                        >
+                          <X color={Colors.light.primaryDark} size={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => addReminder('training')}
+                  >
+                    <Plus color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.addButtonText}>Herinnering toevoegen</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -189,30 +306,34 @@ export default function MeldingenScreen() {
             {performancesEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding over aankomende optredens</Text>
-                <TouchableOpacity
-                  style={styles.timeSelector}
-                  onPress={() => setShowPerformanceTime(!showPerformanceTime)}
-                >
-                  <View style={styles.timeSelectorLeft}>
-                    <Clock color={Colors.light.muted} size={18} strokeWidth={2} />
-                    <Text style={styles.timeSelectorText}>Uren van tevoren: {performancesHoursAdvance}</Text>
-                  </View>
-                  {showPerformanceTime ? (
-                    <ChevronUp color={Colors.light.muted} size={20} />
-                  ) : (
-                    <ChevronDown color={Colors.light.muted} size={20} />
-                  )}
-                </TouchableOpacity>
-                {showPerformanceTime && (
-                  <TextInput
-                    style={styles.hoursInput}
-                    value={performancesHoursAdvance}
-                    onChangeText={setPerformancesHoursAdvance}
-                    keyboardType="number-pad"
-                    placeholder="48"
-                    placeholderTextColor={Colors.light.muted}
-                  />
-                )}
+                <View style={styles.remindersContainer}>
+                  <Text style={styles.remindersTitle}>Herinneringen:</Text>
+                  {performancesReminders.map((hours, index) => (
+                    <View key={index} style={styles.reminderRow}>
+                      <TouchableOpacity
+                        style={styles.timeSelector}
+                        onPress={() => setShowDropdown(`performances-${index}`)}
+                      >
+                        <Text style={styles.timeSelectorText}>{getTimeLabel(hours)} van tevoren</Text>
+                      </TouchableOpacity>
+                      {performancesReminders.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => removeReminder('performances', index)}
+                        >
+                          <X color={Colors.light.primaryDark} size={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => addReminder('performances')}
+                  >
+                    <Plus color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.addButtonText}>Herinnering toevoegen</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -229,6 +350,41 @@ export default function MeldingenScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </ScrollView>
+
+        <Modal
+          visible={showDropdown !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDropdown(null)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowDropdown(null)}
+          >
+            <View style={styles.dropdownModal}>
+              <Text style={styles.dropdownTitle}>Selecteer tijd</Text>
+              <ScrollView style={styles.dropdownScroll}>
+                {TIME_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.hours}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      if (showDropdown) {
+                        const [type, indexStr] = showDropdown.split('-');
+                        const index = parseInt(indexStr);
+                        updateReminder(type as 'news' | 'assignments' | 'training' | 'performances', index, option.hours);
+                      }
+                      setShowDropdown(null);
+                    }}
+                  >
+                    <Text style={styles.dropdownOptionText}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     </>
   );
@@ -338,25 +494,89 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
   },
-  timeSelectorLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
   timeSelectorText: {
     fontSize: 15,
     fontWeight: "600" as const,
     color: Colors.light.text,
   },
-  hoursInput: {
+  remindersContainer: {
+    gap: 10,
+  },
+  remindersTitle: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginTop: 4,
+  },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: Colors.light.darkGray,
-    borderRadius: 12,
-    padding: 14,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
+  },
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.darkGray,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    borderStyle: "dashed" as const,
+    marginTop: 4,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.light.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropdownModal: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 20,
+    padding: 20,
+    width: "80%",
+    maxHeight: "70%",
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
     color: Colors.light.text,
+    marginBottom: 16,
+  },
+  dropdownScroll: {
+    maxHeight: 400,
+  },
+  dropdownOption: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: Colors.light.darkGray,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  dropdownOptionText: {
     fontSize: 15,
     fontWeight: "600" as const,
+    color: Colors.light.text,
+    textAlign: "center" as const,
   },
   saveButton: {
     borderRadius: 14,
