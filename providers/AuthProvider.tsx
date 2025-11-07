@@ -38,9 +38,45 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
-
-      if (data) {
+      if (error) {
+        console.error('[AuthProvider] Profile not found, checking auth metadata');
+        
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user?.user_metadata?.username) {
+          console.log('[AuthProvider] Creating profile from auth metadata');
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              username: userData.user.user_metadata.username,
+              role: userData.user.user_metadata.role || 'member',
+              password_changed_by_user: false,
+            });
+          
+          if (insertError) {
+            console.error('[AuthProvider] Error creating profile:', insertError);
+            throw insertError;
+          }
+          
+          const { data: newData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+          
+          if (newData) {
+            setProfile({
+              id: newData.id,
+              username: newData.username,
+              role: newData.role as Role,
+              passwordChangedByUser: newData.password_changed_by_user,
+            });
+            console.log('[AuthProvider] Profile created and loaded:', newData.username, newData.role);
+          }
+        } else {
+          throw error;
+        }
+      } else if (data) {
         setProfile({
           id: data.id,
           username: data.username,
