@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2 } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
@@ -26,14 +26,13 @@ export default function RepetitieScreen() {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [selectedCancelDates, setSelectedCancelDates] = useState<string[]>([]);
   const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
-  const [currentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempHour, setTempHour] = useState(19);
   const [tempMinute, setTempMinute] = useState(0);
   const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
   const [lockedTrainings, setLockedTrainings] = useState<Set<string>>(new Set());
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -230,6 +229,22 @@ export default function RepetitieScreen() {
     setSelectedCancelOption(null);
   };
 
+  const goToPreviousCalendarMonth = () => {
+    setCurrentMonth(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() - 1);
+      return newDate;
+    });
+  };
+
+  const goToNextCalendarMonth = () => {
+    setCurrentMonth(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + 1);
+      return newDate;
+    });
+  };
+
   const renderCalendarModal = () => {
     const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(currentMonth);
     const monthName = currentMonth.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
@@ -251,7 +266,15 @@ export default function RepetitieScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.calendarModal}>
-            <Text style={styles.calendarTitle}>{monthName}</Text>
+            <View style={styles.calendarTitleContainer}>
+              <TouchableOpacity onPress={goToPreviousCalendarMonth} style={styles.calendarNavButton}>
+                <ChevronLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={styles.calendarTitle}>{monthName}</Text>
+              <TouchableOpacity onPress={goToNextCalendarMonth} style={styles.calendarNavButton}>
+                <ChevronRight color={Colors.light.primary} size={24} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.calendarHeader}>
               {WEEKDAYS.map(day => (
@@ -683,7 +706,6 @@ export default function RepetitieScreen() {
       <MenuModal 
         visible={showMenuModal} 
         onClose={() => setShowMenuModal(false)} 
-        onAdminPress={() => setShowAdminModal(true)}
       />
     </>
   );
@@ -975,12 +997,21 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
   },
+  calendarTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  calendarNavButton: {
+    padding: 8,
+  },
   calendarTitle: {
     fontSize: 20,
     fontWeight: "700" as const,
     color: Colors.light.text,
     textAlign: "center",
-    marginBottom: 20,
+    flex: 1,
   },
   calendarHeader: {
     flexDirection: "row",
