@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 32,
     fontWeight: "900" as const,
-    color: Colors.light.text,
+    color: "#2196F3",
     letterSpacing: 2,
     marginBottom: 8,
   },
