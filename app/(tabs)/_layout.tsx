@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Role } from "@/providers/AppState";
 
-function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClose: () => void; onAdminPress: () => void }) {
+function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { currentUser } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -53,9 +53,7 @@ function MenuModal({ visible, onClose, onAdminPress }: { visible: boolean; onClo
               style={localStyles.menuItem}
               onPress={() => {
                 onClose();
-                if (typeof onAdminPress === 'function') {
-                  onAdminPress();
-                }
+                router.push("/admin");
               }}
               testID="menu-admin"
             >
@@ -389,8 +387,7 @@ export default function TabLayout() {
       </Tabs>
       <MenuModal 
         visible={showMenuModal} 
-        onClose={() => setShowMenuModal(false)} 
-        onAdminPress={() => setShowAdminModal(true)}
+        onClose={() => setShowMenuModal(false)}
       />
       <AdminModal visible={showAdminModal} onClose={() => setShowAdminModal(false)} />
     </>
