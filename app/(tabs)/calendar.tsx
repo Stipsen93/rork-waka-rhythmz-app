@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment } from "@/providers/AppState";
@@ -180,12 +180,16 @@ export default function CalendarScreen() {
           locations={[0, 0.25, 1]}
         />
         
-        <View style={styles.header}>
-          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-          <Text style={styles.title}>Agenda</Text>
-        </View>
+        <ScrollView 
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+            <Text style={styles.title}>Agenda</Text>
+          </View>
 
-        <View style={styles.calendarContainer}>
+          <View style={styles.calendarContainer}>
           <View style={styles.monthHeader}>
             <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthButton}>
               <ChevronLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
@@ -235,68 +239,67 @@ export default function CalendarScreen() {
               );
             })}
           </View>
-        </View>
+          </View>
 
-        <View style={styles.appointmentsHeader}>
-          <Text style={styles.appointmentsTitle}>{MONTHS[currentDate.getMonth()]} Afspraken</Text>
-          <Text style={styles.appointmentsCount}>{currentMonthAppointments.length}</Text>
-        </View>
+          <View style={styles.appointmentsHeader}>
+            <Text style={styles.appointmentsTitle}>{MONTHS[currentDate.getMonth()]} Afspraken</Text>
+            <Text style={styles.appointmentsCount}>{currentMonthAppointments.length}</Text>
+          </View>
 
-        <FlatList
-          data={currentMonthAppointments}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-          renderItem={({ item }) => {
-            const dateObj = new Date(item.date);
-            const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
-            
-            return (
-              <View style={styles.card}>
-                <View style={styles.cardColorStrip} />
-                <View style={styles.cardContent}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>{item.category}</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <CalendarIcon color={Colors.light.muted} size={14} strokeWidth={2} />
-                      <Text style={styles.metaText}>{formattedDate}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Text style={styles.metaText}>{item.time}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <MapPin color={Colors.light.muted} size={14} strokeWidth={2} />
-                      <Text style={styles.metaText}>{item.location}</Text>
-                    </View>
-                  </View>
-
-                  {item.memberIds.length > 0 && (
-                    <View style={styles.metaRow}>
-                      <View style={styles.metaItem}>
-                        <Users color={Colors.light.muted} size={14} strokeWidth={2} />
-                        <Text style={styles.metaText}>{item.memberIds.length} leden</Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
+          <View style={styles.list}>
+            {currentMonthAppointments.length === 0 ? (
+              <View style={styles.emptyState}>
+                <CalendarIcon color={Colors.light.muted} size={48} strokeWidth={1.5} />
+                <Text style={styles.emptyText}>Nog geen afspraken deze maand</Text>
               </View>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <CalendarIcon color={Colors.light.muted} size={48} strokeWidth={1.5} />
-              <Text style={styles.emptyText}>Nog geen afspraken deze maand</Text>
-            </View>
-          }
-        />
+            ) : (
+              currentMonthAppointments.map((item) => {
+                const dateObj = new Date(item.date);
+                const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
+                
+                return (
+                  <View key={item.id} style={styles.card}>
+                    <View style={styles.cardColorStrip} />
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>{item.name}</Text>
+                        <View style={styles.categoryBadge}>
+                          <Text style={styles.categoryText}>{item.category}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.metaRow}>
+                        <View style={styles.metaItem}>
+                          <CalendarIcon color={Colors.light.muted} size={14} strokeWidth={2} />
+                          <Text style={styles.metaText}>{formattedDate}</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                          <Text style={styles.metaText}>{item.time}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.metaRow}>
+                        <View style={styles.metaItem}>
+                          <MapPin color={Colors.light.muted} size={14} strokeWidth={2} />
+                          <Text style={styles.metaText}>{item.location}</Text>
+                        </View>
+                      </View>
+
+                      {item.memberIds.length > 0 && (
+                        <View style={styles.metaRow}>
+                          <View style={styles.metaItem}>
+                            <Users color={Colors.light.muted} size={14} strokeWidth={2} />
+                            <Text style={styles.metaText}>{item.memberIds.length} leden</Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
 
         <Pressable 
           style={[styles.fab, { bottom: insets.bottom + 20 }]} 
@@ -663,6 +666,9 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: Colors.light.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   headerBg: { 
     position: "absolute", 
