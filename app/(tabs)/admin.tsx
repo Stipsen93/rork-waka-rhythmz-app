@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform } from "react-native";
 import Colors from "@/constants/colors";
-import { Role, useAppState } from "@/providers/AppState";
+import { Role } from "@/providers/AppState";
+import { useProfiles } from "@/hooks/useProfiles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserPlus, Shield, User, RotateCcw } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,10 +10,30 @@ import { LinearGradient } from "expo-linear-gradient";
 
 
 export default function AdminScreen() {
-  const { users, addUser, setRole, resetPassword } = useAppState();
+  const { profiles, isLoading, createUser, updateRole, resetPassword } = useProfiles();
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
   const insets = useSafeAreaInsets();
+
+  const handleCreateUser = async () => {
+    if (!username.trim()) return;
+    
+    try {
+      const result = await createUser({ username: username.trim(), role });
+      Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${result.username}\nWachtwoord: ${result.password}\n\nBewaar dit wachtwoord!`);
+      setUsername("");
+    } catch (error) {
+      Alert.alert("Fout", "Kon account niet aanmaken");
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, newRole: Role) => {
+    try {
+      await updateRole({ userId, role: newRole });
+    } catch (error) {
+      Alert.alert("Fout", "Kon rol niet wijzigen");
+    }
+  };
 
   const handleResetPassword = (userId: string, userName: string) => {
     Alert.alert(
@@ -23,12 +44,16 @@ export default function AdminScreen() {
         {
           text: "Resetten",
           style: "destructive",
-          onPress: () => {
-            const newPassword = resetPassword(userId);
-            Alert.alert(
-              "Wachtwoord Gereset",
-              `Nieuw wachtwoord voor ${userName}:\n${newPassword}\n\nBewaar dit wachtwoord!`
-            );
+          onPress: async () => {
+            try {
+              const result = await resetPassword(userId);
+              Alert.alert(
+                "Wachtwoord Gereset",
+                `Nieuw wachtwoord voor ${userName}:\n${result.password}\n\nBewaar dit wachtwoord!`
+              );
+            } catch (error) {
+              Alert.alert("Fout", "Kon wachtwoord niet resetten");
+            }
           },
         },
       ]
@@ -92,11 +117,7 @@ export default function AdminScreen() {
         <Pressable
           style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
           disabled={!username}
-          onPress={() => {
-            const { user, password } = addUser(username.trim(), role);
-            Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
-            setUsername("");
-          }}
+          onPress={handleCreateUser}
           testID="create-user"
         >
           <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
@@ -106,11 +127,11 @@ export default function AdminScreen() {
 
         <View style={styles.usersSection}>
         <Text style={styles.usersSectionTitle}>
-          Alle Gebruikers ({users.length})
+          Alle Gebruikers ({profiles.length})
         </Text>
         
         <FlatList
-          data={users}
+          data={profiles}
           keyExtractor={(u) => u.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
@@ -127,7 +148,7 @@ export default function AdminScreen() {
                   <Text style={styles.userName}>{item.username}</Text>
                   <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
                   <Text style={styles.userPassword}>
-                    {item.passwordChangedByUser ? "••••••••" : item.password}
+                    {item.passwordChangedByUser ? "••••••••" : "Nog niet ingelogd"}
                   </Text>
                 </View>
               </View>
@@ -142,7 +163,7 @@ export default function AdminScreen() {
                 </Pressable>
                 <Pressable 
                   style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                  onPress={() => setRole(item.id, "member")} 
+                  onPress={() => handleUpdateRole(item.id, "member")} 
                   testID={`make-member-${item.id}`}
                 >
                   <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
@@ -151,7 +172,7 @@ export default function AdminScreen() {
                 </Pressable>
                 <Pressable 
                   style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                  onPress={() => setRole(item.id, "admin")} 
+                  onPress={() => handleUpdateRole(item.id, "admin")} 
                   testID={`make-admin-${item.id}`}
                 >
                   <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>

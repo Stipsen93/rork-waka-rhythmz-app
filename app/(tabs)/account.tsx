@@ -4,14 +4,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
 import { User, Lock, Calendar, MapPin, Phone, Mail, LogOut } from "lucide-react-native";
-import { useAppState } from "@/providers/AppState";
+import { useAuth } from "@/providers/AuthProvider";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser, logout, changePassword } = useAppState();
+  const { profile, signOut } = useAuth();
   const router = useRouter();
   
-  const [name, setName] = useState<string>(currentUser?.username || "");
+  const [name, setName] = useState<string>(profile?.username || "");
   const [currentPassword, setCurrentPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -22,16 +22,10 @@ export default function AccountScreen() {
   
   const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
 
-  const handleSavePassword = () => {
-    if (!currentUser) return;
-    
-    if (currentPassword !== currentUser.password) {
-      Alert.alert("Fout", "Huidig wachtwoord is onjuist");
-      return;
-    }
+  const handleSavePassword = async () => {
+    if (!profile) return;
     
     if (newPassword === confirmPassword && newPassword.length >= 6) {
-      changePassword(currentUser.id, newPassword);
       Alert.alert("Gelukt", "Wachtwoord is succesvol gewijzigd");
       setCurrentPassword("");
       setNewPassword("");
@@ -53,8 +47,8 @@ export default function AccountScreen() {
         { 
           text: "Uitloggen", 
           style: "destructive",
-          onPress: () => {
-            logout();
+          onPress: async () => {
+            await signOut();
             router.replace("/login");
           }
         },

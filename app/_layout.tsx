@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppStateProvider } from "@/providers/AppState";
+import { AuthProvider } from "@/providers/AuthProvider";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
@@ -32,9 +33,11 @@ export default function RootLayout() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={styles.container}>
-          <AppStateProvider>
-            <RootLayoutNav />
-          </AppStateProvider>
+          <AuthProvider>
+            <AppStateProvider>
+              <RootLayoutNav />
+            </AppStateProvider>
+          </AuthProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </trpc.Provider>

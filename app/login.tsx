@@ -5,26 +5,30 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock, Music } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { useAppState } from "@/providers/AppState";
+import { useAuth } from "@/providers/AuthProvider";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const { login } = useAppState();
+  const [loading, setLoading] = useState<boolean>(false);
+  const { signIn } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert("Fout", "Voer gebruikersnaam en wachtwoord in");
       return;
     }
 
-    const success = login(username.trim(), password);
-    if (success) {
+    setLoading(true);
+    const result = await signIn(username.trim(), password);
+    setLoading(false);
+    
+    if (result.success) {
       router.replace("/(tabs)/assignments");
     } else {
-      Alert.alert("Inloggen mislukt", "Gebruikersnaam of wachtwoord is onjuist");
+      Alert.alert("Inloggen mislukt", result.error || "Gebruikersnaam of wachtwoord is onjuist");
     }
   };
 
