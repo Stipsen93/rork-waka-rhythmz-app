@@ -115,6 +115,7 @@ export interface Appointment {
   location: string;
   memberIds: string[];
   createdAt: string;
+  createdBy: string;
 }
 
 export interface NotificationSettings {
@@ -158,8 +159,8 @@ export interface AppStateValue {
   updateAnnouncement: (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => void;
   deleteAnnouncements: (ids: string[]) => void;
   appointments: Appointment[];
-  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => void;
-  updateAppointment: (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => void;
+  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>) => void;
+  updateAppointment: (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>>) => void;
   deleteAppointments: (ids: string[]) => void;
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (settings: NotificationSettings) => void;
@@ -484,16 +485,17 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setAnnouncements((prev) => prev.filter((a) => !idSet.has(a.id)));
   }, []);
 
-  const addAppointment = useCallback((appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
+  const addAppointment = useCallback((appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>) => {
     const newAppointment: Appointment = {
       ...appointment,
       id: genId("ap"),
       createdAt: new Date().toISOString(),
+      createdBy: currentUser?.id ?? '',
     };
     setAppointments((prev) => [...prev, newAppointment].sort((a, b) => 
       new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
     ));
-  }, []);
+  }, [currentUser]);
 
   const updateAppointment = useCallback((id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => {
     setAppointments((prev) => 

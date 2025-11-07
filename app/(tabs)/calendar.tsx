@@ -23,7 +23,7 @@ const parseDateString = (dateStr: string): Date => {
 };
 
 export default function CalendarScreen() {
-  const { appointments, addAppointment, performances, practiceSchedule } = useAppState();
+  const { appointments, addAppointment, performances, practiceSchedule, users } = useAppState();
   const insets = useSafeAreaInsets();
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -274,6 +274,7 @@ export default function CalendarScreen() {
               currentMonthAppointments.map((item) => {
                 const dateObj = parseDateString(item.date);
                 const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
+                const creator = users.find(u => u.id === item.createdBy);
                 
                 return (
                   <View key={item.id} style={styles.card}>
@@ -310,6 +311,10 @@ export default function CalendarScreen() {
                             <Text style={styles.metaText}>{item.memberIds.length} leden</Text>
                           </View>
                         </View>
+                      )}
+                      
+                      {creator && (
+                        <Text style={styles.creatorText}>Toegevoegd door {creator.username}</Text>
                       )}
                     </View>
                   </View>
@@ -1151,5 +1156,11 @@ const styles = StyleSheet.create({
   timePickerTextActive: {
     color: Colors.light.primary,
     fontWeight: '700' as const,
+  },
+  creatorText: {
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '500' as const,
+    marginTop: 4,
   },
 });
