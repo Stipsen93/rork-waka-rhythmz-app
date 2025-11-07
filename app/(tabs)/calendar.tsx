@@ -10,6 +10,18 @@ const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag'];
 
+const formatDateToLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateString = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export default function CalendarScreen() {
   const { appointments, addAppointment, performances, practiceSchedule } = useAppState();
   const insets = useSafeAreaInsets();
@@ -26,7 +38,7 @@ export default function CalendarScreen() {
   }>({
     name: '',
     category: 'Feestje',
-    date: new Date().toISOString().split('T')[0],
+    date: formatDateToLocal(new Date()),
     time: '12:00',
     location: '',
     memberIds: [],
@@ -52,7 +64,7 @@ export default function CalendarScreen() {
       days.push({
         date: prevMonthDay.getDate(),
         isCurrentMonth: false,
-        fullDate: prevMonthDay.toISOString().split('T')[0],
+        fullDate: formatDateToLocal(prevMonthDay),
       });
     }
     
@@ -61,7 +73,7 @@ export default function CalendarScreen() {
       days.push({
         date: i,
         isCurrentMonth: true,
-        fullDate: fullDate.toISOString().split('T')[0],
+        fullDate: formatDateToLocal(fullDate),
       });
     }
     
@@ -71,7 +83,7 @@ export default function CalendarScreen() {
       days.push({
         date: i,
         isCurrentMonth: false,
-        fullDate: nextMonthDay.toISOString().split('T')[0],
+        fullDate: formatDateToLocal(nextMonthDay),
       });
     }
     
@@ -105,7 +117,7 @@ export default function CalendarScreen() {
       let currentDay = new Date(firstDay);
       while (currentDay <= lastDay) {
         if (currentDay.getDay() === training.dayOfWeek) {
-          const dateStr = currentDay.toISOString().split('T')[0];
+          const dateStr = formatDateToLocal(currentDay);
           const isCancelled = practiceSchedule.cancelledDates.some(
             (cancelled) => cancelled.date === dateStr
           );
@@ -125,11 +137,17 @@ export default function CalendarScreen() {
     const month = currentDate.getMonth();
     
     return appointments.filter((apt) => {
-      const aptDate = new Date(apt.date);
+      const aptDate = parseDateString(apt.date);
       return aptDate.getFullYear() === year && aptDate.getMonth() === month;
     }).sort((a, b) => {
-      const dateA = new Date(`${a.date} ${a.time}`);
-      const dateB = new Date(`${b.date} ${b.time}`);
+      const dateA = parseDateString(a.date);
+      const timeA = a.time.split(':').map(Number);
+      dateA.setHours(timeA[0], timeA[1]);
+      
+      const dateB = parseDateString(b.date);
+      const timeB = b.time.split(':').map(Number);
+      dateB.setHours(timeB[0], timeB[1]);
+      
       return dateA.getTime() - dateB.getTime();
     });
   }, [appointments, currentDate]);
@@ -161,7 +179,7 @@ export default function CalendarScreen() {
     setFormData({
       name: '',
       category: 'Feestje',
-      date: new Date().toISOString().split('T')[0],
+      date: formatDateToLocal(new Date()),
       time: '12:00',
       location: '',
       memberIds: [],
@@ -169,7 +187,7 @@ export default function CalendarScreen() {
     setShowAddModal(false);
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateToLocal(new Date());
 
   return (
     <>
@@ -254,7 +272,7 @@ export default function CalendarScreen() {
               </View>
             ) : (
               currentMonthAppointments.map((item) => {
-                const dateObj = new Date(item.date);
+                const dateObj = parseDateString(item.date);
                 const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
                 
                 return (
@@ -394,7 +412,7 @@ export default function CalendarScreen() {
                   testID="date-picker-button"
                 >
                   <Text style={styles.dropdownText}>
-                    {new Date(formData.date).toLocaleDateString('nl-NL', { 
+                    {parseDateString(formData.date).toLocaleDateString('nl-NL', { 
                       day: '2-digit', 
                       month: 'long', 
                       year: 'numeric' 
@@ -407,22 +425,22 @@ export default function CalendarScreen() {
                     <View style={styles.datePickerHeader}>
                       <TouchableOpacity 
                         onPress={() => {
-                          const newDate = new Date(formData.date);
-                          newDate.setMonth(newDate.getMonth() - 1);
-                          setFormData({ ...formData, date: newDate.toISOString().split('T')[0] });
+                          const currentDate = parseDateString(formData.date);
+                          currentDate.setMonth(currentDate.getMonth() - 1);
+                          setFormData({ ...formData, date: formatDateToLocal(currentDate) });
                         }}
                         style={styles.datePickerButton}
                       >
                         <ChevronLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={styles.datePickerMonth}>
-                        {new Date(formData.date).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })}
+                        {parseDateString(formData.date).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })}
                       </Text>
                       <TouchableOpacity 
                         onPress={() => {
-                          const newDate = new Date(formData.date);
-                          newDate.setMonth(newDate.getMonth() + 1);
-                          setFormData({ ...formData, date: newDate.toISOString().split('T')[0] });
+                          const currentDate = parseDateString(formData.date);
+                          currentDate.setMonth(currentDate.getMonth() + 1);
+                          setFormData({ ...formData, date: formatDateToLocal(currentDate) });
                         }}
                         style={styles.datePickerButton}
                       >
@@ -438,7 +456,7 @@ export default function CalendarScreen() {
                     </View>
                     <View style={styles.datePickerGrid}>
                       {(() => {
-                        const selectedDate = new Date(formData.date);
+                        const selectedDate = parseDateString(formData.date);
                         const year = selectedDate.getFullYear();
                         const month = selectedDate.getMonth();
                         const firstDay = new Date(year, month, 1);
@@ -452,7 +470,7 @@ export default function CalendarScreen() {
                           days.push({
                             date: prevMonthDay.getDate(),
                             isCurrentMonth: false,
-                            fullDate: prevMonthDay.toISOString().split('T')[0],
+                            fullDate: formatDateToLocal(prevMonthDay),
                           });
                         }
                         
@@ -461,7 +479,7 @@ export default function CalendarScreen() {
                           days.push({
                             date: i,
                             isCurrentMonth: true,
-                            fullDate: fullDate.toISOString().split('T')[0],
+                            fullDate: formatDateToLocal(fullDate),
                           });
                         }
                         
@@ -471,7 +489,7 @@ export default function CalendarScreen() {
                           days.push({
                             date: i,
                             isCurrentMonth: false,
-                            fullDate: nextMonthDay.toISOString().split('T')[0],
+                            fullDate: formatDateToLocal(nextMonthDay),
                           });
                         }
                         
@@ -615,7 +633,7 @@ export default function CalendarScreen() {
                     setFormData({
                       name: '',
                       category: 'Feestje',
-                      date: new Date().toISOString().split('T')[0],
+                      date: formatDateToLocal(new Date()),
                       time: '12:00',
                       location: '',
                       memberIds: [],
