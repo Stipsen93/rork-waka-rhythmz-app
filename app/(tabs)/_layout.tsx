@@ -65,20 +65,22 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={localStyles.menuItem}
-            onPress={() => {
-              onClose();
-              router.push("/repetitie");
-            }}
-            testID="menu-repetitie"
-          >
-            <View style={localStyles.menuIconContainer}>
-              <CalendarCheck color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            </View>
-            <Text style={localStyles.menuItemText}>Repetitie</Text>
-            <ChevronRight color={Colors.light.muted} size={20} />
-          </TouchableOpacity>
+          {currentUser?.role === "admin" && (
+            <TouchableOpacity
+              style={localStyles.menuItem}
+              onPress={() => {
+                onClose();
+                router.push("/repetitie");
+              }}
+              testID="menu-repetitie"
+            >
+              <View style={localStyles.menuIconContainer}>
+                <CalendarCheck color={Colors.light.primary} size={22} strokeWidth={2.5} />
+              </View>
+              <Text style={localStyles.menuItemText}>Repetitie</Text>
+              <ChevronRight color={Colors.light.muted} size={20} />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={localStyles.menuItem}
@@ -95,35 +97,39 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={localStyles.menuItem}
-            onPress={() => {
-              onClose();
-              router.push("/nieuws");
-            }}
-            testID="menu-nieuws"
-          >
-            <View style={localStyles.menuIconContainer}>
-              <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            </View>
-            <Text style={localStyles.menuItemText}>Nieuws</Text>
-            <ChevronRight color={Colors.light.muted} size={20} />
-          </TouchableOpacity>
+          {currentUser?.role === "admin" && (
+            <TouchableOpacity
+              style={localStyles.menuItem}
+              onPress={() => {
+                onClose();
+                router.push("/nieuws");
+              }}
+              testID="menu-nieuws"
+            >
+              <View style={localStyles.menuIconContainer}>
+                <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
+              </View>
+              <Text style={localStyles.menuItemText}>Nieuws</Text>
+              <ChevronRight color={Colors.light.muted} size={20} />
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            style={localStyles.menuItem}
-            onPress={() => {
-              onClose();
-              router.push("/meldingen");
-            }}
-            testID="menu-meldingen"
-          >
-            <View style={localStyles.menuIconContainer}>
-              <Bell color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            </View>
-            <Text style={localStyles.menuItemText}>Meldingen</Text>
-            <ChevronRight color={Colors.light.muted} size={20} />
-          </TouchableOpacity>
+          {currentUser?.role === "admin" && (
+            <TouchableOpacity
+              style={localStyles.menuItem}
+              onPress={() => {
+                onClose();
+                router.push("/meldingen");
+              }}
+              testID="menu-meldingen"
+            >
+              <View style={localStyles.menuIconContainer}>
+                <Bell color={Colors.light.primary} size={22} strokeWidth={2.5} />
+              </View>
+              <Text style={localStyles.menuItemText}>Meldingen</Text>
+              <ChevronRight color={Colors.light.muted} size={20} />
+            </TouchableOpacity>
+          )}
 
           {currentUser?.role === "admin" && (
             <TouchableOpacity

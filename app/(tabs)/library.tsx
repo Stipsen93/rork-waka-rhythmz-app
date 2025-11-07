@@ -20,7 +20,7 @@ const countAllItems = (node: CategoryNode): number => {
 };
 
 export default function LibraryScreen() {
-  const { library, addFolder, deleteFolders } = useAppState();
+  const { library, addFolder, deleteFolders, currentUser } = useAppState();
   const insets = useSafeAreaInsets();
   const [path, setPath] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,7 +32,6 @@ export default function LibraryScreen() {
   const [deleteInfo, setDeleteInfo] = useState({ totalItems: 0, folderCount: 0 });
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const current = useMemo<{ children?: CategoryNode[]; media?: MediaItem[] }>(() => {
     let nodes: CategoryNode[] = library;
@@ -258,20 +257,22 @@ export default function LibraryScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <Pressable 
-          style={[styles.fab, { bottom: insets.bottom + 20 }]} 
-          onPress={() => setShowAddModal(true)}
-          testID="add-fab"
-        >
-          <LinearGradient
-            colors={[Colors.light.primary, '#B91C1C']}
-            style={styles.fabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        currentUser?.role === "admin" && (
+          <Pressable 
+            style={[styles.fab, { bottom: insets.bottom + 20 }]} 
+            onPress={() => setShowAddModal(true)}
+            testID="add-fab"
           >
-            <Plus color={Colors.light.text} size={28} strokeWidth={3} />
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={[Colors.light.primary, '#B91C1C']}
+              style={styles.fabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Plus color={Colors.light.text} size={28} strokeWidth={3} />
+            </LinearGradient>
+          </Pressable>
+        )
       )}
 
       <Modal
@@ -515,8 +516,7 @@ export default function LibraryScreen() {
 
       <MenuModal 
         visible={showMenuModal} 
-        onClose={() => setShowMenuModal(false)} 
-        onAdminPress={() => setShowAdminModal(true)}
+        onClose={() => setShowMenuModal(false)}
       />
       </View>
     </>
