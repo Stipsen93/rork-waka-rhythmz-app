@@ -162,7 +162,7 @@ export default function MeldingenScreen() {
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {newsReminders.map((hours, index) => (
-                    <View key={index} style={styles.reminderRow}>
+                    <View key={`news-reminder-${index}-${hours}`} style={styles.reminderRow}>
                       <TouchableOpacity
                         style={styles.timeSelector}
                         onPress={() => setShowDropdown(`news-${index}`)}
@@ -211,7 +211,7 @@ export default function MeldingenScreen() {
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {assignmentsReminders.map((hours, index) => (
-                    <View key={index} style={styles.reminderRow}>
+                    <View key={`assignments-reminder-${index}-${hours}`} style={styles.reminderRow}>
                       <TouchableOpacity
                         style={styles.timeSelector}
                         onPress={() => setShowDropdown(`assignments-${index}`)}
@@ -260,7 +260,7 @@ export default function MeldingenScreen() {
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {trainingReminders.map((hours, index) => (
-                    <View key={index} style={styles.reminderRow}>
+                    <View key={`training-reminder-${index}-${hours}`} style={styles.reminderRow}>
                       <TouchableOpacity
                         style={styles.timeSelector}
                         onPress={() => setShowDropdown(`training-${index}`)}
@@ -309,7 +309,7 @@ export default function MeldingenScreen() {
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {performancesReminders.map((hours, index) => (
-                    <View key={index} style={styles.reminderRow}>
+                    <View key={`performances-reminder-${index}-${hours}`} style={styles.reminderRow}>
                       <TouchableOpacity
                         style={styles.timeSelector}
                         onPress={() => setShowDropdown(`performances-${index}`)}
