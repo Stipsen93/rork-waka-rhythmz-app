@@ -116,6 +116,16 @@ export interface Appointment {
   createdAt: string;
 }
 
+export interface NotificationSettings {
+  newsEnabled: boolean;
+  newsHoursAdvance: number;
+  assignmentsEnabled: boolean;
+  trainingCancellationEnabled: boolean;
+  trainingHoursAdvance: number;
+  performancesEnabled: boolean;
+  performancesHoursAdvance: number;
+}
+
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
@@ -146,6 +156,8 @@ export interface AppStateValue {
   addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => void;
   updateAppointment: (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => void;
   deleteAppointments: (ids: string[]) => void;
+  notificationSettings: NotificationSettings;
+  updateNotificationSettings: (settings: NotificationSettings) => void;
 }
 
 function genId(prefix: string): string {
@@ -271,6 +283,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    newsEnabled: true,
+    newsHoursAdvance: 24,
+    assignmentsEnabled: true,
+    trainingCancellationEnabled: true,
+    trainingHoursAdvance: 2,
+    performancesEnabled: true,
+    performancesHoursAdvance: 48,
+  });
 
   const setRole = useCallback((userId: string, role: Role) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
@@ -453,6 +475,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setAppointments((prev) => prev.filter((a) => !idSet.has(a.id)));
   }, []);
 
+  const updateNotificationSettings = useCallback((settings: NotificationSettings) => {
+    setNotificationSettings(settings);
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -483,6 +509,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     addAppointment,
     updateAppointment,
     deleteAppointments,
+    notificationSettings,
+    updateNotificationSettings,
   };
 
   return value;
