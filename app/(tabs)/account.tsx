@@ -1,14 +1,17 @@
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from "react-native";
-import { Stack } from "expo-router";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
+import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
-import { User, Lock, Calendar, MapPin, Phone, Mail } from "lucide-react-native";
+import { User, Lock, Calendar, MapPin, Phone, Mail, LogOut } from "lucide-react-native";
+import { useAppState } from "@/providers/AppState";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
+  const { currentUser, logout, changePassword } = useAppState();
+  const router = useRouter();
   
-  const [name, setName] = useState<string>("Jan de Vries");
+  const [name, setName] = useState<string>(currentUser?.username || "");
   const [currentPassword, setCurrentPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -20,8 +23,16 @@ export default function AccountScreen() {
   const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
 
   const handleSavePassword = () => {
+    if (!currentUser) return;
+    
+    if (currentPassword !== currentUser.password) {
+      Alert.alert("Fout", "Huidig wachtwoord is onjuist");
+      return;
+    }
+    
     if (newPassword === confirmPassword && newPassword.length >= 6) {
-      console.log("Wachtwoord opgeslagen");
+      changePassword(currentUser.id, newPassword);
+      Alert.alert("Gelukt", "Wachtwoord is succesvol gewijzigd");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -30,7 +41,25 @@ export default function AccountScreen() {
   };
 
   const handleSaveProfile = () => {
-    console.log("Profiel opgeslagen", { name, age, address, phone, email });
+    Alert.alert("Gelukt", "Profiel opgeslagen");
+  };
+  
+  const handleLogout = () => {
+    Alert.alert(
+      "Uitloggen",
+      "Weet je zeker dat je wilt uitloggen?",
+      [
+        { text: "Annuleren", style: "cancel" },
+        { 
+          text: "Uitloggen", 
+          style: "destructive",
+          onPress: () => {
+            logout();
+            router.replace("/login");
+          }
+        },
+      ]
+    );
   };
 
   return (
@@ -219,6 +248,13 @@ export default function AccountScreen() {
               </>
             )}
           </View>
+
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <LogOut size={20} color={Colors.light.error} />
+              <Text style={styles.logoutButtonText}>Uitloggen</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </View>
     </>
@@ -398,5 +434,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700" as const,
     color: "#fff",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 2,
+    borderColor: Colors.light.error,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.error,
   },
 });

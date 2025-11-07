@@ -1,12 +1,12 @@
 import { Redirect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { View } from "react-native";
+import { useAppState } from "@/providers/AppState";
 
 export default function RootIndex() {
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      <Redirect href="/(tabs)/assignments" />
-    </View>
-  );
+  const { currentUser } = useAppState();
+  
+  if (!currentUser) {
+    return <Redirect href="/login" />;
+  }
+  
+  return <Redirect href="/(tabs)/assignments" />;
 }

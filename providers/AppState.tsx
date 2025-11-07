@@ -8,6 +8,7 @@ export interface User {
   username: string;
   password: string;
   role: Role;
+  passwordChangedByUser: boolean;
 }
 
 export interface PermissionMatrix {
@@ -130,8 +131,12 @@ export interface AppStateValue {
   users: User[];
   currentUser: User | null;
   setCurrentUser: (u: User | null) => void;
+  login: (username: string, password: string) => boolean;
+  logout: () => void;
   addUser: (username: string, role: Role) => { user: User; password: string };
   setRole: (userId: string, role: Role) => void;
+  resetPassword: (userId: string) => string;
+  changePassword: (userId: string, newPassword: string) => void;
   permissions: Record<Role, PermissionMatrix>;
   setPermissions: (role: Role, perms: PermissionMatrix) => void;
   library: CategoryNode[];
@@ -190,9 +195,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   ];
 
   const [users, setUsers] = useState<User[]>([
-    { id: "u_admin", username: "admin", password: "admin123", role: "admin" },
+    { id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true },
   ]);
-  const [currentUser, setCurrentUser] = useState<User | null>(users[0]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [permissions, setPermissionsState] = useState<Record<Role, PermissionMatrix>>({
     admin: { canAddMedia: true, canComment: true, canCreateEvents: true },
     member: { canAddMedia: false, canComment: true, canCreateEvents: false },
@@ -298,11 +303,38 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
   }, []);
 
+  const login = useCallback((username: string, password: string) => {
+    const user = users.find(u => u.username === username && u.password === password);
+    if (user) {
+      setCurrentUser(user);
+      return true;
+    }
+    return false;
+  }, [users]);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+  }, []);
+
   const addUser = useCallback((username: string, role: Role) => {
     const password = genPassword();
-    const user: User = { id: genId("u"), username, password, role };
+    const user: User = { id: genId("u"), username, password, role, passwordChangedByUser: false };
     setUsers((prev) => [...prev, user]);
     return { user, password };
+  }, []);
+
+  const resetPassword = useCallback((userId: string) => {
+    const newPassword = genPassword();
+    setUsers((prev) => prev.map((u) => 
+      u.id === userId ? { ...u, password: newPassword, passwordChangedByUser: false } : u
+    ));
+    return newPassword;
+  }, []);
+
+  const changePassword = useCallback((userId: string, newPassword: string) => {
+    setUsers((prev) => prev.map((u) => 
+      u.id === userId ? { ...u, password: newPassword, passwordChangedByUser: true } : u
+    ));
   }, []);
 
   const setPermissions = useCallback((role: Role, perms: PermissionMatrix) => {
@@ -483,8 +515,12 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     users,
     currentUser,
     setCurrentUser,
+    login,
+    logout,
     addUser,
     setRole,
+    resetPassword,
+    changePassword,
     permissions,
     setPermissions,
     library,

@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, TouchableOpacity } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, TouchableOpacity, Platform } from "react-native";
 import Colors from "@/constants/colors";
 import { Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, Calendar as CalendarIcon, Clock, ChevronDown, ChevronUp } from "lucide-react-native";
+import { UserPlus, Shield, User, Calendar as CalendarIcon, Clock, ChevronDown, ChevronUp, RotateCcw } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 const DAYS_OF_WEEK = [
@@ -23,7 +23,7 @@ function PracticeScheduleWidget() {
   const [isActive, setIsActive] = useState<boolean>(practiceSchedule.isActive);
   const [showDaySelector, setShowDaySelector] = useState<boolean>(false);
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
-  const [cancelledDates, setCancelledDates] = useState<string[]>(practiceSchedule.cancelledDates);
+  const [cancelledDates, setCancelledDates] = useState<string[]>(practiceSchedule.cancelledDates.map(cd => cd.date));
 
   const toggleDay = (dayId: number) => {
     setSelectedDays(prev => {
@@ -38,8 +38,10 @@ function PracticeScheduleWidget() {
   const saveSchedule = () => {
     const newSchedule: typeof practiceSchedule = {
       regularDays: selectedDays.map(dayOfWeek => ({ dayOfWeek, time })),
-      cancelledDates,
+      location: practiceSchedule.location,
+      cancelledDates: cancelledDates.map(date => ({ date })),
       isActive,
+      trainings: practiceSchedule.trainings,
     };
     updatePracticeSchedule(newSchedule);
     Alert.alert('Opgeslagen', 'Oefeningsschema is bijgewerkt');
@@ -222,10 +224,31 @@ function PracticeScheduleWidget() {
 }
 
 export default function AdminScreen() {
-  const { users, addUser, setRole } = useAppState();
+  const { users, addUser, setRole, resetPassword } = useAppState();
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
   const insets = useSafeAreaInsets();
+
+  const handleResetPassword = (userId: string, userName: string) => {
+    Alert.alert(
+      "Wachtwoord Resetten",
+      `Weet je zeker dat je het wachtwoord voor ${userName} wilt resetten?`,
+      [
+        { text: "Annuleren", style: "cancel" },
+        {
+          text: "Resetten",
+          style: "destructive",
+          onPress: () => {
+            const newPassword = resetPassword(userId);
+            Alert.alert(
+              "Wachtwoord Gereset",
+              `Nieuw wachtwoord voor ${userName}:\n${newPassword}\n\nBewaar dit wachtwoord!`
+            );
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
@@ -320,10 +343,20 @@ export default function AdminScreen() {
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>{item.username}</Text>
                   <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
+                  <Text style={styles.userPassword}>
+                    {item.passwordChangedByUser ? "••••••••" : item.password}
+                  </Text>
                 </View>
               </View>
               
               <View style={styles.userActions}>
+                <Pressable
+                  style={styles.resetButton}
+                  onPress={() => handleResetPassword(item.id, item.username)}
+                  testID={`reset-password-${item.id}`}
+                >
+                  <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                </Pressable>
                 <Pressable 
                   style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
                   onPress={() => setRole(item.id, "member")} 
@@ -726,5 +759,22 @@ const styles = StyleSheet.create({
   },
   actionButtonTextActive: {
     color: Colors.light.text,
+  },
+  userPassword: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    marginTop: 4,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  resetButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: Colors.light.darkGray,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
