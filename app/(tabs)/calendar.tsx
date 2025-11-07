@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
-const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag'];
+const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag', 'Overig'];
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -30,7 +30,7 @@ export default function CalendarScreen() {
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [formData, setFormData] = useState<{
     name: string;
-    category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag';
+    category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig';
     date: string;
     time: string;
     location: string;

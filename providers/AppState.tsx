@@ -109,7 +109,7 @@ export interface Announcement {
 export interface Appointment {
   id: string;
   name: string;
-  category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag';
+  category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig';
   date: string;
   time: string;
   location: string;
@@ -262,33 +262,45 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const [practiceSchedule, setPracticeSchedule] = useState<PracticeSchedule>({
     regularDays: [
-      { dayOfWeek: 2, time: "19:00" },
-      { dayOfWeek: 4, time: "19:00" },
+      { dayOfWeek: 2, time: "18:30" },
+      { dayOfWeek: 2, time: "19:30" },
     ],
-    location: "Zaal 3",
+    location: "De Zaalon",
     cancelledDates: [],
     isActive: true,
     trainings: [
       {
         id: "t1",
-        name: "Hoofdtraining",
+        name: "Groep 1",
         dayOfWeek: 2,
-        time: "19:00",
-        location: "Zaal 3",
+        time: "18:30",
+        location: "De Zaalon",
       },
       {
         id: "t2",
-        name: "Hoofdtraining",
-        dayOfWeek: 4,
-        time: "19:00",
-        location: "Zaal 3",
+        name: "Groep 2",
+        dayOfWeek: 2,
+        time: "19:30",
+        location: "De Zaalon",
       },
     ],
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([
+    {
+      id: "ap_example",
+      name: "Optreden FC Eindhoven",
+      category: "Feestje",
+      date: "2025-12-20",
+      time: "21:30",
+      location: "FC Eindhoven",
+      memberIds: [],
+      createdAt: new Date().toISOString(),
+      createdBy: "u_admin",
+    },
+  ]);
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     newsEnabled: true,
