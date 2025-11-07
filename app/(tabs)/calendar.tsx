@@ -11,7 +11,7 @@ const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 
 const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag'];
 
 export default function CalendarScreen() {
-  const { appointments, addAppointment } = useAppState();
+  const { appointments, addAppointment, performances, practiceSchedule } = useAppState();
   const insets = useSafeAreaInsets();
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -32,6 +32,9 @@ export default function CalendarScreen() {
     memberIds: [],
   });
   const [showCategoryDropdown, setShowCategoryDropdown] = useState<boolean>(false);
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [showHourPicker, setShowHourPicker] = useState<boolean>(false);
+  const [showMinutePicker, setShowMinutePicker] = useState<boolean>(false);
 
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -86,13 +89,52 @@ export default function CalendarScreen() {
     return map;
   }, [appointments]);
 
-  const sortedAppointments = useMemo(() => {
-    return [...appointments].sort((a, b) => {
+  const trainingAndPerformanceDates = useMemo(() => {
+    const dates = new Set<string>();
+    
+    performances.forEach((perf) => {
+      dates.add(perf.date);
+    });
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    practiceSchedule.trainings.forEach((training) => {
+      let currentDay = new Date(firstDay);
+      while (currentDay <= lastDay) {
+        if (currentDay.getDay() === training.dayOfWeek) {
+          const dateStr = currentDay.toISOString().split('T')[0];
+          const isCancelled = practiceSchedule.cancelledDates.some(
+            (cancelled) => cancelled.date === dateStr
+          );
+          if (!isCancelled) {
+            dates.add(dateStr);
+          }
+        }
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+    });
+    
+    return dates;
+  }, [performances, practiceSchedule, currentDate]);
+
+  const currentMonthAppointments = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    return appointments.filter((apt) => {
+      const aptDate = new Date(apt.date);
+      return aptDate.getFullYear() === year && aptDate.getMonth() === month;
+    }).sort((a, b) => {
       const dateA = new Date(`${a.date} ${a.time}`);
       const dateB = new Date(`${b.date} ${b.time}`);
       return dateA.getTime() - dateB.getTime();
     });
-  }, [appointments]);
+  }, [appointments, currentDate]);
+
+
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -168,6 +210,7 @@ export default function CalendarScreen() {
             {calendarDays.map((day, index) => {
               const hasAppointments = appointmentsByDate[day.fullDate]?.length > 0;
               const isToday = day.fullDate === today;
+              const hasTrainingOrPerformance = trainingAndPerformanceDates.has(day.fullDate);
               
               return (
                 <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
@@ -175,6 +218,7 @@ export default function CalendarScreen() {
                     styles.dayNumber,
                     !day.isCurrentMonth && styles.dayNumberInactive,
                     isToday && styles.dayNumberToday,
+                    hasTrainingOrPerformance && day.isCurrentMonth && styles.dayNumberCircled,
                   ]}>
                     <Text style={[
                       styles.dayText,
@@ -194,12 +238,12 @@ export default function CalendarScreen() {
         </View>
 
         <View style={styles.appointmentsHeader}>
-          <Text style={styles.appointmentsTitle}>Alle Afspraken</Text>
-          <Text style={styles.appointmentsCount}>{sortedAppointments.length}</Text>
+          <Text style={styles.appointmentsTitle}>{MONTHS[currentDate.getMonth()]} Afspraken</Text>
+          <Text style={styles.appointmentsCount}>{currentMonthAppointments.length}</Text>
         </View>
 
         <FlatList
-          data={sortedAppointments}
+          data={currentMonthAppointments}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
           renderItem={({ item }) => {
@@ -249,7 +293,7 @@ export default function CalendarScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <CalendarIcon color={Colors.light.muted} size={48} strokeWidth={1.5} />
-              <Text style={styles.emptyText}>Nog geen afspraken</Text>
+              <Text style={styles.emptyText}>Nog geen afspraken deze maand</Text>
             </View>
           }
         />
@@ -341,26 +385,202 @@ export default function CalendarScreen() {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Datum</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.date}
-                  onChangeText={(text) => setFormData({ ...formData, date: text })}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.light.muted}
-                  testID="date-input"
-                />
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => setShowDatePicker(!showDatePicker)}
+                  testID="date-picker-button"
+                >
+                  <Text style={styles.dropdownText}>
+                    {new Date(formData.date).toLocaleDateString('nl-NL', { 
+                      day: '2-digit', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })}
+                  </Text>
+                  <CalendarIcon color={Colors.light.muted} size={20} />
+                </Pressable>
+                {showDatePicker && (
+                  <View style={styles.datePickerModal}>
+                    <View style={styles.datePickerHeader}>
+                      <TouchableOpacity 
+                        onPress={() => {
+                          const newDate = new Date(formData.date);
+                          newDate.setMonth(newDate.getMonth() - 1);
+                          setFormData({ ...formData, date: newDate.toISOString().split('T')[0] });
+                        }}
+                        style={styles.datePickerButton}
+                      >
+                        <ChevronLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                      <Text style={styles.datePickerMonth}>
+                        {new Date(formData.date).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })}
+                      </Text>
+                      <TouchableOpacity 
+                        onPress={() => {
+                          const newDate = new Date(formData.date);
+                          newDate.setMonth(newDate.getMonth() + 1);
+                          setFormData({ ...formData, date: newDate.toISOString().split('T')[0] });
+                        }}
+                        style={styles.datePickerButton}
+                      >
+                        <ChevronRight color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.datePickerDays}>
+                      {['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'].map((day) => (
+                        <View key={day} style={styles.datePickerWeekDay}>
+                          <Text style={styles.datePickerWeekDayText}>{day}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={styles.datePickerGrid}>
+                      {(() => {
+                        const selectedDate = new Date(formData.date);
+                        const year = selectedDate.getFullYear();
+                        const month = selectedDate.getMonth();
+                        const firstDay = new Date(year, month, 1);
+                        const lastDay = new Date(year, month + 1, 0);
+                        const startDayOfWeek = firstDay.getDay();
+                        const daysInMonth = lastDay.getDate();
+                        const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
+                        
+                        for (let i = 0; i < startDayOfWeek; i++) {
+                          const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
+                          days.push({
+                            date: prevMonthDay.getDate(),
+                            isCurrentMonth: false,
+                            fullDate: prevMonthDay.toISOString().split('T')[0],
+                          });
+                        }
+                        
+                        for (let i = 1; i <= daysInMonth; i++) {
+                          const fullDate = new Date(year, month, i);
+                          days.push({
+                            date: i,
+                            isCurrentMonth: true,
+                            fullDate: fullDate.toISOString().split('T')[0],
+                          });
+                        }
+                        
+                        const remainingDays = 42 - days.length;
+                        for (let i = 1; i <= remainingDays; i++) {
+                          const nextMonthDay = new Date(year, month + 1, i);
+                          days.push({
+                            date: i,
+                            isCurrentMonth: false,
+                            fullDate: nextMonthDay.toISOString().split('T')[0],
+                          });
+                        }
+                        
+                        return days.map((day, index) => (
+                          <TouchableOpacity
+                            key={`${day.fullDate}-${index}`}
+                            style={styles.datePickerDay}
+                            onPress={() => {
+                              setFormData({ ...formData, date: day.fullDate });
+                              setShowDatePicker(false);
+                            }}
+                          >
+                            <View style={[
+                              styles.datePickerDayContent,
+                              !day.isCurrentMonth && styles.datePickerDayInactive,
+                              day.fullDate === formData.date && styles.datePickerDaySelected,
+                            ]}>
+                              <Text style={[
+                                styles.datePickerDayText,
+                                !day.isCurrentMonth && styles.datePickerDayTextInactive,
+                                day.fullDate === formData.date && styles.datePickerDayTextSelected,
+                              ]}>
+                                {day.date}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ));
+                      })()}
+                    </View>
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Tijd</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.time}
-                  onChangeText={(text) => setFormData({ ...formData, time: text })}
-                  placeholder="HH:MM"
-                  placeholderTextColor={Colors.light.muted}
-                  testID="time-input"
-                />
+                <View style={styles.timePickerRow}>
+                  <Pressable
+                    style={[styles.dropdownButton, { flex: 1 }]}
+                    onPress={() => {
+                      setShowHourPicker(!showHourPicker);
+                      setShowMinutePicker(false);
+                    }}
+                    testID="hour-picker-button"
+                  >
+                    <Text style={styles.dropdownText}>{formData.time.split(':')[0]}</Text>
+                    <ChevronRight 
+                      color={Colors.light.muted} 
+                      size={20} 
+                      style={{ transform: [{ rotate: showHourPicker ? '90deg' : '0deg' }] }}
+                    />
+                  </Pressable>
+                  <Text style={styles.timeColon}>:</Text>
+                  <Pressable
+                    style={[styles.dropdownButton, { flex: 1 }]}
+                    onPress={() => {
+                      setShowMinutePicker(!showMinutePicker);
+                      setShowHourPicker(false);
+                    }}
+                    testID="minute-picker-button"
+                  >
+                    <Text style={styles.dropdownText}>{formData.time.split(':')[1]}</Text>
+                    <ChevronRight 
+                      color={Colors.light.muted} 
+                      size={20} 
+                      style={{ transform: [{ rotate: showMinutePicker ? '90deg' : '0deg' }] }}
+                    />
+                  </Pressable>
+                </View>
+                {showHourPicker && (
+                  <ScrollView style={styles.timePickerMenu} nestedScrollEnabled>
+                    {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map((hour) => (
+                      <TouchableOpacity
+                        key={hour}
+                        style={styles.timePickerItem}
+                        onPress={() => {
+                          const minutes = formData.time.split(':')[1];
+                          setFormData({ ...formData, time: `${hour}:${minutes}` });
+                          setShowHourPicker(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.timePickerText,
+                          formData.time.split(':')[0] === hour && styles.timePickerTextActive
+                        ]}>
+                          {hour}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+                {showMinutePicker && (
+                  <View style={styles.timePickerMenu}>
+                    {['00', '15', '30', '45'].map((minute) => (
+                      <TouchableOpacity
+                        key={minute}
+                        style={styles.timePickerItem}
+                        onPress={() => {
+                          const hour = formData.time.split(':')[0];
+                          setFormData({ ...formData, time: `${hour}:${minute}` });
+                          setShowMinutePicker(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.timePickerText,
+                          formData.time.split(':')[1] === minute && styles.timePickerTextActive
+                        ]}>
+                          {minute}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -534,6 +754,10 @@ const styles = StyleSheet.create({
   },
   dayNumberToday: {
     backgroundColor: Colors.light.primary,
+  },
+  dayNumberCircled: {
+    borderWidth: 2,
+    borderColor: Colors.light.primary,
   },
   dayText: {
     color: Colors.light.text,
@@ -801,5 +1025,107 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: Colors.light.muted,
+  },
+  datePickerModal: {
+    marginTop: 8,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  datePickerButton: {
+    padding: 4,
+  },
+  datePickerMonth: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  datePickerDays: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  datePickerWeekDay: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  datePickerWeekDayText: {
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
+  datePickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  datePickerDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    padding: 2,
+  },
+  datePickerDayContent: {
+    flex: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePickerDayInactive: {
+    opacity: 0.3,
+  },
+  datePickerDaySelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  datePickerDayText: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  datePickerDayTextInactive: {
+    color: Colors.light.muted,
+  },
+  datePickerDayTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeColon: {
+    color: Colors.light.text,
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  timePickerMenu: {
+    marginTop: 8,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    maxHeight: 200,
+  },
+  timePickerItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.surfaceLight,
+    alignItems: 'center',
+  },
+  timePickerText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '500' as const,
+  },
+  timePickerTextActive: {
+    color: Colors.light.primary,
+    fontWeight: '700' as const,
   },
 });
