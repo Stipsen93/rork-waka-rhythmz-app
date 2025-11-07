@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, practiceSchedule, announcements, performances } = useAppState();
+  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
@@ -20,14 +20,20 @@ export default function AssignmentsScreen() {
     return announcements.filter(a => new Date(a.date) >= today);
   }, [announcements]);
   
-  const upcomingPerformances = React.useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return performances.filter(p => new Date(p.date) >= today);
-  }, [performances]);
+  const upcomingAppointments = React.useMemo(() => {
+    const now = new Date();
+    return appointments.filter(a => {
+      const appointmentDate = new Date(`${a.date} ${a.time}`);
+      return appointmentDate >= now;
+    }).sort((a, b) => {
+      const dateA = new Date(`${a.date} ${a.time}`);
+      const dateB = new Date(`${b.date} ${b.time}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [appointments]);
   
   const latestAnnouncement = upcomingAnnouncements[0];
-  const latestPerformance = upcomingPerformances[0];
+  const nextAppointment = upcomingAppointments[0];
 
   const getNextPracticeDate = React.useCallback(() => {
     const today = new Date();
@@ -119,25 +125,29 @@ export default function AssignmentsScreen() {
                 </View>
               </View>
             )}
-            {latestPerformance && (
+            {nextAppointment && (
               <View style={[styles.newsItemCard, latestAnnouncement && styles.newsItemCardSpaced]}>
-                <View style={[styles.newsItemBadge, styles.newsItemBadgePerformance]}>
-                  <Text style={styles.newsItemBadgeText}>Optreden</Text>
+                <View style={[styles.newsItemBadge, styles.newsItemBadgeAppointment]}>
+                  <Text style={styles.newsItemBadgeText}>Afspraak</Text>
                 </View>
-                <Text style={styles.newsItemName}>{latestPerformance.location}</Text>
+                <Text style={styles.newsItemName}>{nextAppointment.name}</Text>
+                <Text style={styles.newsItemCategory}>{nextAppointment.category}</Text>
+                <View style={styles.newsItemLocationContainer}>
+                  <Text style={styles.newsItemLocation}>{nextAppointment.location}</Text>
+                </View>
                 <View style={styles.newsItemDateContainer}>
                   <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
                   <Text style={styles.newsItemDateText}>
-                    {new Date(latestPerformance.date).toLocaleDateString('nl-NL', {
+                    {new Date(nextAppointment.date).toLocaleDateString('nl-NL', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
-                    })} • {latestPerformance.time}
+                    })} • {nextAppointment.time}
                   </Text>
                 </View>
               </View>
             )}
-            {!latestAnnouncement && !latestPerformance && (
+            {!latestAnnouncement && !nextAppointment && (
               <Text style={styles.emptyText}>Geen nieuws</Text>
             )}
           </View>
@@ -678,6 +688,23 @@ const styles = StyleSheet.create({
   },
   newsItemBadgePerformance: {
     backgroundColor: Colors.light.success,
+  },
+  newsItemBadgeAppointment: {
+    backgroundColor: "#8B5CF6",
+  },
+  newsItemCategory: {
+    fontSize: 13,
+    color: Colors.light.muted,
+    fontWeight: "600" as const,
+    marginBottom: 8,
+  },
+  newsItemLocationContainer: {
+    marginBottom: 10,
+  },
+  newsItemLocation: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: "500" as const,
   },
   newsItemBadgeText: {
     color: "#FFFFFF",

@@ -250,15 +250,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     },
   ]);
 
-  const [performances, setPerformances] = useState<Performance[]>([
-    {
-      id: "p1",
-      date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-      time: "20:00",
-      location: "Poppodium Zuid",
-      signedUpCount: 8,
-    },
-  ]);
+  const [performances, setPerformances] = useState<Performance[]>([]);
 
   const [practiceSchedule, setPracticeSchedule] = useState<PracticeSchedule>({
     regularDays: [
