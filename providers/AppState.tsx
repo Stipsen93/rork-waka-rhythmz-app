@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import createContextHook from "@nkzw/create-context-hook";
+import { supabase } from "@/lib/supabase";
 
 export type Role = "admin" | "member";
 
@@ -177,6 +178,7 @@ function genPassword(): string {
 }
 
 export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(() => {
+  const [isInitialized, setIsInitialized] = useState(false);
   const mockMedia: MediaItem[] = [
     {
       id: "m1",
@@ -195,51 +197,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     },
   ];
 
-  const [users, setUsers] = useState<User[]>([
-    { id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [permissions, setPermissionsState] = useState<Record<Role, PermissionMatrix>>({
     admin: { canAddMedia: true, canComment: true, canCreateEvents: true },
     member: { canAddMedia: false, canComment: true, canCreateEvents: false },
   });
 
-  const [library, setLibrary] = useState<CategoryNode[]>([
-    {
-      id: "c1",
-      name: "Beats",
-      children: [
-        {
-          id: "c1-1",
-          name: "Afro",
-          media: mockMedia,
-          description: "Afro grooves",
-        },
-        {
-          id: "c1-2",
-          name: "Dancehall",
-          media: [],
-        },
-      ],
-    },
-    {
-      id: "c2",
-      name: "Rudiments",
-      media: mockMedia.slice(0, 1),
-    },
-  ]);
+  const [library, setLibrary] = useState<CategoryNode[]>([]);
 
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    {
-      id: "a1",
-      title: "Groove A Homework",
-      description: "Kijk de video en upload je eigen take (30s).",
-      assignedUserIds: [],
-      dueDate: new Date(Date.now() + 7 * 86400000).toISOString(),
-      createdAt: new Date().toISOString(),
-      submissions: [],
-    },
-  ]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
 
   const [events] = useState<CalendarEvent[]>([
     {
@@ -253,46 +220,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [performances, setPerformances] = useState<Performance[]>([]);
 
   const [practiceSchedule, setPracticeSchedule] = useState<PracticeSchedule>({
-    regularDays: [
-      { dayOfWeek: 2, time: "18:30" },
-      { dayOfWeek: 2, time: "19:30" },
-    ],
-    location: "De Zaalon",
+    regularDays: [],
+    location: "",
     cancelledDates: [],
     isActive: true,
-    trainings: [
-      {
-        id: "t1",
-        name: "Groep 1",
-        dayOfWeek: 2,
-        time: "18:30",
-        location: "De Zaalon",
-      },
-      {
-        id: "t2",
-        name: "Groep 2",
-        dayOfWeek: 2,
-        time: "19:30",
-        location: "De Zaalon",
-      },
-    ],
+    trainings: [],
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: "ap_example",
-      name: "Optreden FC Eindhoven",
-      category: "Feestje",
-      date: "2025-12-20",
-      time: "21:30",
-      location: "FC Eindhoven",
-      memberIds: [],
-      createdAt: new Date().toISOString(),
-      createdBy: "u_admin",
-    },
-  ]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     newsEnabled: true,
@@ -304,8 +241,211 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     performancesHoursAdvance: 48,
   });
 
-  const setRole = useCallback((userId: string, role: Role) => {
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        const [usersRes, libraryRes, assignmentsRes, trainingsRes, scheduleRes, announcementsRes, appointmentsRes, settingsRes] = await Promise.all([
+          supabase.from('users').select('*'),
+          supabase.from('library').select('*'),
+          supabase.from('assignments').select('*'),
+          supabase.from('trainings').select('*'),
+          supabase.from('practice_schedule').select('*').single(),
+          supabase.from('announcements').select('*'),
+          supabase.from('appointments').select('*'),
+          supabase.from('notification_settings').select('*').single(),
+        ]);
+
+        if (usersRes.data) {
+          const mappedUsers = usersRes.data.map(u => ({
+            id: u.id,
+            username: u.username,
+            password: u.password,
+            role: u.role,
+            passwordChangedByUser: u.password_changed_by_user,
+          }));
+          setUsers(mappedUsers);
+          if (mappedUsers.length === 0) {
+            await supabase.from('users').insert({
+              id: "u_admin",
+              username: "admin",
+              password: "admin",
+              role: "admin",
+              password_changed_by_user: true,
+            });
+            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true }]);
+          }
+        }
+
+        if (libraryRes.data) {
+          setLibrary(libraryRes.data.filter(l => !l.parent_id).map(buildCategoryTree(libraryRes.data)));
+        }
+
+        if (assignmentsRes.data) {
+          setAssignments(assignmentsRes.data.map(a => ({
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            assignedUserIds: a.assigned_user_ids,
+            dueDate: a.due_date ?? undefined,
+            mediaUri: a.media_uri ?? undefined,
+            mediaType: a.media_type ?? undefined,
+            createdAt: a.created_at,
+            submissions: (a.submissions as any) ?? [],
+          })));
+        }
+
+        if (trainingsRes.data && scheduleRes.data) {
+          setPracticeSchedule({
+            regularDays: (scheduleRes.data.regular_days as any) ?? [],
+            location: scheduleRes.data.location,
+            cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
+            isActive: scheduleRes.data.is_active,
+            trainings: trainingsRes.data.map(t => ({
+              id: t.id,
+              name: t.name,
+              dayOfWeek: t.day_of_week,
+              time: t.time,
+              location: t.location,
+            })),
+          });
+        } else if (!scheduleRes.data) {
+          const defaultSchedule = {
+            regular_days: [
+              { dayOfWeek: 2, time: "18:30" },
+              { dayOfWeek: 2, time: "19:30" },
+            ],
+            location: "De Zaalon",
+            cancelled_dates: [],
+            is_active: true,
+          };
+          await supabase.from('practice_schedule').insert(defaultSchedule);
+          
+          const defaultTrainings = [
+            { id: "t1", name: "Groep 1", day_of_week: 2, time: "18:30", location: "De Zaalon" },
+            { id: "t2", name: "Groep 2", day_of_week: 2, time: "19:30", location: "De Zaalon" },
+          ];
+          await supabase.from('trainings').insert(defaultTrainings);
+          
+          setPracticeSchedule({
+            regularDays: defaultSchedule.regular_days,
+            location: defaultSchedule.location,
+            cancelledDates: defaultSchedule.cancelled_dates,
+            isActive: defaultSchedule.is_active,
+            trainings: defaultTrainings.map(t => ({
+              id: t.id,
+              name: t.name,
+              dayOfWeek: t.day_of_week,
+              time: t.time,
+              location: t.location,
+            })),
+          });
+        }
+
+        if (announcementsRes.data) {
+          setAnnouncements(announcementsRes.data.map(a => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            date: a.date,
+            createdAt: a.created_at,
+          })));
+        }
+
+        if (appointmentsRes.data) {
+          setAppointments(appointmentsRes.data.map(a => ({
+            id: a.id,
+            name: a.name,
+            category: a.category,
+            date: a.date,
+            time: a.time,
+            location: a.location,
+            memberIds: a.member_ids,
+            createdAt: a.created_at,
+            createdBy: a.created_by,
+          })));
+          if (appointmentsRes.data.length === 0) {
+            const defaultAppointment = {
+              id: "ap_example",
+              name: "Optreden FC Eindhoven",
+              category: "Feestje" as const,
+              date: "2025-12-20",
+              time: "21:30",
+              location: "FC Eindhoven",
+              member_ids: [],
+              created_by: "u_admin",
+            };
+            await supabase.from('appointments').insert(defaultAppointment);
+            setAppointments([{
+              id: defaultAppointment.id,
+              name: defaultAppointment.name,
+              category: defaultAppointment.category,
+              date: defaultAppointment.date,
+              time: defaultAppointment.time,
+              location: defaultAppointment.location,
+              memberIds: defaultAppointment.member_ids,
+              createdAt: new Date().toISOString(),
+              createdBy: defaultAppointment.created_by,
+            }]);
+          }
+        }
+
+        if (settingsRes.data) {
+          setNotificationSettings({
+            newsEnabled: settingsRes.data.news_enabled,
+            newsHoursAdvance: settingsRes.data.news_hours_advance,
+            assignmentsEnabled: settingsRes.data.assignments_enabled,
+            trainingCancellationEnabled: settingsRes.data.training_cancellation_enabled,
+            trainingHoursAdvance: settingsRes.data.training_hours_advance,
+            performancesEnabled: settingsRes.data.performances_enabled,
+            performancesHoursAdvance: settingsRes.data.performances_hours_advance,
+          });
+        } else {
+          const defaultSettings = {
+            news_enabled: true,
+            news_hours_advance: 24,
+            assignments_enabled: true,
+            training_cancellation_enabled: true,
+            training_hours_advance: 2,
+            performances_enabled: true,
+            performances_hours_advance: 48,
+          };
+          await supabase.from('notification_settings').insert(defaultSettings);
+          setNotificationSettings({
+            newsEnabled: defaultSettings.news_enabled,
+            newsHoursAdvance: defaultSettings.news_hours_advance,
+            assignmentsEnabled: defaultSettings.assignments_enabled,
+            trainingCancellationEnabled: defaultSettings.training_cancellation_enabled,
+            trainingHoursAdvance: defaultSettings.training_hours_advance,
+            performancesEnabled: defaultSettings.performances_enabled,
+            performancesHoursAdvance: defaultSettings.performances_hours_advance,
+          });
+        }
+
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeData();
+  }, []);
+
+  const buildCategoryTree = (allNodes: any[]) => (node: any): CategoryNode => {
+    const children = allNodes.filter(n => n.parent_id === node.id).map(buildCategoryTree(allNodes));
+    return {
+      id: node.id,
+      name: node.name,
+      children: children.length > 0 ? children : undefined,
+      media: (node.media as any) ?? undefined,
+      description: node.description ?? undefined,
+      taggedUserIds: node.tagged_user_ids ?? undefined,
+    };
+  };
+
+  const setRole = useCallback(async (userId: string, role: Role) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+    await supabase.from('users').update({ role }).eq('id', userId);
   }, []);
 
   const login = useCallback((username: string, password: string) => {
@@ -321,25 +461,34 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setCurrentUser(null);
   }, []);
 
-  const addUser = useCallback((username: string, role: Role) => {
+  const addUser = useCallback(async (username: string, role: Role) => {
     const password = genPassword();
     const user: User = { id: genId("u"), username, password, role, passwordChangedByUser: false };
+    await supabase.from('users').insert({
+      id: user.id,
+      username: user.username,
+      password: user.password,
+      role: user.role,
+      password_changed_by_user: user.passwordChangedByUser,
+    });
     setUsers((prev) => [...prev, user]);
     return { user, password };
   }, []);
 
-  const resetPassword = useCallback((userId: string) => {
+  const resetPassword = useCallback(async (userId: string) => {
     const newPassword = genPassword();
     setUsers((prev) => prev.map((u) => 
       u.id === userId ? { ...u, password: newPassword, passwordChangedByUser: false } : u
     ));
+    await supabase.from('users').update({ password: newPassword, password_changed_by_user: false }).eq('id', userId);
     return newPassword;
   }, []);
 
-  const changePassword = useCallback((userId: string, newPassword: string) => {
+  const changePassword = useCallback(async (userId: string, newPassword: string) => {
     setUsers((prev) => prev.map((u) => 
       u.id === userId ? { ...u, password: newPassword, passwordChangedByUser: true } : u
     ));
+    await supabase.from('users').update({ password: newPassword, password_changed_by_user: true }).eq('id', userId);
   }, []);
 
   const setPermissions = useCallback((role: Role, perms: PermissionMatrix) => {
@@ -425,8 +574,25 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setPerformances((prev) => prev.map((p) => (p.id === id ? { ...p, ...perf } : p)));
   }, []);
 
-  const updatePracticeSchedule = useCallback((schedule: PracticeSchedule) => {
+  const updatePracticeSchedule = useCallback(async (schedule: PracticeSchedule) => {
     setPracticeSchedule(schedule);
+    await supabase.from('practice_schedule').update({
+      regular_days: schedule.regularDays,
+      location: schedule.location,
+      cancelled_dates: schedule.cancelledDates,
+      is_active: schedule.isActive,
+    }).eq('id', (await supabase.from('practice_schedule').select('id').single()).data?.id ?? '');
+    
+    await supabase.from('trainings').delete().neq('id', '');
+    if (schedule.trainings.length > 0) {
+      await supabase.from('trainings').insert(schedule.trainings.map(t => ({
+        id: t.id,
+        name: t.name,
+        day_of_week: t.dayOfWeek,
+        time: t.time,
+        location: t.location,
+      })));
+    }
   }, []);
 
   const getRecentMedia = useCallback((): MediaItem[] => {
@@ -447,74 +613,129 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return allMedia.slice(0, 5);
   }, [library]);
 
-  const addAssignment = useCallback((assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => {
+  const addAssignment = useCallback(async (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => {
     const newAssignment: Assignment = {
       ...assignment,
       id: genId("a"),
       createdAt: new Date().toISOString(),
       submissions: [],
     };
+    await supabase.from('assignments').insert({
+      id: newAssignment.id,
+      title: newAssignment.title,
+      description: newAssignment.description,
+      assigned_user_ids: newAssignment.assignedUserIds,
+      due_date: newAssignment.dueDate ?? null,
+      media_uri: newAssignment.mediaUri ?? null,
+      media_type: newAssignment.mediaType ?? null,
+      submissions: newAssignment.submissions,
+    });
     setAssignments((prev) => [newAssignment, ...prev]);
   }, []);
 
-  const updateAssignment = useCallback((id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => {
+  const updateAssignment = useCallback(async (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => {
     setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, ...assignment } : a)));
+    const updateData: any = {};
+    if (assignment.title !== undefined) updateData.title = assignment.title;
+    if (assignment.description !== undefined) updateData.description = assignment.description;
+    if (assignment.assignedUserIds !== undefined) updateData.assigned_user_ids = assignment.assignedUserIds;
+    if (assignment.dueDate !== undefined) updateData.due_date = assignment.dueDate;
+    if (assignment.mediaUri !== undefined) updateData.media_uri = assignment.mediaUri;
+    if (assignment.mediaType !== undefined) updateData.media_type = assignment.mediaType;
+    await supabase.from('assignments').update(updateData).eq('id', id);
   }, []);
 
-  const deleteAssignments = useCallback((ids: string[]) => {
+  const deleteAssignments = useCallback(async (ids: string[]) => {
     const idSet = new Set(ids);
     setAssignments((prev) => prev.filter((a) => !idSet.has(a.id)));
+    await supabase.from('assignments').delete().in('id', ids);
   }, []);
 
-  const addAnnouncement = useCallback((announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
+  const addAnnouncement = useCallback(async (announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
     const newAnnouncement: Announcement = {
       ...announcement,
       id: genId("an"),
       createdAt: new Date().toISOString(),
     };
+    await supabase.from('announcements').insert({
+      id: newAnnouncement.id,
+      name: newAnnouncement.name,
+      description: newAnnouncement.description,
+      date: newAnnouncement.date,
+    });
     setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     ));
   }, []);
 
-  const updateAnnouncement = useCallback((id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => {
+  const updateAnnouncement = useCallback(async (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => {
     setAnnouncements((prev) => 
       prev.map((a) => (a.id === id ? { ...a, ...announcement } : a))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     );
+    await supabase.from('announcements').update(announcement).eq('id', id);
   }, []);
 
-  const deleteAnnouncements = useCallback((ids: string[]) => {
+  const deleteAnnouncements = useCallback(async (ids: string[]) => {
     const idSet = new Set(ids);
     setAnnouncements((prev) => prev.filter((a) => !idSet.has(a.id)));
+    await supabase.from('announcements').delete().in('id', ids);
   }, []);
 
-  const addAppointment = useCallback((appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>) => {
+  const addAppointment = useCallback(async (appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>) => {
     const newAppointment: Appointment = {
       ...appointment,
       id: genId("ap"),
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.id ?? '',
     };
+    await supabase.from('appointments').insert({
+      id: newAppointment.id,
+      name: newAppointment.name,
+      category: newAppointment.category,
+      date: newAppointment.date,
+      time: newAppointment.time,
+      location: newAppointment.location,
+      member_ids: newAppointment.memberIds,
+      created_by: newAppointment.createdBy,
+    });
     setAppointments((prev) => [...prev, newAppointment].sort((a, b) => 
       new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
     ));
   }, [currentUser]);
 
-  const updateAppointment = useCallback((id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => {
+  const updateAppointment = useCallback(async (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => {
     setAppointments((prev) => 
       prev.map((a) => (a.id === id ? { ...a, ...appointment } : a))
         .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
     );
+    const updateData: any = {};
+    if (appointment.name !== undefined) updateData.name = appointment.name;
+    if (appointment.category !== undefined) updateData.category = appointment.category;
+    if (appointment.date !== undefined) updateData.date = appointment.date;
+    if (appointment.time !== undefined) updateData.time = appointment.time;
+    if (appointment.location !== undefined) updateData.location = appointment.location;
+    if (appointment.memberIds !== undefined) updateData.member_ids = appointment.memberIds;
+    await supabase.from('appointments').update(updateData).eq('id', id);
   }, []);
 
-  const deleteAppointments = useCallback((ids: string[]) => {
+  const deleteAppointments = useCallback(async (ids: string[]) => {
     const idSet = new Set(ids);
     setAppointments((prev) => prev.filter((a) => !idSet.has(a.id)));
+    await supabase.from('appointments').delete().in('id', ids);
   }, []);
 
-  const updateNotificationSettings = useCallback((settings: NotificationSettings) => {
+  const updateNotificationSettings = useCallback(async (settings: NotificationSettings) => {
     setNotificationSettings(settings);
+    await supabase.from('notification_settings').update({
+      news_enabled: settings.newsEnabled,
+      news_hours_advance: settings.newsHoursAdvance,
+      assignments_enabled: settings.assignmentsEnabled,
+      training_cancellation_enabled: settings.trainingCancellationEnabled,
+      training_hours_advance: settings.trainingHoursAdvance,
+      performances_enabled: settings.performancesEnabled,
+      performances_hours_advance: settings.performancesHoursAdvance,
+    }).eq('id', (await supabase.from('notification_settings').select('id').single()).data?.id ?? '');
   }, []);
 
   const value: AppStateValue = {
