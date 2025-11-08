@@ -1,5 +1,10 @@
 # Supabase Database Setup
 
+## ⚠️ BELANGRIJK: SQL Migration Eerst Uitvoeren!
+
+Voordat je de app kan gebruiken, MOET je de SQL migration uitvoeren in Supabase.
+Anders krijg je TypeScript errors en zal de app niet correct werken.
+
 ## Stap 1: Run SQL Migration
 
 1. Ga naar je Supabase dashboard: https://heeinbtgcgobkonojypj.supabase.co
@@ -19,7 +24,15 @@ Dit zal de volgende tabellen aanmaken:
 - `appointments` - Voor agenda afspraken
 - `notification_settings` - Voor melding instellingen
 
-## Stap 2: Test de Connectie
+## Stap 2: Update Bestaande Database (Als je al een oude versie had)
+
+Als je al een database had zonder het `status` veld voor appointments, voer dan ook deze query uit:
+
+```sql
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active' CHECK (status IN ('active', 'cancelled'));
+```
+
+## Stap 3: Test de Connectie
 
 Start de app op met `bun start` en log in met:
 - Gebruikersnaam: `admin`

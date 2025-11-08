@@ -187,6 +187,7 @@ export type Database = {
           location: string
           member_ids: string[] | null
           created_by: string
+          status: 'active' | 'cancelled'
           created_at: string
         }
         Insert: {
@@ -198,6 +199,7 @@ export type Database = {
           location: string
           member_ids?: string[] | null
           created_by: string
+          status?: 'active' | 'cancelled'
           created_at?: string
         }
         Update: {
@@ -209,6 +211,7 @@ export type Database = {
           location?: string
           member_ids?: string[] | null
           created_by?: string
+          status?: 'active' | 'cancelled'
           created_at?: string
         }
       }

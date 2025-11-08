@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment } from "@/providers/AppState";
@@ -23,7 +23,7 @@ const parseDateString = (dateStr: string): Date => {
 };
 
 export default function CalendarScreen() {
-  const { appointments, addAppointment, performances, practiceSchedule, users } = useAppState();
+  const { appointments, addAppointment, updateAppointment, deleteAppointments, performances, practiceSchedule, users, currentUser } = useAppState();
   const insets = useSafeAreaInsets();
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -47,6 +47,24 @@ export default function CalendarScreen() {
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showHourPicker, setShowHourPicker] = useState<boolean>(false);
   const [showMinutePicker, setShowMinutePicker] = useState<boolean>(false);
+
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [editFormData, setEditFormData] = useState<{
+    name: string;
+    category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig';
+    date: string;
+    time: string;
+    location: string;
+    memberIds: string[];
+  }>({
+    name: '',
+    category: 'Feestje',
+    date: formatDateToLocal(new Date()),
+    time: '12:00',
+    location: '',
+    memberIds: [],
+  });
 
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -152,8 +170,6 @@ export default function CalendarScreen() {
     });
   }, [appointments, currentDate]);
 
-
-
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
@@ -185,6 +201,78 @@ export default function CalendarScreen() {
       memberIds: [],
     });
     setShowAddModal(false);
+  };
+
+  const openEditModal = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setEditFormData({
+      name: appointment.name,
+      category: appointment.category,
+      date: appointment.date,
+      time: appointment.time,
+      location: appointment.location,
+      memberIds: appointment.memberIds,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditAppointment = () => {
+    if (!selectedAppointment || !editFormData.name.trim() || !editFormData.location.trim()) {
+      return;
+    }
+
+    updateAppointment(selectedAppointment.id, {
+      name: editFormData.name.trim(),
+      category: editFormData.category,
+      date: editFormData.date,
+      time: editFormData.time,
+      location: editFormData.location.trim(),
+      memberIds: editFormData.memberIds,
+    });
+
+    setShowEditModal(false);
+    setSelectedAppointment(null);
+  };
+
+  const handleCancelAppointment = () => {
+    if (!selectedAppointment) return;
+    
+    Alert.alert(
+      'Afspraak Annuleren',
+      'Weet je zeker dat je deze afspraak wilt annuleren?',
+      [
+        { text: 'Nee', style: 'cancel' },
+        {
+          text: 'Ja',
+          onPress: () => {
+            updateAppointment(selectedAppointment.id, { status: 'cancelled' });
+            setShowEditModal(false);
+            setSelectedAppointment(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAppointment = () => {
+    if (!selectedAppointment) return;
+    
+    Alert.alert(
+      'Afspraak Verwijderen',
+      'Weet je zeker dat je deze afspraak wilt verwijderen?',
+      [
+        { text: 'Nee', style: 'cancel' },
+        {
+          text: 'Ja',
+          style: 'destructive',
+          onPress: () => {
+            deleteAppointments([selectedAppointment.id]);
+            setShowEditModal(false);
+            setSelectedAppointment(null);
+          },
+        },
+      ]
+    );
   };
 
   const today = formatDateToLocal(new Date());
@@ -275,49 +363,61 @@ export default function CalendarScreen() {
                 const dateObj = parseDateString(item.date);
                 const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
                 const creator = users.find(u => u.id === item.createdBy);
+                const isCancelled = item.status === 'cancelled';
+                const isAdmin = currentUser?.role === 'admin';
                 
                 return (
-                  <View key={item.id} style={styles.card}>
-                    <View style={styles.cardColorStrip} />
+                  <Pressable 
+                    key={item.id} 
+                    style={[styles.card, isCancelled && styles.cardCancelled]} 
+                    onPress={() => isAdmin && openEditModal(item)}
+                    disabled={!isAdmin}
+                  >
+                    <View style={[styles.cardColorStrip, isCancelled && styles.cardColorStripCancelled]} />
                     <View style={styles.cardContent}>
                       <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>{item.name}</Text>
-                        <View style={styles.categoryBadge}>
-                          <Text style={styles.categoryText}>{item.category}</Text>
+                        <Text style={[styles.cardTitle, isCancelled && styles.cardTitleCancelled]}>{item.name}</Text>
+                        <View style={[styles.categoryBadge, isCancelled && styles.categoryBadgeCancelled]}>
+                          <Text style={[styles.categoryText, isCancelled && styles.categoryTextCancelled]}>{item.category}</Text>
                         </View>
                       </View>
                       
                       <View style={styles.metaRow}>
                         <View style={styles.metaItem}>
-                          <CalendarIcon color={Colors.light.muted} size={14} strokeWidth={2} />
-                          <Text style={styles.metaText}>{formattedDate}</Text>
+                          <CalendarIcon color={isCancelled ? Colors.light.darkGray : Colors.light.muted} size={14} strokeWidth={2} />
+                          <Text style={[styles.metaText, isCancelled && styles.metaTextCancelled]}>{formattedDate}</Text>
                         </View>
                         <View style={styles.metaItem}>
-                          <Text style={styles.metaText}>{item.time}</Text>
+                          <Text style={[styles.metaText, isCancelled && styles.metaTextCancelled]}>{item.time}</Text>
                         </View>
                       </View>
 
                       <View style={styles.metaRow}>
                         <View style={styles.metaItem}>
-                          <MapPin color={Colors.light.muted} size={14} strokeWidth={2} />
-                          <Text style={styles.metaText}>{item.location}</Text>
+                          <MapPin color={isCancelled ? Colors.light.darkGray : Colors.light.muted} size={14} strokeWidth={2} />
+                          <Text style={[styles.metaText, isCancelled && styles.metaTextCancelled]}>{item.location}</Text>
                         </View>
                       </View>
 
                       {item.memberIds.length > 0 && (
                         <View style={styles.metaRow}>
                           <View style={styles.metaItem}>
-                            <Users color={Colors.light.muted} size={14} strokeWidth={2} />
-                            <Text style={styles.metaText}>{item.memberIds.length} leden</Text>
+                            <Users color={isCancelled ? Colors.light.darkGray : Colors.light.muted} size={14} strokeWidth={2} />
+                            <Text style={[styles.metaText, isCancelled && styles.metaTextCancelled]}>{item.memberIds.length} leden</Text>
                           </View>
                         </View>
                       )}
                       
                       {creator && (
-                        <Text style={styles.creatorText}>Toegevoegd door {creator.username}</Text>
+                        <Text style={[styles.creatorText, isCancelled && styles.creatorTextCancelled]}>Toegevoegd door {creator.username}</Text>
                       )}
                     </View>
-                  </View>
+                    {isCancelled && (
+                      <View style={styles.cancelledBadge}>
+                        <Text style={styles.cancelledBadgeText}>Geannuleerd</Text>
+                      </View>
+                    )}
+                  </Pressable>
                 );
               })
             )}
@@ -425,107 +525,6 @@ export default function CalendarScreen() {
                   </Text>
                   <CalendarIcon color={Colors.light.muted} size={20} />
                 </Pressable>
-                {showDatePicker && (
-                  <View style={styles.datePickerModal}>
-                    <View style={styles.datePickerHeader}>
-                      <TouchableOpacity 
-                        onPress={() => {
-                          const currentDate = parseDateString(formData.date);
-                          currentDate.setMonth(currentDate.getMonth() - 1);
-                          setFormData({ ...formData, date: formatDateToLocal(currentDate) });
-                        }}
-                        style={styles.datePickerButton}
-                      >
-                        <ChevronLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
-                      <Text style={styles.datePickerMonth}>
-                        {parseDateString(formData.date).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })}
-                      </Text>
-                      <TouchableOpacity 
-                        onPress={() => {
-                          const currentDate = parseDateString(formData.date);
-                          currentDate.setMonth(currentDate.getMonth() + 1);
-                          setFormData({ ...formData, date: formatDateToLocal(currentDate) });
-                        }}
-                        style={styles.datePickerButton}
-                      >
-                        <ChevronRight color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.datePickerDays}>
-                      {['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'].map((day) => (
-                        <View key={day} style={styles.datePickerWeekDay}>
-                          <Text style={styles.datePickerWeekDayText}>{day}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    <View style={styles.datePickerGrid}>
-                      {(() => {
-                        const selectedDate = parseDateString(formData.date);
-                        const year = selectedDate.getFullYear();
-                        const month = selectedDate.getMonth();
-                        const firstDay = new Date(year, month, 1);
-                        const lastDay = new Date(year, month + 1, 0);
-                        const startDayOfWeek = firstDay.getDay();
-                        const daysInMonth = lastDay.getDate();
-                        const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
-                        
-                        for (let i = 0; i < startDayOfWeek; i++) {
-                          const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
-                          days.push({
-                            date: prevMonthDay.getDate(),
-                            isCurrentMonth: false,
-                            fullDate: formatDateToLocal(prevMonthDay),
-                          });
-                        }
-                        
-                        for (let i = 1; i <= daysInMonth; i++) {
-                          const fullDate = new Date(year, month, i);
-                          days.push({
-                            date: i,
-                            isCurrentMonth: true,
-                            fullDate: formatDateToLocal(fullDate),
-                          });
-                        }
-                        
-                        const remainingDays = 42 - days.length;
-                        for (let i = 1; i <= remainingDays; i++) {
-                          const nextMonthDay = new Date(year, month + 1, i);
-                          days.push({
-                            date: i,
-                            isCurrentMonth: false,
-                            fullDate: formatDateToLocal(nextMonthDay),
-                          });
-                        }
-                        
-                        return days.map((day, index) => (
-                          <TouchableOpacity
-                            key={`${day.fullDate}-${index}`}
-                            style={styles.datePickerDay}
-                            onPress={() => {
-                              setFormData({ ...formData, date: day.fullDate });
-                              setShowDatePicker(false);
-                            }}
-                          >
-                            <View style={[
-                              styles.datePickerDayContent,
-                              !day.isCurrentMonth && styles.datePickerDayInactive,
-                              day.fullDate === formData.date && styles.datePickerDaySelected,
-                            ]}>
-                              <Text style={[
-                                styles.datePickerDayText,
-                                !day.isCurrentMonth && styles.datePickerDayTextInactive,
-                                day.fullDate === formData.date && styles.datePickerDayTextSelected,
-                              ]}>
-                                {day.date}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ));
-                      })()}
-                    </View>
-                  </View>
-                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -563,50 +562,6 @@ export default function CalendarScreen() {
                     />
                   </Pressable>
                 </View>
-                {showHourPicker && (
-                  <ScrollView style={styles.timePickerMenu} nestedScrollEnabled>
-                    {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map((hour) => (
-                      <TouchableOpacity
-                        key={hour}
-                        style={styles.timePickerItem}
-                        onPress={() => {
-                          const minutes = formData.time.split(':')[1];
-                          setFormData({ ...formData, time: `${hour}:${minutes}` });
-                          setShowHourPicker(false);
-                        }}
-                      >
-                        <Text style={[
-                          styles.timePickerText,
-                          formData.time.split(':')[0] === hour && styles.timePickerTextActive
-                        ]}>
-                          {hour}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
-                {showMinutePicker && (
-                  <View style={styles.timePickerMenu}>
-                    {['00', '15', '30', '45'].map((minute) => (
-                      <TouchableOpacity
-                        key={minute}
-                        style={styles.timePickerItem}
-                        onPress={() => {
-                          const hour = formData.time.split(':')[0];
-                          setFormData({ ...formData, time: `${hour}:${minute}` });
-                          setShowMinutePicker(false);
-                        }}
-                      >
-                        <Text style={[
-                          styles.timePickerText,
-                          formData.time.split(':')[1] === minute && styles.timePickerTextActive
-                        ]}>
-                          {minute}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -619,15 +574,6 @@ export default function CalendarScreen() {
                   placeholderTextColor={Colors.light.muted}
                   testID="location-input"
                 />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Leden</Text>
-                <Text style={styles.inputHint}>
-                  {formData.memberIds.length > 0 
-                    ? `${formData.memberIds.length} ${formData.memberIds.length === 1 ? 'lid' : 'leden'} geselecteerd`
-                    : 'Geen leden geselecteerd'}
-                </Text>
               </View>
 
               <View style={styles.modalActions}>
@@ -673,6 +619,97 @@ export default function CalendarScreen() {
                       (!formData.name.trim() || !formData.location.trim()) && styles.disabledButtonText
                     ]}>
                       Toevoegen
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ScrollView 
+            contentContainerStyle={styles.modalScrollContent}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Afspraak Bewerken</Text>
+                <Pressable onPress={() => setShowEditModal(false)}>
+                  <X color={Colors.light.muted} size={24} />
+                </Pressable>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Naam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editFormData.name}
+                  onChangeText={(text) => setEditFormData({ ...editFormData, name: text })}
+                  placeholder="Naam van de afspraak"
+                  placeholderTextColor={Colors.light.muted}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Locatie</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editFormData.location}
+                  onChangeText={(text) => setEditFormData({ ...editFormData, location: text })}
+                  placeholder="Locatie van de afspraak"
+                  placeholderTextColor={Colors.light.muted}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={handleDeleteAppointment}
+                >
+                  <Text style={styles.deleteButtonText}>Verwijderen</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.cancelButtonSecondary]}
+                  onPress={handleCancelAppointment}
+                >
+                  <Text style={styles.cancelButtonSecondaryText}>Annuleren</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={[
+                    styles.actionButton, 
+                    styles.createButton, 
+                    (!editFormData.name.trim() || !editFormData.location.trim()) && styles.disabledButton
+                  ]}
+                  onPress={handleEditAppointment}
+                  disabled={!editFormData.name.trim() || !editFormData.location.trim()}
+                >
+                  <LinearGradient
+                    colors={(editFormData.name.trim() && editFormData.location.trim()) 
+                      ? [Colors.light.primary, Colors.light.primaryDark] 
+                      : [Colors.light.surfaceLight, Colors.light.surfaceLight]
+                    }
+                    style={styles.createButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={[
+                      styles.createButtonText, 
+                      (!editFormData.name.trim() || !editFormData.location.trim()) && styles.disabledButtonText
+                    ]}>
+                      Opslaan
                     </Text>
                   </LinearGradient>
                 </Pressable>
@@ -841,10 +878,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  cardCancelled: {
+    backgroundColor: Colors.light.darkGray,
+    opacity: 0.8,
   },
   cardColorStrip: {
     width: 4,
     backgroundColor: Colors.light.primary,
+  },
+  cardColorStripCancelled: {
+    backgroundColor: '#6B7280',
   },
   cardContent: {
     flex: 1,
@@ -863,6 +908,9 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     flex: 1,
   },
+  cardTitleCancelled: {
+    opacity: 0.6,
+  },
   categoryBadge: {
     backgroundColor: Colors.light.darkGray,
     paddingHorizontal: 10,
@@ -870,12 +918,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 8,
   },
+  categoryBadgeCancelled: {
+    backgroundColor: '#4B5563',
+    opacity: 0.6,
+  },
   categoryText: {
     color: Colors.light.text,
     fontSize: 11,
     fontWeight: '700' as const,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  categoryTextCancelled: {
+    opacity: 0.6,
   },
   metaRow: {
     flexDirection: 'row',
@@ -891,6 +946,9 @@ const styles = StyleSheet.create({
     color: Colors.light.muted, 
     fontSize: 13,
     fontWeight: "600" as const,
+  },
+  metaTextCancelled: {
+    opacity: 0.5,
   },
   emptyState: {
     alignItems: 'center',
@@ -961,11 +1019,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
     marginBottom: 10,
-  },
-  inputHint: {
-    color: Colors.light.muted,
-    fontSize: 14,
-    fontWeight: '500' as const,
   },
   input: {
     backgroundColor: Colors.light.darkGray,
@@ -1055,75 +1108,6 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: Colors.light.muted,
   },
-  datePickerModal: {
-    marginTop: 8,
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  datePickerButton: {
-    padding: 4,
-  },
-  datePickerMonth: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '700' as const,
-  },
-  datePickerDays: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  datePickerWeekDay: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  datePickerWeekDayText: {
-    color: Colors.light.muted,
-    fontSize: 11,
-    fontWeight: '700' as const,
-  },
-  datePickerGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  datePickerDay: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    padding: 2,
-  },
-  datePickerDayContent: {
-    flex: 1,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  datePickerDayInactive: {
-    opacity: 0.3,
-  },
-  datePickerDaySelected: {
-    backgroundColor: Colors.light.primary,
-  },
-  datePickerDayText: {
-    color: Colors.light.text,
-    fontSize: 13,
-    fontWeight: '600' as const,
-  },
-  datePickerDayTextInactive: {
-    color: Colors.light.muted,
-  },
-  datePickerDayTextSelected: {
-    color: Colors.light.text,
-    fontWeight: '700' as const,
-  },
   timePickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1134,33 +1118,53 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
   },
-  timePickerMenu: {
-    marginTop: 8,
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-    maxHeight: 200,
-  },
-  timePickerItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.surfaceLight,
-    alignItems: 'center',
-  },
-  timePickerText: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '500' as const,
-  },
-  timePickerTextActive: {
-    color: Colors.light.primary,
-    fontWeight: '700' as const,
-  },
   creatorText: {
     color: Colors.light.muted,
     fontSize: 11,
     fontWeight: '500' as const,
     marginTop: 4,
+  },
+  creatorTextCancelled: {
+    opacity: 0.5,
+  },
+  cancelledBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cancelledBadgeText: {
+    color: Colors.light.text,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  deleteButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  deleteButtonText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  cancelButtonSecondary: {
+    backgroundColor: '#F59E0B',
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  cancelButtonSecondaryText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });

@@ -118,6 +118,7 @@ export interface Appointment {
   memberIds: string[];
   createdAt: string;
   createdBy: string;
+  status: 'active' | 'cancelled';
 }
 
 export interface NotificationSettings {
@@ -161,8 +162,8 @@ export interface AppStateValue {
   updateAnnouncement: (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => void;
   deleteAnnouncements: (ids: string[]) => void;
   appointments: Appointment[];
-  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>) => void;
-  updateAppointment: (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>>) => void;
+  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy' | 'status'>) => void;
+  updateAppointment: (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => void;
   deleteAppointments: (ids: string[]) => void;
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (settings: NotificationSettings) => void;
@@ -365,6 +366,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             memberIds: a.member_ids ?? [],
             createdAt: a.created_at,
             createdBy: a.created_by,
+            status: a.status,
           })));
           if (appointmentsRes.data.length === 0) {
             const defaultAppointment: Database['public']['Tables']['appointments']['Insert'] = {
@@ -388,6 +390,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               memberIds: defaultAppointment.member_ids ?? [],
               createdAt: new Date().toISOString(),
               createdBy: defaultAppointment.created_by,
+              status: 'active',
             }]);
           }
         }
@@ -509,6 +512,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               memberIds: a.member_ids ?? [],
               createdAt: a.created_at,
               createdBy: a.created_by,
+              status: a.status,
             })));
           }
         });
@@ -883,13 +887,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Announcements deleted');
   }, []);
 
-  const addAppointment = useCallback(async (appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy'>) => {
+  const addAppointment = useCallback(async (appointment: Omit<Appointment, 'id' | 'createdAt' | 'createdBy' | 'status'>) => {
     console.log('💾 Adding appointment to Supabase...');
     const newAppointment: Appointment = {
       ...appointment,
       id: genId("ap"),
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.id ?? '',
+      status: 'active',
     };
     const insertData: Database['public']['Tables']['appointments']['Insert'] = {
       id: newAppointment.id,
@@ -921,6 +926,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (appointment.time !== undefined) updateData.time = appointment.time;
     if (appointment.location !== undefined) updateData.location = appointment.location;
     if (appointment.memberIds !== undefined) updateData.member_ids = appointment.memberIds;
+    if (appointment.status !== undefined) updateData.status = appointment.status;
+    if (appointment.createdBy !== undefined) updateData.created_by = appointment.createdBy;
     await supabase.from('appointments').update(updateData).eq('id', id);
     console.log('✅ Appointment updated');
   }, []);

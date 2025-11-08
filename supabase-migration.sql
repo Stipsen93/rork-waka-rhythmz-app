@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   location TEXT NOT NULL,
   member_ids TEXT[],
   created_by TEXT NOT NULL,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'cancelled')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
