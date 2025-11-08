@@ -158,7 +158,7 @@ export default function NieuwsScreen() {
               apt.name === appointmentName && apt.status === 'cancelled'
             );
             
-            return !relatedAppointment;
+            return !!relatedAppointment;
           }).length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Geen mededelingen</Text>
@@ -177,7 +177,7 @@ export default function NieuwsScreen() {
                   apt.name === appointmentName && apt.status === 'cancelled'
                 );
                 
-                return !relatedAppointment;
+                return !!relatedAppointment;
               }).map((announcement) => (
                 <TouchableOpacity 
                   key={announcement.id} 
