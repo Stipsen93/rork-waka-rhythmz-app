@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from "react";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
 
 export type Role = "admin" | "member";
 
@@ -135,9 +136,9 @@ export interface AppStateValue {
   setCurrentUser: (u: User | null) => void;
   login: (username: string, password: string) => boolean;
   logout: () => void;
-  addUser: (username: string, role: Role) => { user: User; password: string };
+  addUser: (username: string, role: Role) => Promise<{ user: User; password: string }>;
   setRole: (userId: string, role: Role) => void;
-  resetPassword: (userId: string) => string;
+  resetPassword: (userId: string) => Promise<string>;
   changePassword: (userId: string, newPassword: string) => void;
   permissions: Record<Role, PermissionMatrix>;
   setPermissions: (role: Role, perms: PermissionMatrix) => void;
@@ -260,18 +261,19 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             id: u.id,
             username: u.username,
             password: u.password,
-            role: u.role,
+            role: u.role as Role,
             passwordChangedByUser: u.password_changed_by_user,
           }));
           setUsers(mappedUsers);
           if (mappedUsers.length === 0) {
-            await supabase.from('users').insert({
+            const newUser: Database['public']['Tables']['users']['Insert'] = {
               id: "u_admin",
               username: "admin",
               password: "admin",
               role: "admin",
               password_changed_by_user: true,
-            });
+            };
+            await supabase.from('users').insert(newUser);
             setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true }]);
           }
         }
@@ -285,7 +287,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             id: a.id,
             title: a.title,
             description: a.description,
-            assignedUserIds: a.assigned_user_ids,
+            assignedUserIds: a.assigned_user_ids ?? [],
             dueDate: a.due_date ?? undefined,
             mediaUri: a.media_uri ?? undefined,
             mediaType: a.media_type ?? undefined,
@@ -309,30 +311,30 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             })),
           });
         } else if (!scheduleRes.data) {
-          const defaultSchedule = {
+          const defaultSchedule: Database['public']['Tables']['practice_schedule']['Insert'] = {
             regular_days: [
               { dayOfWeek: 2, time: "18:30" },
               { dayOfWeek: 2, time: "19:30" },
-            ],
+            ] as any,
             location: "De Zaalon",
-            cancelled_dates: [],
+            cancelled_dates: [] as any,
             is_active: true,
           };
           await supabase.from('practice_schedule').insert(defaultSchedule);
           
-          const defaultTrainings = [
+          const defaultTrainings: Database['public']['Tables']['trainings']['Insert'][] = [
             { id: "t1", name: "Groep 1", day_of_week: 2, time: "18:30", location: "De Zaalon" },
             { id: "t2", name: "Groep 2", day_of_week: 2, time: "19:30", location: "De Zaalon" },
           ];
           await supabase.from('trainings').insert(defaultTrainings);
           
           setPracticeSchedule({
-            regularDays: defaultSchedule.regular_days,
+            regularDays: (defaultSchedule.regular_days as any) ?? [],
             location: defaultSchedule.location,
-            cancelledDates: defaultSchedule.cancelled_dates,
+            cancelledDates: (defaultSchedule.cancelled_dates as any) ?? [],
             isActive: defaultSchedule.is_active,
             trainings: defaultTrainings.map(t => ({
-              id: t.id,
+              id: t.id ?? '',
               name: t.name,
               dayOfWeek: t.day_of_week,
               time: t.time,
@@ -359,15 +361,15 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             date: a.date,
             time: a.time,
             location: a.location,
-            memberIds: a.member_ids,
+            memberIds: a.member_ids ?? [],
             createdAt: a.created_at,
             createdBy: a.created_by,
           })));
           if (appointmentsRes.data.length === 0) {
-            const defaultAppointment = {
+            const defaultAppointment: Database['public']['Tables']['appointments']['Insert'] = {
               id: "ap_example",
               name: "Optreden FC Eindhoven",
-              category: "Feestje" as const,
+              category: "Feestje",
               date: "2025-12-20",
               time: "21:30",
               location: "FC Eindhoven",
@@ -382,7 +384,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               date: defaultAppointment.date,
               time: defaultAppointment.time,
               location: defaultAppointment.location,
-              memberIds: defaultAppointment.member_ids,
+              memberIds: defaultAppointment.member_ids ?? [],
               createdAt: new Date().toISOString(),
               createdBy: defaultAppointment.created_by,
             }]);
@@ -400,7 +402,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             performancesHoursAdvance: settingsRes.data.performances_hours_advance,
           });
         } else {
-          const defaultSettings = {
+          const defaultSettings: Database['public']['Tables']['notification_settings']['Insert'] = {
             news_enabled: true,
             news_hours_advance: 24,
             assignments_enabled: true,
@@ -445,7 +447,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const setRole = useCallback(async (userId: string, role: Role) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-    await supabase.from('users').update({ role }).eq('id', userId);
+    const updateData: Database['public']['Tables']['users']['Update'] = { role };
+    await supabase.from('users').update(updateData).eq('id', userId);
   }, []);
 
   const login = useCallback((username: string, password: string) => {
@@ -461,26 +464,28 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setCurrentUser(null);
   }, []);
 
-  const addUser = useCallback(async (username: string, role: Role) => {
+  const addUser = useCallback(async (username: string, role: Role): Promise<{ user: User; password: string }> => {
     const password = genPassword();
     const user: User = { id: genId("u"), username, password, role, passwordChangedByUser: false };
-    await supabase.from('users').insert({
+    const insertData: Database['public']['Tables']['users']['Insert'] = {
       id: user.id,
       username: user.username,
       password: user.password,
       role: user.role,
       password_changed_by_user: user.passwordChangedByUser,
-    });
+    };
+    await supabase.from('users').insert(insertData);
     setUsers((prev) => [...prev, user]);
     return { user, password };
   }, []);
 
-  const resetPassword = useCallback(async (userId: string) => {
+  const resetPassword = useCallback(async (userId: string): Promise<string> => {
     const newPassword = genPassword();
     setUsers((prev) => prev.map((u) => 
       u.id === userId ? { ...u, password: newPassword, passwordChangedByUser: false } : u
     ));
-    await supabase.from('users').update({ password: newPassword, password_changed_by_user: false }).eq('id', userId);
+    const updateData: Database['public']['Tables']['users']['Update'] = { password: newPassword, password_changed_by_user: false };
+    await supabase.from('users').update(updateData).eq('id', userId);
     return newPassword;
   }, []);
 
@@ -488,7 +493,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setUsers((prev) => prev.map((u) => 
       u.id === userId ? { ...u, password: newPassword, passwordChangedByUser: true } : u
     ));
-    await supabase.from('users').update({ password: newPassword, password_changed_by_user: true }).eq('id', userId);
+    const updateData: Database['public']['Tables']['users']['Update'] = { password: newPassword, password_changed_by_user: true };
+    await supabase.from('users').update(updateData).eq('id', userId);
   }, []);
 
   const setPermissions = useCallback((role: Role, perms: PermissionMatrix) => {
@@ -576,22 +582,24 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const updatePracticeSchedule = useCallback(async (schedule: PracticeSchedule) => {
     setPracticeSchedule(schedule);
-    await supabase.from('practice_schedule').update({
-      regular_days: schedule.regularDays,
+    const scheduleUpdateData: Database['public']['Tables']['practice_schedule']['Update'] = {
+      regular_days: schedule.regularDays as any,
       location: schedule.location,
-      cancelled_dates: schedule.cancelledDates,
+      cancelled_dates: schedule.cancelledDates as any,
       is_active: schedule.isActive,
-    }).eq('id', (await supabase.from('practice_schedule').select('id').single()).data?.id ?? '');
+    };
+    await supabase.from('practice_schedule').update(scheduleUpdateData).eq('id', (await supabase.from('practice_schedule').select('id').single()).data?.id ?? '');
     
     await supabase.from('trainings').delete().neq('id', '');
     if (schedule.trainings.length > 0) {
-      await supabase.from('trainings').insert(schedule.trainings.map(t => ({
+      const trainingsInsert: Database['public']['Tables']['trainings']['Insert'][] = schedule.trainings.map(t => ({
         id: t.id,
         name: t.name,
         day_of_week: t.dayOfWeek,
         time: t.time,
         location: t.location,
-      })));
+      }));
+      await supabase.from('trainings').insert(trainingsInsert);
     }
   }, []);
 
@@ -620,7 +628,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       createdAt: new Date().toISOString(),
       submissions: [],
     };
-    await supabase.from('assignments').insert({
+    const insertData: Database['public']['Tables']['assignments']['Insert'] = {
       id: newAssignment.id,
       title: newAssignment.title,
       description: newAssignment.description,
@@ -628,14 +636,15 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       due_date: newAssignment.dueDate ?? null,
       media_uri: newAssignment.mediaUri ?? null,
       media_type: newAssignment.mediaType ?? null,
-      submissions: newAssignment.submissions,
-    });
+      submissions: newAssignment.submissions as any,
+    };
+    await supabase.from('assignments').insert(insertData);
     setAssignments((prev) => [newAssignment, ...prev]);
   }, []);
 
   const updateAssignment = useCallback(async (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => {
     setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, ...assignment } : a)));
-    const updateData: any = {};
+    const updateData: Database['public']['Tables']['assignments']['Update'] = {};
     if (assignment.title !== undefined) updateData.title = assignment.title;
     if (assignment.description !== undefined) updateData.description = assignment.description;
     if (assignment.assignedUserIds !== undefined) updateData.assigned_user_ids = assignment.assignedUserIds;
@@ -657,12 +666,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       id: genId("an"),
       createdAt: new Date().toISOString(),
     };
-    await supabase.from('announcements').insert({
+    const insertData: Database['public']['Tables']['announcements']['Insert'] = {
       id: newAnnouncement.id,
       name: newAnnouncement.name,
       description: newAnnouncement.description,
       date: newAnnouncement.date,
-    });
+    };
+    await supabase.from('announcements').insert(insertData);
     setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     ));
@@ -673,7 +683,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       prev.map((a) => (a.id === id ? { ...a, ...announcement } : a))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     );
-    await supabase.from('announcements').update(announcement).eq('id', id);
+    const updateData: Database['public']['Tables']['announcements']['Update'] = announcement;
+    await supabase.from('announcements').update(updateData).eq('id', id);
   }, []);
 
   const deleteAnnouncements = useCallback(async (ids: string[]) => {
@@ -689,7 +700,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.id ?? '',
     };
-    await supabase.from('appointments').insert({
+    const insertData: Database['public']['Tables']['appointments']['Insert'] = {
       id: newAppointment.id,
       name: newAppointment.name,
       category: newAppointment.category,
@@ -698,7 +709,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       location: newAppointment.location,
       member_ids: newAppointment.memberIds,
       created_by: newAppointment.createdBy,
-    });
+    };
+    await supabase.from('appointments').insert(insertData);
     setAppointments((prev) => [...prev, newAppointment].sort((a, b) => 
       new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
     ));
@@ -709,7 +721,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       prev.map((a) => (a.id === id ? { ...a, ...appointment } : a))
         .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
     );
-    const updateData: any = {};
+    const updateData: Database['public']['Tables']['appointments']['Update'] = {};
     if (appointment.name !== undefined) updateData.name = appointment.name;
     if (appointment.category !== undefined) updateData.category = appointment.category;
     if (appointment.date !== undefined) updateData.date = appointment.date;
@@ -727,7 +739,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const updateNotificationSettings = useCallback(async (settings: NotificationSettings) => {
     setNotificationSettings(settings);
-    await supabase.from('notification_settings').update({
+    const updateData: Database['public']['Tables']['notification_settings']['Update'] = {
       news_enabled: settings.newsEnabled,
       news_hours_advance: settings.newsHoursAdvance,
       assignments_enabled: settings.assignmentsEnabled,
@@ -735,7 +747,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       training_hours_advance: settings.trainingHoursAdvance,
       performances_enabled: settings.performancesEnabled,
       performances_hours_advance: settings.performancesHoursAdvance,
-    }).eq('id', (await supabase.from('notification_settings').select('id').single()).data?.id ?? '');
+    };
+    await supabase.from('notification_settings').update(updateData).eq('id', (await supabase.from('notification_settings').select('id').single()).data?.id ?? '');
   }, []);
 
   const value: AppStateValue = {
