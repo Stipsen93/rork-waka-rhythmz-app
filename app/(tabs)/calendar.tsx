@@ -235,7 +235,7 @@ export default function CalendarScreen() {
               const hasTrainingOrPerformance = trainingAndPerformanceDates.has(day.fullDate);
               
               return (
-                <View key={`day-${day.fullDate}-${index}`} style={styles.dayCell}>
+                <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
                   <View style={[
                     styles.dayNumber,
                     !day.isCurrentMonth && styles.dayNumberInactive,
@@ -500,7 +500,7 @@ export default function CalendarScreen() {
                         
                         return days.map((day, index) => (
                           <TouchableOpacity
-                            key={`picker-${day.fullDate}-${index}`}
+                            key={`${day.fullDate}-${index}`}
                             style={styles.datePickerDay}
                             onPress={() => {
                               setFormData({ ...formData, date: day.fullDate });

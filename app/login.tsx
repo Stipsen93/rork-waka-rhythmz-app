@@ -5,30 +5,26 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock, Music } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAppState } from "@/providers/AppState";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-  const { signIn } = useAuth();
+  const { login } = useAppState();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Fout", "Voer email en wachtwoord in");
+  const handleLogin = () => {
+    if (!username || !password) {
+      Alert.alert("Fout", "Voer gebruikersnaam en wachtwoord in");
       return;
     }
 
-    setLoading(true);
-    const result = await signIn(email.trim(), password);
-    setLoading(false);
-    
-    if (result.success) {
+    const success = login(username.trim(), password);
+    if (success) {
       router.replace("/(tabs)/assignments");
     } else {
-      Alert.alert("Inloggen mislukt", result.error || "Email of wachtwoord is onjuist");
+      Alert.alert("Inloggen mislukt", "Gebruikersnaam of wachtwoord is onjuist");
     }
   };
 
@@ -59,14 +55,13 @@ export default function LoginScreen() {
             </View>
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="Gebruikersnaam"
               placeholderTextColor={Colors.light.mutedLight}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              value={username}
+              onChangeText={setUsername}
               autoCapitalize="none"
               autoCorrect={false}
-              testID="login-email"
+              testID="login-username"
             />
           </View>
 

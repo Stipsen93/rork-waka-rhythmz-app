@@ -1,6 +1,5 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import createContextHook from "@nkzw/create-context-hook";
-import { useAuth } from "@/providers/AuthProvider";
 
 export type Role = "admin" | "member";
 
@@ -178,8 +177,6 @@ function genPassword(): string {
 }
 
 export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(() => {
-  const { profile } = useAuth();
-
   const mockMedia: MediaItem[] = [
     {
       id: "m1",
@@ -198,27 +195,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     },
   ];
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([
+    { id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true },
+  ]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [permissions, setPermissionsState] = useState<Record<Role, PermissionMatrix>>({
     admin: { canAddMedia: true, canComment: true, canCreateEvents: true },
     member: { canAddMedia: false, canComment: true, canCreateEvents: false },
   });
-
-  useEffect(() => {
-    if (profile) {
-      console.log('[AppState] Setting current user from profile:', profile.email, profile.role);
-      setCurrentUser({
-        id: profile.id,
-        username: profile.email,
-        password: '',
-        role: profile.role,
-        passwordChangedByUser: profile.passwordChangedByUser,
-      });
-    } else {
-      setCurrentUser(null);
-    }
-  }, [profile]);
 
   const [library, setLibrary] = useState<CategoryNode[]>([
     {

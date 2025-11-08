@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform } from "react-native";
 import Colors from "@/constants/colors";
-import { Role } from "@/providers/AppState";
-import { useProfiles } from "@/hooks/useProfiles";
+import { Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserPlus, Shield, User, RotateCcw } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,30 +9,10 @@ import { LinearGradient } from "expo-linear-gradient";
 
 
 export default function AdminScreen() {
-  const { profiles, isLoading, createUser, updateRole, resetPassword } = useProfiles();
-  const [email, setEmail] = useState<string>("");
+  const { users, addUser, setRole, resetPassword } = useAppState();
+  const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
   const insets = useSafeAreaInsets();
-
-  const handleCreateUser = async () => {
-    if (!email.trim()) return;
-    
-    try {
-      const result = await createUser({ email: email.trim(), role });
-      Alert.alert("Account Aangemaakt", `Email: ${result.email}\nWachtwoord: ${result.password}\n\nBewaar dit wachtwoord!`);
-      setEmail("");
-    } catch {
-      Alert.alert("Fout", "Kon account niet aanmaken");
-    }
-  };
-
-  const handleUpdateRole = async (userId: string, newRole: Role) => {
-    try {
-      await updateRole({ userId, role: newRole });
-    } catch {
-      Alert.alert("Fout", "Kon rol niet wijzigen");
-    }
-  };
 
   const handleResetPassword = (userId: string, userName: string) => {
     Alert.alert(
@@ -44,16 +23,12 @@ export default function AdminScreen() {
         {
           text: "Resetten",
           style: "destructive",
-          onPress: async () => {
-            try {
-              const result = await resetPassword(userId);
-              Alert.alert(
-                "Wachtwoord Gereset",
-                `Nieuw wachtwoord voor ${userName}:\n${result.password}\n\nBewaar dit wachtwoord!`
-              );
-            } catch {
-              Alert.alert("Fout", "Kon wachtwoord niet resetten");
-            }
+          onPress: () => {
+            const newPassword = resetPassword(userId);
+            Alert.alert(
+              "Wachtwoord Gereset",
+              `Nieuw wachtwoord voor ${userName}:\n${newPassword}\n\nBewaar dit wachtwoord!`
+            );
           },
         },
       ]
@@ -83,13 +58,11 @@ export default function AdminScreen() {
         
         <TextInput
           style={styles.input}
-          placeholder="Voer email in"
+          placeholder="Voer gebruikersnaam in"
           placeholderTextColor={Colors.light.muted}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          testID="new-email"
+          value={username}
+          onChangeText={setUsername}
+          testID="new-username"
         />
         
         <View style={styles.roleSelector}>
@@ -117,9 +90,13 @@ export default function AdminScreen() {
         </View>
 
         <Pressable
-          style={[styles.createButton, { opacity: email ? 1 : 0.5 }]} 
-          disabled={!email}
-          onPress={handleCreateUser}
+          style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
+          disabled={!username}
+          onPress={() => {
+            const { user, password } = addUser(username.trim(), role);
+            Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
+            setUsername("");
+          }}
           testID="create-user"
         >
           <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
@@ -129,21 +106,15 @@ export default function AdminScreen() {
 
         <View style={styles.usersSection}>
         <Text style={styles.usersSectionTitle}>
-          Alle Gebruikers ({profiles.length})
+          Alle Gebruikers ({users.length})
         </Text>
         
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Laden...</Text>
-          </View>
-        ) : profiles.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <User color={Colors.light.muted} size={48} strokeWidth={1.5} />
-            <Text style={styles.emptyText}>Geen gebruikers gevonden</Text>
-          </View>
-        ) : (
-          profiles.map((item) => (
-            <View key={item.id} style={styles.userCard}>
+        <FlatList
+          data={users}
+          keyExtractor={(u) => u.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <View style={styles.userCard}>
               <View style={styles.userCardLeft}>
                 <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
                   {item.role === "admin" ? (
@@ -153,10 +124,10 @@ export default function AdminScreen() {
                   )}
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{item.email}</Text>
+                  <Text style={styles.userName}>{item.username}</Text>
                   <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
                   <Text style={styles.userPassword}>
-                    {item.passwordChangedByUser ? "••••••••" : "Nog niet ingelogd"}
+                    {item.passwordChangedByUser ? "••••••••" : item.password}
                   </Text>
                 </View>
               </View>
@@ -164,14 +135,14 @@ export default function AdminScreen() {
               <View style={styles.userActions}>
                 <Pressable
                   style={styles.resetButton}
-                  onPress={() => handleResetPassword(item.id, item.email)}
+                  onPress={() => handleResetPassword(item.id, item.username)}
                   testID={`reset-password-${item.id}`}
                 >
                   <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
                 </Pressable>
                 <Pressable 
                   style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                  onPress={() => handleUpdateRole(item.id, "member")} 
+                  onPress={() => setRole(item.id, "member")} 
                   testID={`make-member-${item.id}`}
                 >
                   <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
@@ -180,7 +151,7 @@ export default function AdminScreen() {
                 </Pressable>
                 <Pressable 
                   style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                  onPress={() => handleUpdateRole(item.id, "admin")} 
+                  onPress={() => setRole(item.id, "admin")} 
                   testID={`make-admin-${item.id}`}
                 >
                   <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
@@ -189,8 +160,8 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
             </View>
-          ))
-        )}
+          )}
+        />
         </View>
       </ScrollView>
     </View>
@@ -333,26 +304,9 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     marginBottom: 16,
   },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    color: Colors.light.muted,
-    fontSize: 16,
-    fontWeight: "600" as const,
-  },
-  emptyContainer: {
-    paddingVertical: 60,
-    alignItems: "center",
-    justifyContent: "center",
+  list: { 
     gap: 12,
-  },
-  emptyText: {
-    color: Colors.light.muted,
-    fontSize: 16,
-    fontWeight: "600" as const,
+    paddingBottom: 20,
   },
   userCard: {
     backgroundColor: Colors.light.surface,
@@ -363,7 +317,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
   },
   userCardLeft: {
     flexDirection: "row",
