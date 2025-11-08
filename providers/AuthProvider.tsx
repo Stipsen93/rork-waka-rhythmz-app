@@ -45,7 +45,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         if (userData?.user?.user_metadata?.email) {
           console.log('[AuthProvider] Creating profile from auth metadata');
           const userEmail = userData.user.user_metadata.email;
-          const userRole = userEmail === 'stip_sim@hotmail.com' ? 'admin' : (userData.user.user_metadata.role || 'member');
+          const adminEmails = ['stip_sim@hotmail.com', 'admin@admin.nl'];
+          const userRole = adminEmails.includes(userEmail) ? 'admin' : (userData.user.user_metadata.role || 'member');
           
           console.log('[AuthProvider] Auto-admin check: email =', userEmail, ', assigned role =', userRole);
           
@@ -82,8 +83,9 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
           throw error;
         }
       } else if (data) {
-        if (data.email === 'stip_sim@hotmail.com' && data.role !== 'admin') {
-          console.log('[AuthProvider] Auto-upgrading stip_sim@hotmail.com to admin');
+        const adminEmails = ['stip_sim@hotmail.com', 'admin@admin.nl'];
+      if (adminEmails.includes(data.email) && data.role !== 'admin') {
+          console.log('[AuthProvider] Auto-upgrading', data.email, 'to admin');
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ role: 'admin' })
@@ -111,7 +113,62 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     }
   }, []);
 
+  const ensureDefaultAdmin = useCallback(async () => {
+    try {
+      console.log('[AuthProvider] Checking for default admin user');
+      
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', 'admin@admin.nl')
+        .single();
+
+      if (!existingProfile) {
+        console.log('[AuthProvider] Creating default admin user');
+        
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: 'admin@admin.nl',
+          password: 'admin',
+          options: {
+            data: {
+              email: 'admin@admin.nl',
+              role: 'admin',
+            }
+          }
+        });
+
+        if (signUpError) {
+          console.error('[AuthProvider] Error creating default admin auth:', signUpError);
+          return;
+        }
+
+        if (authData?.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              email: 'admin@admin.nl',
+              role: 'admin',
+              password_changed_by_user: true,
+            });
+
+          if (profileError) {
+            console.error('[AuthProvider] Error creating default admin profile:', profileError);
+          } else {
+            console.log('[AuthProvider] Default admin user created successfully');
+          }
+        }
+      } else {
+        console.log('[AuthProvider] Default admin user already exists');
+      }
+    } catch (error) {
+      console.error('[AuthProvider] Error ensuring default admin:', error);
+    }
+  }, []);
+
   useEffect(() => {
+    ensureDefaultAdmin();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('[AuthProvider] Initial session:', session?.user?.id);
       setSession(session);
@@ -138,7 +195,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     });
 
     return () => subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [loadProfile, ensureDefaultAdmin]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
