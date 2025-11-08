@@ -12,7 +12,7 @@ export interface Database {
       profiles: {
         Row: {
           id: string
-          username: string
+          email: string
           role: 'admin' | 'member'
           password_changed_by_user: boolean
           created_at: string
@@ -20,7 +20,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          username: string
+          email: string
           role?: 'admin' | 'member'
           password_changed_by_user?: boolean
           created_at?: string
@@ -28,7 +28,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          username?: string
+          email?: string
           role?: 'admin' | 'member'
           password_changed_by_user?: boolean
           updated_at?: string

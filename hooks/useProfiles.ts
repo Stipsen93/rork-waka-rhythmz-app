@@ -20,7 +20,7 @@ export function useProfiles() {
 
       return data.map((p): UserProfile & { passwordChangedByUser: boolean } => ({
         id: p.id,
-        username: p.username,
+        email: p.email,
         role: p.role as 'admin' | 'member',
         passwordChangedByUser: p.password_changed_by_user,
       }));
@@ -28,18 +28,18 @@ export function useProfiles() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: async ({ username, role }: { username: string; role: 'admin' | 'member' }) => {
-      console.log('[useProfiles] Creating user:', username, role);
+    mutationFn: async ({ email, role }: { email: string; role: 'admin' | 'member' }) => {
+      console.log('[useProfiles] Creating user:', email, role);
       
       const password = generatePassword();
       
-      const result = await signUp(username, password, role);
+      const result = await signUp(email, password, role);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to create user');
       }
 
-      return { username, password };
+      return { email, password };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
@@ -69,7 +69,7 @@ export function useProfiles() {
       
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('username')
+        .select('email')
         .eq('id', userId)
         .single();
 

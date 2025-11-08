@@ -11,17 +11,17 @@ import { LinearGradient } from "expo-linear-gradient";
 
 export default function AdminScreen() {
   const { profiles, isLoading, createUser, updateRole, resetPassword } = useProfiles();
-  const [username, setUsername] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
   const insets = useSafeAreaInsets();
 
   const handleCreateUser = async () => {
-    if (!username.trim()) return;
+    if (!email.trim()) return;
     
     try {
-      const result = await createUser({ username: username.trim(), role });
-      Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${result.username}\nWachtwoord: ${result.password}\n\nBewaar dit wachtwoord!`);
-      setUsername("");
+      const result = await createUser({ email: email.trim(), role });
+      Alert.alert("Account Aangemaakt", `Email: ${result.email}\nWachtwoord: ${result.password}\n\nBewaar dit wachtwoord!`);
+      setEmail("");
     } catch (error) {
       Alert.alert("Fout", "Kon account niet aanmaken");
     }
@@ -83,11 +83,13 @@ export default function AdminScreen() {
         
         <TextInput
           style={styles.input}
-          placeholder="Voer gebruikersnaam in"
+          placeholder="Voer email in"
           placeholderTextColor={Colors.light.muted}
-          value={username}
-          onChangeText={setUsername}
-          testID="new-username"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          testID="new-email"
         />
         
         <View style={styles.roleSelector}>
@@ -115,8 +117,8 @@ export default function AdminScreen() {
         </View>
 
         <Pressable
-          style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
-          disabled={!username}
+          style={[styles.createButton, { opacity: email ? 1 : 0.5 }]} 
+          disabled={!email}
           onPress={handleCreateUser}
           testID="create-user"
         >
@@ -145,7 +147,7 @@ export default function AdminScreen() {
                   )}
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{item.username}</Text>
+                  <Text style={styles.userName}>{item.email}</Text>
                   <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
                   <Text style={styles.userPassword}>
                     {item.passwordChangedByUser ? "••••••••" : "Nog niet ingelogd"}
@@ -156,7 +158,7 @@ export default function AdminScreen() {
               <View style={styles.userActions}>
                 <Pressable
                   style={styles.resetButton}
-                  onPress={() => handleResetPassword(item.id, item.username)}
+                  onPress={() => handleResetPassword(item.id, item.email)}
                   testID={`reset-password-${item.id}`}
                 >
                   <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />

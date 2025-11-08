@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Create profiles table
 CREATE TABLE profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'member')) DEFAULT 'member',
   password_changed_by_user BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -206,8 +206,8 @@ CREATE TRIGGER update_notification_settings_updated_at BEFORE UPDATE ON notifica
 
 -- Insert default admin user (will need to create auth user separately)
 -- The password will be stored in Supabase Auth, not in this table
-INSERT INTO profiles (id, username, role, password_changed_by_user) 
-VALUES ('00000000-0000-0000-0000-000000000001', 'admin', 'admin', true);
+INSERT INTO profiles (id, email, role, password_changed_by_user) 
+VALUES ('00000000-0000-0000-0000-000000000001', 'admin@wakarythmz.com', 'admin', true);
 
 -- Insert example trainings
 INSERT INTO trainings (name, day_of_week, time, location) VALUES

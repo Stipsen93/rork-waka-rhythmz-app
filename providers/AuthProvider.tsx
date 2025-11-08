@@ -6,7 +6,7 @@ import type { Role } from './AppState';
 
 export interface UserProfile {
   id: string;
-  username: string;
+  email: string;
   role: Role;
   passwordChangedByUser: boolean;
 }
@@ -16,8 +16,8 @@ interface AuthContextValue {
   user: SupabaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (username: string, password: string, role: Role) => Promise<{ success: boolean; error?: string; password?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, role: Role) => Promise<{ success: boolean; error?: string; password?: string }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   resetUserPassword: (userId: string) => Promise<{ password: string }>;
@@ -42,13 +42,13 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         console.error('[AuthProvider] Profile not found, checking auth metadata');
         
         const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user?.user_metadata?.username) {
+        if (userData?.user?.user_metadata?.email) {
           console.log('[AuthProvider] Creating profile from auth metadata');
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
               id: userId,
-              username: userData.user.user_metadata.username,
+              email: userData.user.user_metadata.email,
               role: userData.user.user_metadata.role || 'member',
               password_changed_by_user: false,
             });
@@ -67,11 +67,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
           if (newData) {
             setProfile({
               id: newData.id,
-              username: newData.username,
+              email: newData.email,
               role: newData.role as Role,
               passwordChangedByUser: newData.password_changed_by_user,
             });
-            console.log('[AuthProvider] Profile created and loaded:', newData.username, newData.role);
+            console.log('[AuthProvider] Profile created and loaded:', newData.email, newData.role);
           }
         } else {
           throw error;
@@ -79,11 +79,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       } else if (data) {
         setProfile({
           id: data.id,
-          username: data.username,
+          email: data.email,
           role: data.role as Role,
           passwordChangedByUser: data.password_changed_by_user,
         });
-        console.log('[AuthProvider] Profile loaded:', data.username, data.role);
+        console.log('[AuthProvider] Profile loaded:', data.email, data.role);
       }
     } catch (error) {
       console.error('[AuthProvider] Error loading profile:', error);
@@ -121,22 +121,9 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     return () => subscription.unsubscribe();
   }, [loadProfile]);
 
-  const signIn = useCallback(async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const signIn = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('[AuthProvider] Signing in user:', username);
-      
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', username)
-        .single();
-
-      if (profileError || !profileData) {
-        console.error('[AuthProvider] Profile not found:', username);
-        return { success: false, error: 'Gebruiker niet gevonden' };
-      }
-
-      const email = `${username}@wakarythmz.local`;
+      console.log('[AuthProvider] Signing in user:', email);
       
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -156,18 +143,16 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     }
   }, []);
 
-  const signUp = useCallback(async (username: string, password: string, role: Role): Promise<{ success: boolean; error?: string; password?: string }> => {
+  const signUp = useCallback(async (email: string, password: string, role: Role): Promise<{ success: boolean; error?: string; password?: string }> => {
     try {
-      console.log('[AuthProvider] Signing up user:', username, role);
-      
-      const email = `${username}@wakarythmz.local`;
+      console.log('[AuthProvider] Signing up user:', email, role);
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            username,
+            email,
             role,
           }
         }
@@ -182,7 +167,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         .from('profiles')
         .insert({
           id: authData.user.id,
-          username,
+          email,
           role,
           password_changed_by_user: false,
         });
@@ -213,7 +198,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       const { error } = await supabase
         .from('profiles')
         .update({
-          username: updates.username,
+          email: updates.email,
           role: updates.role,
           password_changed_by_user: updates.passwordChangedByUser,
         })
@@ -238,7 +223,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('username')
+        .select('email')
         .eq('id', userId)
         .single();
 
@@ -246,7 +231,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         throw new Error('User not found');
       }
 
-      const email = `${profileData.username}@wakarythmz.local`;
+      const email = profileData.email;
       
       const { error: updateError } = await supabase.auth.admin.updateUserById(
         userId,

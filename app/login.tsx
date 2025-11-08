@@ -8,7 +8,7 @@ import Colors from "@/constants/colors";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const { signIn } = useAuth();
@@ -16,19 +16,19 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert("Fout", "Voer gebruikersnaam en wachtwoord in");
+    if (!email || !password) {
+      Alert.alert("Fout", "Voer email en wachtwoord in");
       return;
     }
 
     setLoading(true);
-    const result = await signIn(username.trim(), password);
+    const result = await signIn(email.trim(), password);
     setLoading(false);
     
     if (result.success) {
       router.replace("/(tabs)/assignments");
     } else {
-      Alert.alert("Inloggen mislukt", result.error || "Gebruikersnaam of wachtwoord is onjuist");
+      Alert.alert("Inloggen mislukt", result.error || "Email of wachtwoord is onjuist");
     }
   };
 
@@ -59,13 +59,14 @@ export default function LoginScreen() {
             </View>
             <TextInput
               style={styles.input}
-              placeholder="Gebruikersnaam"
+              placeholder="Email"
               placeholderTextColor={Colors.light.mutedLight}
-              value={username}
-              onChangeText={setUsername}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              testID="login-username"
+              testID="login-email"
             />
           </View>
 
