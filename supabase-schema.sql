@@ -209,6 +209,13 @@ CREATE TRIGGER update_notification_settings_updated_at BEFORE UPDATE ON notifica
 INSERT INTO profiles (id, email, role, password_changed_by_user) 
 VALUES ('00000000-0000-0000-0000-000000000001', 'admin@wakarythmz.com', 'admin', true);
 
+-- Note: When creating new users through the "Leden" (Members) page:
+-- 1. The app automatically creates both the Supabase Auth user AND the profile entry
+-- 2. A random password is generated and shown once (e.g., "abc123456")
+-- 3. The password is stored securely in Supabase Auth (not in the profiles table)
+-- 4. The user can change their password after first login
+-- 5. This is handled by the useProfiles hook and AuthProvider in the application code
+
 -- Insert example trainings
 INSERT INTO trainings (name, day_of_week, time, location) VALUES
   ('Groep 1', 2, '18:30', 'De Zaalon'),
