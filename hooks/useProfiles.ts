@@ -31,12 +31,20 @@ export function useProfiles() {
     mutationFn: async ({ email, role }: { email: string; role: 'admin' | 'member' }) => {
       console.log('[useProfiles] Creating user:', email, role);
       
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Ongeldig e-mailadres formaat. Gebruik een geldig e-mailadres (bijv. gebruiker@voorbeeld.nl)');
+      }
+      
       const password = generatePassword();
       
       const result = await signUp(email, password, role);
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create user');
+        if (result.error?.toLowerCase().includes('invalid')) {
+          throw new Error('E-mailadres wordt niet geaccepteerd. Gebruik een geldig e-mailadres met een bestaand domein (bijv. gmail.com, outlook.com, of een echt bedrijfsdomein).');
+        }
+        throw new Error(result.error || 'Kon gebruiker niet aanmaken');
       }
 
       return { email, password };
