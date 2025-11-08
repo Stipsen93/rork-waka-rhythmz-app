@@ -44,12 +44,17 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user?.user_metadata?.email) {
           console.log('[AuthProvider] Creating profile from auth metadata');
+          const userEmail = userData.user.user_metadata.email;
+          const userRole = userEmail === 'stip_sim@hotmail.com' ? 'admin' : (userData.user.user_metadata.role || 'member');
+          
+          console.log('[AuthProvider] Auto-admin check: email =', userEmail, ', assigned role =', userRole);
+          
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
               id: userId,
-              email: userData.user.user_metadata.email,
-              role: userData.user.user_metadata.role || 'member',
+              email: userEmail,
+              role: userRole,
               password_changed_by_user: false,
             });
           
@@ -77,6 +82,20 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
           throw error;
         }
       } else if (data) {
+        if (data.email === 'stip_sim@hotmail.com' && data.role !== 'admin') {
+          console.log('[AuthProvider] Auto-upgrading stip_sim@hotmail.com to admin');
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ role: 'admin' })
+            .eq('id', userId);
+
+          if (updateError) {
+            console.error('[AuthProvider] Error upgrading to admin:', updateError);
+          } else {
+            data.role = 'admin';
+          }
+        }
+
         setProfile({
           id: data.id,
           email: data.email,
