@@ -23,8 +23,8 @@ export default function AdminScreen() {
         {
           text: "Resetten",
           style: "destructive",
-          onPress: () => {
-            const newPassword = resetPassword(userId);
+          onPress: async () => {
+            const newPassword = await resetPassword(userId);
             Alert.alert(
               "Wachtwoord Gereset",
               `Nieuw wachtwoord voor ${userName}:\n${newPassword}\n\nBewaar dit wachtwoord!`
@@ -92,8 +92,8 @@ export default function AdminScreen() {
         <Pressable
           style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
           disabled={!username}
-          onPress={() => {
-            const { user, password } = addUser(username.trim(), role);
+          onPress={async () => {
+            const { user, password } = await addUser(username.trim(), role);
             Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
             setUsername("");
           }}
