@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2 } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -20,6 +20,19 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [mediaUri, setMediaUri] = useState<string>(editingAssignment?.mediaUri ?? "");
   const [mediaType, setMediaType] = useState<'video' | 'image' | 'audio' | undefined>(editingAssignment?.mediaType);
+
+  useEffect(() => {
+    if (editingAssignment) {
+      setTitle(editingAssignment.title);
+      setDescription(editingAssignment.description);
+      setSelectedUserIds(editingAssignment.assignedUserIds);
+      setDueDate(editingAssignment.dueDate ? new Date(editingAssignment.dueDate) : new Date());
+      setMediaUri(editingAssignment.mediaUri ?? "");
+      setMediaType(editingAssignment.mediaType);
+    } else {
+      resetForm();
+    }
+  }, [editingAssignment]);
 
   const resetForm = () => {
     setTitle("");
@@ -335,7 +348,6 @@ export default function HuiswerkScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
 
   return (
     <>
@@ -507,8 +519,7 @@ export default function HuiswerkScreen() {
 
           <MenuModal 
             visible={showMenuModal} 
-            onClose={() => setShowMenuModal(false)} 
-            onAdminPress={() => setShowAdminModal(true)}
+            onClose={() => setShowMenuModal(false)}
           />
         </>
       )}
