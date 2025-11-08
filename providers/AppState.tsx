@@ -200,6 +200,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [permissions, setPermissionsState] = useState<Record<Role, PermissionMatrix>>({
+    admin: { canAddMedia: true, canComment: true, canCreateEvents: true },
+    member: { canAddMedia: false, canComment: true, canCreateEvents: false },
+  });
 
   useEffect(() => {
     if (profile) {
@@ -215,10 +219,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       setCurrentUser(null);
     }
   }, [profile]);
-  const [permissions, setPermissionsState] = useState<Record<Role, PermissionMatrix>>({
-    admin: { canAddMedia: true, canComment: true, canCreateEvents: true },
-    member: { canAddMedia: false, canComment: true, canCreateEvents: false },
-  });
 
   const [library, setLibrary] = useState<CategoryNode[]>([
     {
