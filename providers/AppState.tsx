@@ -203,9 +203,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   useEffect(() => {
     if (profile) {
+      console.log('[AppState] Setting current user from profile:', profile.email, profile.role);
       setCurrentUser({
         id: profile.id,
-        username: profile.username,
+        username: profile.email,
         password: '',
         role: profile.role,
         passwordChangedByUser: profile.passwordChangedByUser,
