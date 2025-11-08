@@ -365,13 +365,15 @@ export default function CalendarScreen() {
                 const creator = users.find(u => u.id === item.createdBy);
                 const isCancelled = item.status === 'cancelled';
                 const isAdmin = currentUser?.role === 'admin';
+                const isCreator = currentUser?.id === item.createdBy;
+                const canEdit = isAdmin || isCreator;
                 
                 return (
                   <Pressable 
                     key={item.id} 
                     style={[styles.card, isCancelled && styles.cardCancelled]} 
-                    onPress={() => isAdmin && openEditModal(item)}
-                    disabled={!isAdmin}
+                    onPress={() => canEdit && openEditModal(item)}
+                    disabled={!canEdit}
                   >
                     <View style={[styles.cardColorStrip, isCancelled && styles.cardColorStripCancelled]} />
                     <View style={styles.cardContent}>
@@ -767,10 +769,10 @@ export default function CalendarScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.modalActions}>
+              <View style={styles.modalActionsRow}>
                 <Pressable
                   style={[
-                    styles.actionButton, 
+                    styles.actionButtonHalf, 
                     styles.createButton, 
                     (!editFormData.name.trim() || !editFormData.location.trim()) && styles.disabledButton
                   ]}
@@ -796,7 +798,7 @@ export default function CalendarScreen() {
                 </Pressable>
                 
                 <Pressable
-                  style={[styles.actionButton, styles.deleteButton]}
+                  style={[styles.actionButtonHalf, styles.deleteButton]}
                   onPress={handleDeleteAppointment}
                 >
                   <Text style={styles.deleteButtonText}>Afspraak verwijderen</Text>
@@ -1159,7 +1161,17 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 8,
   },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
   actionButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  actionButtonHalf: {
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',

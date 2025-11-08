@@ -915,6 +915,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const updateAppointment = useCallback(async (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => {
     console.log('💾 Updating appointment in Supabase...');
+    
+    const oldAppointment = appointments.find(a => a.id === id);
+    
     setAppointments((prev) => 
       prev.map((a) => (a.id === id ? { ...a, ...appointment } : a))
         .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
@@ -930,7 +933,60 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (appointment.createdBy !== undefined) updateData.created_by = appointment.createdBy;
     await supabase.from('appointments').update(updateData).eq('id', id);
     console.log('✅ Appointment updated');
-  }, []);
+
+    if (oldAppointment) {
+      if (appointment.status === 'cancelled') {
+        const newAnnouncement: Announcement = {
+          id: genId("an"),
+          name: `Afspraak geannuleerd: ${oldAppointment.name}`,
+          description: `De afspraak "${oldAppointment.name}" op ${oldAppointment.date} om ${oldAppointment.time} in ${oldAppointment.location} is geannuleerd.`,
+          date: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString(),
+        };
+        const insertData: Database['public']['Tables']['announcements']['Insert'] = {
+          id: newAnnouncement.id,
+          name: newAnnouncement.name,
+          description: newAnnouncement.description,
+          date: newAnnouncement.date,
+        };
+        await supabase.from('announcements').insert(insertData);
+        setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        ));
+      } else {
+        const changes: string[] = [];
+        if (appointment.date !== undefined && appointment.date !== oldAppointment.date) {
+          changes.push(`datum gewijzigd naar ${appointment.date}`);
+        }
+        if (appointment.time !== undefined && appointment.time !== oldAppointment.time) {
+          changes.push(`tijd gewijzigd naar ${appointment.time}`);
+        }
+        if (appointment.location !== undefined && appointment.location !== oldAppointment.location) {
+          changes.push(`locatie gewijzigd naar ${appointment.location}`);
+        }
+        
+        if (changes.length > 0) {
+          const newAnnouncement: Announcement = {
+            id: genId("an"),
+            name: `Afspraak gewijzigd: ${oldAppointment.name}`,
+            description: `De afspraak "${oldAppointment.name}" is bijgewerkt: ${changes.join(', ')}.`,
+            date: new Date().toISOString().split('T')[0],
+            createdAt: new Date().toISOString(),
+          };
+          const insertData: Database['public']['Tables']['announcements']['Insert'] = {
+            id: newAnnouncement.id,
+            name: newAnnouncement.name,
+            description: newAnnouncement.description,
+            date: newAnnouncement.date,
+          };
+          await supabase.from('announcements').insert(insertData);
+          setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+          ));
+        }
+      }
+    }
+  }, [appointments, setAnnouncements]);
 
   const deleteAppointments = useCallback(async (ids: string[]) => {
     console.log('💾 Deleting appointments from Supabase...');
