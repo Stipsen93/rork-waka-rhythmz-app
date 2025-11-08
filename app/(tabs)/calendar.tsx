@@ -329,6 +329,7 @@ export default function CalendarScreen() {
                     !day.isCurrentMonth && styles.dayNumberInactive,
                     isToday && styles.dayNumberToday,
                     hasTrainingOrPerformance && day.isCurrentMonth && styles.dayNumberCircled,
+                    hasAppointments && day.isCurrentMonth && styles.dayNumberAppointment,
                   ]}>
                     <Text style={[
                       styles.dayText,
@@ -338,9 +339,6 @@ export default function CalendarScreen() {
                       {day.date}
                     </Text>
                   </View>
-                  {hasAppointments && day.isCurrentMonth && (
-                    <View style={styles.appointmentDot} />
-                  )}
                 </View>
               );
             })}
@@ -915,6 +913,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.light.primary,
   },
+  dayNumberAppointment: {
+    borderWidth: 2,
+    borderColor: '#9333EA',
+    backgroundColor: 'rgba(147, 51, 234, 0.1)',
+  },
   dayText: {
     color: Colors.light.text,
     fontSize: 14,
@@ -927,14 +930,7 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontWeight: '700' as const,
   },
-  appointmentDot: {
-    position: 'absolute',
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.light.primary,
-  },
+
   appointmentsHeader: {
     paddingHorizontal: 20,
     paddingBottom: 16,
