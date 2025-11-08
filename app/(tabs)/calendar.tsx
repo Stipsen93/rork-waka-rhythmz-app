@@ -660,6 +660,94 @@ export default function CalendarScreen() {
               </View>
 
               <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Categorie</Text>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                >
+                  <Text style={styles.dropdownText}>{editFormData.category}</Text>
+                  <ChevronRight 
+                    color={Colors.light.muted} 
+                    size={20} 
+                    style={{ transform: [{ rotate: showCategoryDropdown ? '90deg' : '0deg' }] }}
+                  />
+                </Pressable>
+                {showCategoryDropdown && (
+                  <View style={styles.dropdownMenu}>
+                    {CATEGORIES.map((category) => (
+                      <TouchableOpacity
+                        key={category}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setEditFormData({ ...editFormData, category });
+                          setShowCategoryDropdown(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          editFormData.category === category && styles.dropdownItemTextActive
+                        ]}>
+                          {category}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Datum</Text>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => setShowDatePicker(!showDatePicker)}
+                >
+                  <Text style={styles.dropdownText}>
+                    {parseDateString(editFormData.date).toLocaleDateString('nl-NL', { 
+                      day: '2-digit', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })}
+                  </Text>
+                  <CalendarIcon color={Colors.light.muted} size={20} />
+                </Pressable>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Tijd</Text>
+                <View style={styles.timePickerRow}>
+                  <Pressable
+                    style={[styles.dropdownButton, { flex: 1 }]}
+                    onPress={() => {
+                      setShowHourPicker(!showHourPicker);
+                      setShowMinutePicker(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownText}>{editFormData.time.split(':')[0]}</Text>
+                    <ChevronRight 
+                      color={Colors.light.muted} 
+                      size={20} 
+                      style={{ transform: [{ rotate: showHourPicker ? '90deg' : '0deg' }] }}
+                    />
+                  </Pressable>
+                  <Text style={styles.timeColon}>:</Text>
+                  <Pressable
+                    style={[styles.dropdownButton, { flex: 1 }]}
+                    onPress={() => {
+                      setShowMinutePicker(!showMinutePicker);
+                      setShowHourPicker(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownText}>{editFormData.time.split(':')[1]}</Text>
+                    <ChevronRight 
+                      color={Colors.light.muted} 
+                      size={20} 
+                      style={{ transform: [{ rotate: showMinutePicker ? '90deg' : '0deg' }] }}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Locatie</Text>
                 <TextInput
                   style={styles.input}
@@ -672,21 +760,14 @@ export default function CalendarScreen() {
 
               <View style={styles.modalActions}>
                 <Pressable
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={handleDeleteAppointment}
+                  style={[styles.actionButton, styles.cancelButtonSecondary]}
+                  onPress={handleCancelAppointment}
                 >
-                  <Text style={styles.deleteButtonText}>Verwijderen</Text>
+                  <Text style={styles.cancelButtonSecondaryText}>Afspraak annuleren</Text>
                 </Pressable>
               </View>
 
               <View style={styles.modalActions}>
-                <Pressable
-                  style={[styles.actionButton, styles.cancelButtonSecondary]}
-                  onPress={handleCancelAppointment}
-                >
-                  <Text style={styles.cancelButtonSecondaryText}>Annuleren</Text>
-                </Pressable>
-                
                 <Pressable
                   style={[
                     styles.actionButton, 
@@ -712,6 +793,13 @@ export default function CalendarScreen() {
                       Opslaan
                     </Text>
                   </LinearGradient>
+                </Pressable>
+                
+                <Pressable
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={handleDeleteAppointment}
+                >
+                  <Text style={styles.deleteButtonText}>Afspraak verwijderen</Text>
                 </Pressable>
               </View>
             </View>
