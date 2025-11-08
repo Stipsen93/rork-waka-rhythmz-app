@@ -79,7 +79,7 @@ export function useProfiles() {
         .from('profiles')
         .select('email')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (!profileData) {
         throw new Error('User not found');

@@ -36,7 +36,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('[AuthProvider] Profile not found, checking auth metadata');
@@ -68,7 +68,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
             .from('profiles')
             .select('*')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
           
           if (newData) {
             setProfile({
@@ -121,14 +121,14 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         .from('profiles')
         .select('email')
         .eq('email', 'admin@admin.nl')
-        .single();
+        .maybeSingle();
 
       if (!existingProfile) {
         console.log('[AuthProvider] Creating default admin user');
         
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: 'admin@admin.nl',
-          password: 'admin',
+          password: 'admin123',
           options: {
             data: {
               email: 'admin@admin.nl',
@@ -301,7 +301,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         .from('profiles')
         .select('email')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (!profileData) {
         throw new Error('User not found');
