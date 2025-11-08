@@ -105,7 +105,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         console.log('[AuthProvider] Profile loaded:', data.email, data.role);
       }
     } catch (error) {
-      console.error('[AuthProvider] Error loading profile:', error);
+      console.error('[AuthProvider] Error loading profile:', JSON.stringify(error, null, 2));
     } finally {
       setLoading(false);
     }
@@ -249,8 +249,6 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       if (!profileData) {
         throw new Error('User not found');
       }
-
-      const email = profileData.email;
       
       const { error: updateError } = await supabase.auth.admin.updateUserById(
         userId,
