@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform } from "react-native";
 import Colors from "@/constants/colors";
 import { Role } from "@/providers/AppState";
 import { useProfiles } from "@/hooks/useProfiles";
@@ -22,7 +22,7 @@ export default function AdminScreen() {
       const result = await createUser({ email: email.trim(), role });
       Alert.alert("Account Aangemaakt", `Email: ${result.email}\nWachtwoord: ${result.password}\n\nBewaar dit wachtwoord!`);
       setEmail("");
-    } catch (error) {
+    } catch {
       Alert.alert("Fout", "Kon account niet aanmaken");
     }
   };
@@ -30,7 +30,7 @@ export default function AdminScreen() {
   const handleUpdateRole = async (userId: string, newRole: Role) => {
     try {
       await updateRole({ userId, role: newRole });
-    } catch (error) {
+    } catch {
       Alert.alert("Fout", "Kon rol niet wijzigen");
     }
   };
@@ -51,7 +51,7 @@ export default function AdminScreen() {
                 "Wachtwoord Gereset",
                 `Nieuw wachtwoord voor ${userName}:\n${result.password}\n\nBewaar dit wachtwoord!`
               );
-            } catch (error) {
+            } catch {
               Alert.alert("Fout", "Kon wachtwoord niet resetten");
             }
           },
@@ -132,12 +132,18 @@ export default function AdminScreen() {
           Alle Gebruikers ({profiles.length})
         </Text>
         
-        <FlatList
-          data={profiles}
-          keyExtractor={(u) => u.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={styles.userCard}>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Laden...</Text>
+          </View>
+        ) : profiles.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <User color={Colors.light.muted} size={48} strokeWidth={1.5} />
+            <Text style={styles.emptyText}>Geen gebruikers gevonden</Text>
+          </View>
+        ) : (
+          profiles.map((item) => (
+            <View key={item.id} style={styles.userCard}>
               <View style={styles.userCardLeft}>
                 <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
                   {item.role === "admin" ? (
@@ -183,8 +189,8 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
             </View>
-          )}
-        />
+          ))
+        )}
         </View>
       </ScrollView>
     </View>
@@ -327,9 +333,26 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     marginBottom: 16,
   },
-  list: { 
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    color: Colors.light.muted,
+    fontSize: 16,
+    fontWeight: "600" as const,
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
-    paddingBottom: 20,
+  },
+  emptyText: {
+    color: Colors.light.muted,
+    fontSize: 16,
+    fontWeight: "600" as const,
   },
   userCard: {
     backgroundColor: Colors.light.surface,
@@ -340,6 +363,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 12,
   },
   userCardLeft: {
     flexDirection: "row",
