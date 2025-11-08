@@ -19,7 +19,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           username: string
           password: string
           role: 'admin' | 'member'
@@ -47,7 +47,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           name: string
           parent_id?: string | null
           children_ids?: string[] | null
@@ -80,7 +80,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           title: string
           description: string
           assigned_user_ids?: string[] | null
@@ -112,7 +112,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           name: string
           day_of_week: number
           time: string
@@ -163,7 +163,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           name: string
           description: string
           date: string
@@ -186,19 +186,19 @@ export type Database = {
           time: string
           location: string
           member_ids: string[] | null
-          created_at: string
           created_by: string
+          created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           name: string
           category: 'Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig'
           date: string
           time: string
           location: string
           member_ids?: string[] | null
-          created_at?: string
           created_by: string
+          created_at?: string
         }
         Update: {
           id?: string
@@ -208,8 +208,8 @@ export type Database = {
           time?: string
           location?: string
           member_ids?: string[] | null
-          created_at?: string
           created_by?: string
+          created_at?: string
         }
       }
       notification_settings: {
@@ -248,9 +248,9 @@ export type Database = {
         }
       }
     }
-    Views: Record<never, never>
-    Functions: Record<never, never>
-    Enums: Record<never, never>
-    CompositeTypes: Record<never, never>
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
