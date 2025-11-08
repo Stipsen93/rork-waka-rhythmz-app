@@ -48,22 +48,20 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
-          {profile?.role === "admin" && (
-            <TouchableOpacity
-              style={localStyles.menuItem}
-              onPress={() => {
-                onClose();
-                router.push("/admin");
-              }}
-              testID="menu-admin"
-            >
-              <View style={localStyles.menuIconContainer}>
-                <Users color={Colors.light.primary} size={22} strokeWidth={2.5} />
-              </View>
-              <Text style={localStyles.menuItemText}>Leden</Text>
-              <ChevronRight color={Colors.light.muted} size={20} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/admin");
+            }}
+            testID="menu-admin"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <Users color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>Leden</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
 
           {profile?.role === "admin" && (
             <TouchableOpacity
