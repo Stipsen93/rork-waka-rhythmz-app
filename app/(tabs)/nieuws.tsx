@@ -12,7 +12,7 @@ import type { Announcement } from "@/providers/AppState";
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser } = useAppState();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments } = useAppState();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
@@ -149,7 +149,17 @@ export default function NieuwsScreen() {
             </TouchableOpacity>
           )}
 
-          {announcements.length === 0 ? (
+          {announcements.filter((announcement) => {
+            const isCancelledAppointmentNews = announcement.name.startsWith('Afspraak geannuleerd:');
+            if (!isCancelledAppointmentNews) return true;
+            
+            const appointmentName = announcement.name.replace('Afspraak geannuleerd: ', '');
+            const relatedAppointment = appointments.find(apt => 
+              apt.name === appointmentName && apt.status === 'cancelled'
+            );
+            
+            return !relatedAppointment;
+          }).length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Geen mededelingen</Text>
               {isAdmin && (
@@ -158,7 +168,17 @@ export default function NieuwsScreen() {
             </View>
           ) : (
             <View style={styles.announcementsList}>
-              {announcements.map((announcement) => (
+              {announcements.filter((announcement) => {
+                const isCancelledAppointmentNews = announcement.name.startsWith('Afspraak geannuleerd:');
+                if (!isCancelledAppointmentNews) return true;
+                
+                const appointmentName = announcement.name.replace('Afspraak geannuleerd: ', '');
+                const relatedAppointment = appointments.find(apt => 
+                  apt.name === appointmentName && apt.status === 'cancelled'
+                );
+                
+                return !relatedAppointment;
+              }).map((announcement) => (
                 <TouchableOpacity 
                   key={announcement.id} 
                   style={styles.announcementCard}
@@ -405,8 +425,7 @@ export default function NieuwsScreen() {
       </Modal>
       <MenuModal 
         visible={showMenuModal} 
-        onClose={() => setShowMenuModal(false)} 
-        onAdminPress={() => {}}
+        onClose={() => setShowMenuModal(false)}
       />
     </>
   );
