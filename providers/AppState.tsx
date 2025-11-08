@@ -935,25 +935,31 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Appointment updated');
 
     if (oldAppointment) {
-      if (appointment.status === 'cancelled') {
-        const newAnnouncement: Announcement = {
-          id: genId("an"),
-          name: `Afspraak geannuleerd: ${oldAppointment.name}`,
-          description: `De afspraak "${oldAppointment.name}" op ${oldAppointment.date} om ${oldAppointment.time} in ${oldAppointment.location} is geannuleerd.`,
-          date: new Date().toISOString().split('T')[0],
-          createdAt: new Date().toISOString(),
-        };
-        const insertData: Database['public']['Tables']['announcements']['Insert'] = {
-          id: newAnnouncement.id,
-          name: newAnnouncement.name,
-          description: newAnnouncement.description,
-          date: newAnnouncement.date,
-        };
-        await supabase.from('announcements').insert(insertData);
-        setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
-          new Date(a.date).getTime() - new Date(b.date).getTime()
-        ));
-      } else {
+      if (appointment.status === 'cancelled' && oldAppointment.status !== 'cancelled') {
+        const existingCancelledAnnouncement = announcements.find(
+          a => a.name === `Afspraak geannuleerd: ${oldAppointment.name}`
+        );
+        
+        if (!existingCancelledAnnouncement) {
+          const newAnnouncement: Announcement = {
+            id: genId("an"),
+            name: `Afspraak geannuleerd: ${oldAppointment.name}`,
+            description: `De afspraak "${oldAppointment.name}" op ${oldAppointment.date} om ${oldAppointment.time} in ${oldAppointment.location} is geannuleerd.`,
+            date: new Date().toISOString().split('T')[0],
+            createdAt: new Date().toISOString(),
+          };
+          const insertData: Database['public']['Tables']['announcements']['Insert'] = {
+            id: newAnnouncement.id,
+            name: newAnnouncement.name,
+            description: newAnnouncement.description,
+            date: newAnnouncement.date,
+          };
+          await supabase.from('announcements').insert(insertData);
+          setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+          ));
+        }
+      } else if (appointment.status !== 'cancelled' && oldAppointment.status !== 'cancelled') {
         const changes: string[] = [];
         if (appointment.date !== undefined && appointment.date !== oldAppointment.date) {
           changes.push(`datum gewijzigd naar ${appointment.date}`);
