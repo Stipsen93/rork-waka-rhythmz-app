@@ -6,7 +6,11 @@ import { createContext } from "@/backend/trpc/create-context";
 
 const app = new Hono();
 
-app.use("*", cors());
+app.use("*", cors({
+  origin: '*',
+  allowHeaders: ['Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+}));
 
 app.use(
   "/api/trpc/*",

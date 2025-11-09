@@ -61,6 +61,12 @@ export default function LibraryScreen() {
       storageQuery.refetch();
     },
     onError: (error, variables) => {
+      console.error('[CLIENT] Upload mutation error:', error);
+      console.error('[CLIENT] Error name:', error.name);
+      console.error('[CLIENT] Error message:', error.message);
+      console.error('[CLIENT] Error cause:', error.cause);
+      console.error('[CLIENT] Error data:', error.data);
+      console.error('[CLIENT] Full error object:', JSON.stringify(error, null, 2));
       setUploadingFiles((prev) => {
         const next = new Map(prev);
         next.delete(variables.name);
@@ -68,7 +74,7 @@ export default function LibraryScreen() {
       });
       const message = error.message || 'Onbekende fout bij uploaden';
       setErrorMessage(`Upload mislukt: ${message}`);
-      setTimeout(() => setErrorMessage(null), 5000);
+      setTimeout(() => setErrorMessage(null), 8000);
     },
   });
 
