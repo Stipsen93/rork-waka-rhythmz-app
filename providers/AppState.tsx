@@ -189,6 +189,9 @@ export interface AppStateValue {
   mediaLibrary: MediaLibraryItem[];
   uploadMedia: (input: { name: string; folderPath: string; fileType: string; fileSize: number; mimeType: string; base64Data: string }) => Promise<MediaLibraryItem>;
   deleteMedia: (ids: string[]) => Promise<void>;
+  deleteFolder: (folderPath: string) => Promise<void>;
+  renameMedia: (id: string, newName: string) => Promise<void>;
+  renameFolder: (oldPath: string, newPath: string) => Promise<void>;
   getMediaInFolder: (folderPath: string) => MediaLibraryItem[];
   getFolders: () => string[];
   createFolder: (folderPath: string) => Promise<void>;
@@ -1237,6 +1240,166 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Media deleted');
   }, [mediaLibrary]);
 
+  const deleteFolder = useCallback(async (folderPath: string) => {
+    console.log('💾 Deleting folder from Supabase...');
+    
+    const itemsInFolder = mediaLibrary.filter(m => 
+      m.folder_path === folderPath || m.folder_path.startsWith(folderPath + '/')
+    );
+    const storagePaths = itemsInFolder.map(m => m.storage_path);
+    const ids = itemsInFolder.map(m => m.id);
+    
+    if (storagePaths.length > 0) {
+      await supabase.storage.from('media-library').remove(storagePaths);
+    }
+    if (ids.length > 0) {
+      await supabase.from('media_library').delete().in('id', ids);
+    }
+    
+    const { data: files } = await supabase.storage
+      .from('media-library')
+      .list(folderPath);
+    
+    if (files) {
+      const filesToRemove = files.map(file => `${folderPath}/${file.name}`);
+      if (filesToRemove.length > 0) {
+        await supabase.storage.from('media-library').remove(filesToRemove);
+      }
+    }
+    
+    setMediaLibrary(prev => prev.filter(m => 
+      m.folder_path !== folderPath && !m.folder_path.startsWith(folderPath + '/')
+    ));
+    console.log('✅ Folder deleted');
+  }, [mediaLibrary]);
+
+  const renameMedia = useCallback(async (id: string, newName: string) => {
+    console.log('💾 Renaming media in Supabase...');
+    
+    const item = mediaLibrary.find(m => m.id === id);
+    if (!item) {
+      throw new Error('Media item niet gevonden');
+    }
+    
+    const timestamp = Date.now();
+    const sanitizedName = newName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const newStoragePath = item.folder_path 
+      ? `${item.folder_path}/${timestamp}_${sanitizedName}`
+      : `${timestamp}_${sanitizedName}`;
+    
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('media-library')
+      .download(item.storage_path);
+    
+    if (downloadError || !fileData) {
+      throw new Error('Kon bestand niet downloaden');
+    }
+    
+    const { error: uploadError } = await supabase.storage
+      .from('media-library')
+      .upload(newStoragePath, fileData, {
+        contentType: item.mime_type,
+        upsert: false,
+      });
+    
+    if (uploadError) {
+      throw new Error(`Upload mislukt: ${uploadError.message}`);
+    }
+    
+    await supabase.storage.from('media-library').remove([item.storage_path]);
+    
+    const updateData: Database['public']['Tables']['media_library']['Update'] = {
+      name: newName,
+      path: newStoragePath,
+      storage_path: newStoragePath,
+    };
+    
+    const { error: dbError } = await supabase
+      .from('media_library')
+      .update(updateData)
+      .eq('id', id);
+    
+    if (dbError) {
+      throw new Error(`Database fout: ${dbError.message}`);
+    }
+    
+    setMediaLibrary(prev => prev.map(m => 
+      m.id === id 
+        ? { ...m, name: newName, path: newStoragePath, storage_path: newStoragePath }
+        : m
+    ));
+    console.log('✅ Media renamed');
+  }, [mediaLibrary]);
+
+  const renameFolder = useCallback(async (oldPath: string, newPath: string) => {
+    console.log('💾 Renaming folder in Supabase...');
+    
+    const itemsInFolder = mediaLibrary.filter(m => 
+      m.folder_path === oldPath || m.folder_path.startsWith(oldPath + '/')
+    );
+    
+    for (const item of itemsInFolder) {
+      const newFolderPath = item.folder_path === oldPath
+        ? newPath
+        : newPath + item.folder_path.substring(oldPath.length);
+      
+      const pathParts = item.storage_path.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      const newStoragePath = newFolderPath ? `${newFolderPath}/${fileName}` : fileName;
+      
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('media-library')
+        .download(item.storage_path);
+      
+      if (downloadError || !fileData) {
+        console.error('Download error:', downloadError);
+        continue;
+      }
+      
+      const { error: uploadError } = await supabase.storage
+        .from('media-library')
+        .upload(newStoragePath, fileData, {
+          contentType: item.mime_type,
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        continue;
+      }
+      
+      await supabase.storage.from('media-library').remove([item.storage_path]);
+      
+      const updateData: Database['public']['Tables']['media_library']['Update'] = {
+        folder_path: newFolderPath,
+        path: newStoragePath,
+        storage_path: newStoragePath,
+      };
+      
+      await supabase
+        .from('media_library')
+        .update(updateData)
+        .eq('id', item.id);
+    }
+    
+    setMediaLibrary(prev => prev.map(m => {
+      if (m.folder_path === oldPath) {
+        const pathParts = m.storage_path.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const newStoragePath = newPath ? `${newPath}/${fileName}` : fileName;
+        return { ...m, folder_path: newPath, path: newStoragePath, storage_path: newStoragePath };
+      } else if (m.folder_path.startsWith(oldPath + '/')) {
+        const newFolderPath = newPath + m.folder_path.substring(oldPath.length);
+        const pathParts = m.storage_path.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const newStoragePath = `${newFolderPath}/${fileName}`;
+        return { ...m, folder_path: newFolderPath, path: newStoragePath, storage_path: newStoragePath };
+      }
+      return m;
+    }));
+    console.log('✅ Folder renamed');
+  }, [mediaLibrary]);
+
   const getMediaInFolder = useCallback((folderPath: string): MediaLibraryItem[] => {
     return mediaLibrary.filter(m => m.folder_path === folderPath);
   }, [mediaLibrary]);
@@ -1330,6 +1493,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     mediaLibrary,
     uploadMedia,
     deleteMedia,
+    deleteFolder,
+    renameMedia,
+    renameFolder,
     getMediaInFolder,
     getFolders,
     createFolder,

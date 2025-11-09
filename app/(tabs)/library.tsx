@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2 } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3 } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -50,6 +50,9 @@ export default function LibraryScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
 
   const folders = useMemo<FolderItem[]>(() => {
     const creatingFoldersList = Array.from(creatingFolders.values());
@@ -104,17 +107,19 @@ export default function LibraryScreen() {
     const uploadingList = Array.from(uploadingFiles.values()).filter(
       (item) => item.folder_path === currentPath
     );
-    const existingMedia = appState.getMediaInFolder(currentPath).map(m => ({
-      id: m.id,
-      name: m.name,
-      path: m.path,
-      folder_path: m.folder_path,
-      file_type: m.file_type,
-      file_size: m.file_size,
-      mime_type: m.mime_type,
-      storage_path: m.storage_path,
-      created_at: m.created_at,
-    }));
+    const existingMedia = appState.getMediaInFolder(currentPath)
+      .filter(m => m.name !== '.emptyFolderPlaceholder')
+      .map(m => ({
+        id: m.id,
+        name: m.name,
+        path: m.path,
+        folder_path: m.folder_path,
+        file_type: m.file_type,
+        file_size: m.file_size,
+        mime_type: m.mime_type,
+        storage_path: m.storage_path,
+        created_at: m.created_at,
+      }));
     return [...uploadingList, ...existingMedia];
   }, [appState, currentPath, uploadingFiles]);
 
@@ -304,12 +309,9 @@ export default function LibraryScreen() {
               const mediaToDelete = itemsToDelete.filter(id => id.startsWith('media-'));
               const foldersToDelete = itemsToDelete.filter(id => id.startsWith('folder-'));
               
-              for (const mediaId of mediaToDelete) {
-                const id = mediaId.replace('media-', '');
-                const item = mediaItems.find(m => m.id === id);
-                if (item) {
-                  await appState.deleteMedia(item.id);
-                }
+              if (mediaToDelete.length > 0) {
+                const ids = mediaToDelete.map(id => id.replace('media-', ''));
+                await appState.deleteMedia(ids);
               }
               
               for (const folderId of foldersToDelete) {
@@ -336,6 +338,68 @@ export default function LibraryScreen() {
         },
       ]
     );
+  };
+
+  const handleRenameSelected = () => {
+    if (selectedItems.size !== 1) return;
+    
+    const itemId = Array.from(selectedItems)[0];
+    setRenamingItemId(itemId);
+    
+    if (itemId.startsWith('media-')) {
+      const id = itemId.replace('media-', '');
+      const item = mediaItems.find(m => m.id === id);
+      if (item) {
+        const nameWithoutExt = item.name.includes('.') 
+          ? item.name.substring(0, item.name.lastIndexOf('.'))
+          : item.name;
+        setRenameValue(nameWithoutExt);
+      }
+    } else if (itemId.startsWith('folder-')) {
+      const path = itemId.replace('folder-', '');
+      const folder = folders.find(f => f.path === path);
+      if (folder) {
+        setRenameValue(folder.name);
+      }
+    }
+    
+    setShowRenameModal(true);
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!renameValue.trim() || !renamingItemId) return;
+    
+    try {
+      if (renamingItemId.startsWith('media-')) {
+        const id = renamingItemId.replace('media-', '');
+        const item = mediaItems.find(m => m.id === id);
+        if (item) {
+          const ext = item.name.includes('.') ? item.name.substring(item.name.lastIndexOf('.')) : '';
+          const newName = renameValue.trim() + ext;
+          await appState.renameMedia(id, newName);
+        }
+      } else if (renamingItemId.startsWith('folder-')) {
+        const oldPath = renamingItemId.replace('folder-', '');
+        const folder = folders.find(f => f.path === oldPath);
+        if (folder) {
+          const pathParts = oldPath.split('/');
+          pathParts[pathParts.length - 1] = renameValue.trim();
+          const newPath = pathParts.join('/');
+          await appState.renameFolder(oldPath, newPath);
+        }
+      }
+      
+      setShowRenameModal(false);
+      setRenameValue('');
+      setRenamingItemId(null);
+      setSelectionMode(false);
+      setSelectedItems(new Set());
+    } catch (error: any) {
+      console.error('Rename error:', error);
+      const message = error?.message || 'Onbekende fout bij hernoemen';
+      setErrorMessage(`Hernoemen mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
   };
 
   const handleCreateFolder = async () => {
@@ -657,6 +721,75 @@ export default function LibraryScreen() {
         />
 
         <Modal
+          visible={showRenameModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowRenameModal(false);
+            setRenameValue("");
+            setRenamingItemId(null);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Hernoemen</Text>
+                <Pressable onPress={() => {
+                  setShowRenameModal(false);
+                  setRenameValue("");
+                  setRenamingItemId(null);
+                }} testID="close-rename-modal">
+                  <X color={Colors.light.muted} size={24} />
+                </Pressable>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Nieuwe naam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={renameValue}
+                  onChangeText={setRenameValue}
+                  placeholder="Voer nieuwe naam in"
+                  placeholderTextColor={Colors.light.muted}
+                  autoFocus
+                  testID="rename-input"
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setShowRenameModal(false);
+                    setRenameValue("");
+                    setRenamingItemId(null);
+                  }}
+                  testID="cancel-rename-button"
+                >
+                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={[styles.actionButton, styles.createButton, !renameValue.trim() && styles.disabledButton]}
+                  onPress={handleRenameConfirm}
+                  disabled={!renameValue.trim()}
+                  testID="confirm-rename-button"
+                >
+                  <LinearGradient
+                    colors={renameValue.trim() ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
+                    style={styles.createButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={[styles.createButtonText, !renameValue.trim() && styles.disabledButtonText]}>Hernoemen</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
           visible={showActionSheet}
           transparent
           animationType="fade"
@@ -732,6 +865,17 @@ export default function LibraryScreen() {
                 {selectedItems.size} {selectedItems.size === 1 ? 'item' : 'items'} geselecteerd
               </Text>
             </View>
+            
+            {selectedItems.size === 1 && (
+              <Pressable 
+                style={styles.toolbarButton}
+                onPress={handleRenameSelected}
+                testID="rename-selected-button"
+              >
+                <Edit3 color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                <Text style={styles.toolbarButtonTextRename}>Hernoem</Text>
+              </Pressable>
+            )}
             
             <Pressable 
               style={[styles.toolbarButton, isDeleting && styles.toolbarButtonDisabled]}
@@ -1288,6 +1432,11 @@ const styles = StyleSheet.create({
   },
   toolbarButtonTextDelete: {
     color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  toolbarButtonTextRename: {
+    color: Colors.light.primary,
     fontSize: 14,
     fontWeight: '600' as const,
   },
