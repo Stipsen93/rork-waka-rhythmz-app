@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,12 +22,15 @@ type MediaItem = {
   mime_type: string;
   storage_path: string;
   created_at: string;
+  isUploading?: boolean;
+  uploadProgress?: number;
 };
 
 type FolderItem = {
   name: string;
   path: string;
   itemCount: number;
+  isCreating?: boolean;
 };
 
 export default function LibraryScreen() {
@@ -39,21 +42,39 @@ export default function LibraryScreen() {
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<Map<string, MediaItem>>(new Map());
+  const [creatingFolders, setCreatingFolders] = useState<Map<string, FolderItem>>(new Map());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const mediaQuery = trpc.media.getMediaList.useQuery({ folderPath: currentPath });
   const foldersQuery = trpc.media.getFolders.useQuery();
   const storageQuery = trpc.media.getStorageUsage.useQuery();
   const uploadMutation = trpc.media.uploadMedia.useMutation({
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      setUploadingFiles((prev) => {
+        const next = new Map(prev);
+        next.delete(variables.name);
+        return next;
+      });
       mediaQuery.refetch();
       foldersQuery.refetch();
       storageQuery.refetch();
     },
+    onError: (error, variables) => {
+      setUploadingFiles((prev) => {
+        const next = new Map(prev);
+        next.delete(variables.name);
+        return next;
+      });
+      const message = error.message || 'Onbekende fout bij uploaden';
+      setErrorMessage(`Upload mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    },
   });
 
   const folders = useMemo<FolderItem[]>(() => {
-    if (!foldersQuery.data) return [];
+    const creatingFoldersList = Array.from(creatingFolders.values());
+    if (!foldersQuery.data) return creatingFoldersList;
     
     const folderMap = new Map<string, number>();
     
@@ -91,17 +112,23 @@ export default function LibraryScreen() {
       }
     });
     
-    return Array.from(folderMap.entries()).map(([path, count]) => ({
+    const existingFolders = Array.from(folderMap.entries()).map(([path, count]) => ({
       name: path.split('/').pop() || path,
       path,
       itemCount: count,
     }));
-  }, [foldersQuery.data, mediaQuery.data, currentPath]);
+    
+    return [...creatingFoldersList, ...existingFolders];
+  }, [foldersQuery.data, mediaQuery.data, currentPath, creatingFolders]);
 
   const mediaItems = useMemo<MediaItem[]>(() => {
     const mediaData = mediaQuery.data as MediaItem[] | undefined;
-    return mediaData?.filter((item) => item.folder_path === currentPath) || [];
-  }, [mediaQuery.data, currentPath]);
+    const uploadingList = Array.from(uploadingFiles.values()).filter(
+      (item) => item.folder_path === currentPath
+    );
+    const existingMedia = mediaData?.filter((item) => item.folder_path === currentPath) || [];
+    return [...uploadingList, ...existingMedia];
+  }, [mediaQuery.data, currentPath, uploadingFiles]);
 
   const breadcrumbText = useMemo(() => {
     if (!currentPath) return '';
@@ -133,15 +160,35 @@ export default function LibraryScreen() {
       }
 
       const file = result.assets[0];
-      setIsUploading(true);
 
       let fileType = 'other';
       if (file.mimeType?.startsWith('video/')) fileType = 'video';
       else if (file.mimeType?.startsWith('image/')) fileType = 'image';
       else if (file.mimeType?.startsWith('audio/')) fileType = 'audio';
 
+      const tempId = `temp_${Date.now()}_${file.name}`;
+      const uploadingItem: MediaItem = {
+        id: tempId,
+        name: file.name,
+        path: '',
+        folder_path: currentPath,
+        file_type: fileType,
+        file_size: file.size || 0,
+        mime_type: file.mimeType || 'application/octet-stream',
+        storage_path: '',
+        created_at: new Date().toISOString(),
+        isUploading: true,
+        uploadProgress: 0,
+      };
+
+      setUploadingFiles((prev) => {
+        const next = new Map(prev);
+        next.set(file.name, uploadingItem);
+        return next;
+      });
+
       let base64Data = '';
-      if (Platform.OS === 'web') {
+      try {
         const response = await fetch(file.uri);
         const blob = await response.blob();
         const reader = new FileReader();
@@ -153,19 +200,23 @@ export default function LibraryScreen() {
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
-      } else {
-        const response = await fetch(file.uri);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        base64Data = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
+      } catch (error) {
+        setUploadingFiles((prev) => {
+          const next = new Map(prev);
+          next.delete(file.name);
+          return next;
         });
+        throw new Error('Kon bestand niet lezen. Probeer opnieuw.');
       }
+
+      setUploadingFiles((prev) => {
+        const next = new Map(prev);
+        const item = next.get(file.name);
+        if (item) {
+          next.set(file.name, { ...item, uploadProgress: 50 });
+        }
+        return next;
+      });
 
       await uploadMutation.mutateAsync({
         name: file.name,
@@ -175,13 +226,11 @@ export default function LibraryScreen() {
         mimeType: file.mimeType || 'application/octet-stream',
         base64Data,
       });
-
-      Alert.alert('Succes', 'Media succesvol geüpload');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      Alert.alert('Fout', 'Er is een fout opgetreden bij het uploaden van de media');
-    } finally {
-      setIsUploading(false);
+      const message = error?.message || 'Onbekende fout opgetreden';
+      setErrorMessage(`Upload mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     }
   };
 
@@ -255,6 +304,15 @@ export default function LibraryScreen() {
           </View>
         )}
 
+        {errorMessage && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Pressable onPress={() => setErrorMessage(null)} style={styles.errorClose}>
+              <X color={Colors.light.text} size={16} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+        )}
+
         {currentPath && (
           <Pressable 
             onPress={handleBack} 
@@ -281,18 +339,25 @@ export default function LibraryScreen() {
               if (item.kind === "folder") {
                 return (
                   <TouchableOpacity 
-                    style={styles.card} 
-                    onPress={() => setCurrentPath(item.folder.path)}
+                    style={[styles.card, item.folder.isCreating && styles.cardCreating]} 
+                    onPress={() => !item.folder.isCreating && setCurrentPath(item.folder.path)}
+                    disabled={item.folder.isCreating}
                     testID={`folder-${item.folder.path}`}
                   >
                     <View style={styles.iconContainer}>
-                      <Folder color={Colors.light.primary} size={28} strokeWidth={2} />
+                      {item.folder.isCreating ? (
+                        <ActivityIndicator size="small" color={Colors.light.primary} />
+                      ) : (
+                        <Folder color={Colors.light.primary} size={28} strokeWidth={2} />
+                      )}
                     </View>
                     <View style={styles.cardContent}>
                       <Text style={styles.cardTitle}>{item.folder.name}</Text>
-                      <Text style={styles.cardMeta}>{item.folder.itemCount} items</Text>
+                      <Text style={styles.cardMeta}>
+                        {item.folder.isCreating ? 'Aanmaken...' : `${item.folder.itemCount} items`}
+                      </Text>
                     </View>
-                    <ChevronRight color={Colors.light.muted} size={20} />
+                    {!item.folder.isCreating && <ChevronRight color={Colors.light.muted} size={20} />}
                   </TouchableOpacity>
                 );
               }
@@ -300,22 +365,36 @@ export default function LibraryScreen() {
               const Icon = item.media.file_type === 'video' ? Video : ImageIcon;
               return (
                 <Pressable 
-                  style={styles.card} 
-                  onPress={() => handleOpenMedia(item.media)} 
+                  style={[styles.card, item.media.isUploading && styles.cardUploading]} 
+                  onPress={() => !item.media.isUploading && handleOpenMedia(item.media)}
+                  disabled={item.media.isUploading}
                   testID={`media-${item.media.id}`}
                 >
                   <View style={[styles.iconContainer, styles.mediaIcon]}>
-                    <Icon color={Colors.light.text} size={24} strokeWidth={2} />
+                    {item.media.isUploading ? (
+                      <ActivityIndicator size="small" color={Colors.light.text} />
+                    ) : (
+                      <Icon color={Colors.light.text} size={24} strokeWidth={2} />
+                    )}
                   </View>
                   <View style={styles.cardContent}>
                     <Text style={styles.cardTitle}>{item.media.name}</Text>
                     <Text style={styles.cardMeta}>
-                      {item.media.file_type.toUpperCase()} • {(item.media.file_size / (1024 * 1024)).toFixed(1)} MB
+                      {item.media.isUploading
+                        ? 'Uploaden...'
+                        : `${item.media.file_type.toUpperCase()} • ${(item.media.file_size / (1024 * 1024)).toFixed(1)} MB`}
                     </Text>
+                    {item.media.isUploading && item.media.uploadProgress !== undefined && (
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` }]} />
+                      </View>
+                    )}
                   </View>
-                  <View style={styles.playBadge}>
-                    <Text style={styles.playBadgeText}>▶</Text>
-                  </View>
+                  {!item.media.isUploading && (
+                    <View style={styles.playBadge}>
+                      <Text style={styles.playBadgeText}>▶</Text>
+                    </View>
+                  )}
                 </Pressable>
               );
             }}
@@ -372,6 +451,29 @@ export default function LibraryScreen() {
                   style={[styles.actionButton, styles.createButton, !folderName.trim() && styles.disabledButton]}
                   onPress={() => {
                     if (folderName.trim()) {
+                      const newFolderPath = currentPath ? `${currentPath}/${folderName.trim()}` : folderName.trim();
+                      const tempFolder: FolderItem = {
+                        name: folderName.trim(),
+                        path: newFolderPath,
+                        itemCount: 0,
+                        isCreating: true,
+                      };
+                      
+                      setCreatingFolders((prev) => {
+                        const next = new Map(prev);
+                        next.set(newFolderPath, tempFolder);
+                        return next;
+                      });
+                      
+                      setTimeout(() => {
+                        setCreatingFolders((prev) => {
+                          const next = new Map(prev);
+                          next.delete(newFolderPath);
+                          return next;
+                        });
+                        foldersQuery.refetch();
+                      }, 1000);
+                      
                       setShowFolderModal(false);
                       setFolderName("");
                     }
@@ -445,11 +547,11 @@ export default function LibraryScreen() {
               <TouchableOpacity
                 style={styles.actionSheetOption}
                 onPress={handleUploadMedia}
-                disabled={isUploading}
+                disabled={uploadingFiles.size > 0}
                 testID="upload-media-option"
               >
                 <View style={styles.actionSheetIconContainer}>
-                  {isUploading ? (
+                  {uploadingFiles.size > 0 ? (
                     <ActivityIndicator size="small" color={Colors.light.primary} />
                   ) : (
                     <Upload color={Colors.light.primary} size={24} strokeWidth={2.5} />
@@ -457,7 +559,7 @@ export default function LibraryScreen() {
                 </View>
                 <View style={styles.actionSheetTextContainer}>
                   <Text style={styles.actionSheetTitle}>
-                    {isUploading ? 'Uploaden...' : 'Media Uploaden'}
+                    {uploadingFiles.size > 0 ? 'Uploaden...' : 'Media Uploaden'}
                   </Text>
                   <Text style={styles.actionSheetSubtitle}>
                     Video, foto of audio uploaden
@@ -911,5 +1013,48 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.light.surfaceLight,
     marginVertical: 4,
+  },
+  errorContainer: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: '#DC2626',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '600' as const,
+    flex: 1,
+    marginRight: 12,
+  },
+  errorClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardCreating: {
+    opacity: 0.7,
+  },
+  cardUploading: {
+    opacity: 0.8,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.light.primary,
+    borderRadius: 2,
   },
 });
