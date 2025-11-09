@@ -125,6 +125,7 @@ export const uploadMediaRoute = publicProcedure
       
       const result = mediaData as unknown as MediaRow;
       console.log('[SUCCESS] Media uploaded with ID:', result.id);
+      console.log('[SUCCESS] Returning data:', JSON.stringify(result));
       return result;
     } catch (error: any) {
       console.error('[UPLOAD EXCEPTION]:', error);

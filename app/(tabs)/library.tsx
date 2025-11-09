@@ -339,9 +339,9 @@ export default function LibraryScreen() {
               <View style={styles.storageBar}>
                 <LinearGradient
                   colors={
-                    storageQuery.data.percentage > 90
+                    (storageQuery.data.percentage || 0) > 90
                       ? ['#DC2626', '#991B1B']
-                      : storageQuery.data.percentage > 75
+                      : (storageQuery.data.percentage || 0) > 75
                       ? ['#F59E0B', '#D97706']
                       : [Colors.light.primary, Colors.light.primaryDark]
                   }
@@ -355,10 +355,10 @@ export default function LibraryScreen() {
               </View>
               <View style={styles.storageTextRow}>
                 <Text style={styles.storageText}>
-                  {storageQuery.data.usageGB.toFixed(2)} GB gebruikt
+                  {(storageQuery.data.usageGB || 0).toFixed(2)} GB gebruikt
                 </Text>
                 <Text style={styles.storageTextSecondary}>
-                  van {storageQuery.data.maxGB} GB
+                  van {storageQuery.data.maxGB || 0} GB
                 </Text>
               </View>
             </View>
