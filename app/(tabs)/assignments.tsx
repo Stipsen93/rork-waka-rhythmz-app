@@ -14,13 +14,9 @@ export default function AssignmentsScreen() {
   const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
   
   const myAssignments = React.useMemo(() => {
-    if (currentUser?.role === 'admin') {
-      return assignments;
-    } else {
-      return assignments.filter(a => 
-        a.assignedUserIds.length === 0 || a.assignedUserIds.includes(currentUser?.id ?? '')
-      );
-    }
+    return assignments.filter(a => 
+      a.assignedUserIds.length === 0 || a.assignedUserIds.includes(currentUser?.id ?? '')
+    );
   }, [assignments, currentUser]);
   
   const nextAssignment = myAssignments[0];
