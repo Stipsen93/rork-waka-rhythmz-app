@@ -1266,15 +1266,30 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       .from('media-library')
       .upload(placeholderPath, placeholderData, {
         contentType: 'text/plain',
-        upsert: false,
+        upsert: true,
       });
     
     if (uploadError && !uploadError.message.includes('already exists')) {
+      console.error('❌ Folder creation error:', uploadError);
       throw new Error(`Folder aanmaken mislukt: ${uploadError.message}`);
     }
     
+    const placeholderItem: MediaLibraryItem = {
+      id: `placeholder_${Date.now()}`,
+      name: '.emptyFolderPlaceholder',
+      path: placeholderPath,
+      folder_path: folderPath,
+      file_type: 'other',
+      file_size: 0,
+      mime_type: 'text/plain',
+      storage_path: placeholderPath,
+      uploaded_by: currentUser?.id ?? null,
+      created_at: new Date().toISOString(),
+    };
+    
+    setMediaLibrary(prev => [...prev, placeholderItem]);
     console.log('✅ Folder created');
-  }, []);
+  }, [currentUser]);
 
   const value: AppStateValue = {
     users,
