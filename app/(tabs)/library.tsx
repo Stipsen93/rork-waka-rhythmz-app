@@ -1014,6 +1014,9 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
   const [isLoadingUrl, setIsLoadingUrl] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(false);
+  const [positionMillis, setPositionMillis] = useState(0);
+  const [durationMillis, setDurationMillis] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
   const videoRef = useRef<ExpoVideo>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1081,7 +1084,34 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsPlaying(status.isPlaying);
+      if (!isSeeking) {
+        setPositionMillis(status.positionMillis || 0);
+        setDurationMillis(status.durationMillis || 0);
+      }
     }
+  };
+
+  const handleSeek = async (progress: number) => {
+    if (!videoRef.current || !durationMillis) return;
+    
+    const targetPosition = progress * durationMillis;
+    setIsSeeking(true);
+    setPositionMillis(targetPosition);
+    
+    try {
+      await videoRef.current.setPositionAsync(targetPosition);
+    } catch (error) {
+      console.error('Error seeking:', error);
+    } finally {
+      setIsSeeking(false);
+    }
+  };
+
+  const formatTime = (millis: number) => {
+    const totalSeconds = Math.floor(millis / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -1120,21 +1150,53 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
                     onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
                   />
                   {showControls && (
-                    <Pressable 
-                      style={styles.controlsOverlay}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handlePlayPause();
-                      }}
-                    >
-                      <View style={styles.playPauseButton}>
-                        {isPlaying ? (
-                          <Pause color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
-                        ) : (
-                          <Play color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
-                        )}
+                    <View style={styles.controlsOverlay}>
+                      <Pressable 
+                        style={styles.controlsCenter}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handlePlayPause();
+                        }}
+                      >
+                        <LinearGradient
+                          colors={[Colors.light.primary, '#B91C1C']}
+                          style={styles.playPauseButton}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          {isPlaying ? (
+                            <Pause color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
+                          ) : (
+                            <Play color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
+                          )}
+                        </LinearGradient>
+                      </Pressable>
+                      <View style={styles.controlsBottom}>
+                        <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
+                        <View style={styles.progressBarContainer}>
+                          <View style={styles.progressBarTrack}>
+                            <LinearGradient
+                              colors={[Colors.light.primary, '#B91C1C']}
+                              style={[styles.progressBarFilled, { width: `${durationMillis > 0 ? (positionMillis / durationMillis) * 100 : 0}%` }]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                            />
+                          </View>
+                          <Pressable
+                            style={styles.progressBarHitbox}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              const { locationX, currentTarget } = e.nativeEvent as any;
+                              if (currentTarget?.offsetWidth) {
+                                const progress = locationX / currentTarget.offsetWidth;
+                                handleSeek(Math.max(0, Math.min(1, progress)));
+                              }
+                            }}
+                          />
+                        </View>
+                        <Text style={styles.timeText}>{formatTime(durationMillis)}</Text>
                       </View>
-                    </Pressable>
+                    </View>
                   )}
                 </Pressable>
               ) : (
@@ -1434,21 +1496,56 @@ const styles = StyleSheet.create({
   },
   controlsOverlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'space-between',
+  },
+  controlsCenter: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  controlsBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
   },
   playPauseButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(220, 38, 38, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: Colors.light.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: 40,
+    justifyContent: 'center',
+  },
+  progressBarTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFilled: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressBarHitbox: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  timeText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+    minWidth: 45,
+    textAlign: 'center',
   },
   image: {
     width: '100%',
