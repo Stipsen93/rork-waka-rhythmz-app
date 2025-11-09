@@ -6,11 +6,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
-import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import * as DocumentPicker from 'expo-document-picker';
+import { useAppState } from "@/providers/AppState";
 
 type MediaItem = {
   id: string;
@@ -35,6 +35,7 @@ type FolderItem = {
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
+  const appState = useAppState();
   const [currentPath, setCurrentPath] = useState<string>("");
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -45,67 +46,15 @@ export default function LibraryScreen() {
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, MediaItem>>(new Map());
   const [creatingFolders, setCreatingFolders] = useState<Map<string, FolderItem>>(new Map());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const mediaQuery = trpc.media.getMediaList.useQuery({ folderPath: currentPath });
-  const foldersQuery = trpc.media.getFolders.useQuery();
-  const storageQuery = trpc.media.getStorageUsage.useQuery();
-  const uploadMutation = trpc.media.uploadMedia.useMutation({
-    onSuccess: (data, variables) => {
-      setUploadingFiles((prev) => {
-        const next = new Map(prev);
-        next.delete(variables.name);
-        return next;
-      });
-      mediaQuery.refetch();
-      foldersQuery.refetch();
-      storageQuery.refetch();
-    },
-    onError: (error, variables) => {
-      console.error('[CLIENT] Upload mutation error:', error);
-      console.error('[CLIENT] Error name:', error.name);
-      console.error('[CLIENT] Error message:', error.message);
-      console.error('[CLIENT] Error cause:', error.cause);
-      console.error('[CLIENT] Error data:', error.data);
-      console.error('[CLIENT] Full error object:', JSON.stringify(error, null, 2));
-      setUploadingFiles((prev) => {
-        const next = new Map(prev);
-        next.delete(variables.name);
-        return next;
-      });
-      const message = error.message || 'Onbekende fout bij uploaden';
-      setErrorMessage(`Upload mislukt: ${message}`);
-      setTimeout(() => setErrorMessage(null), 8000);
-    },
-  });
-
-  const createFolderMutation = trpc.media.createFolder.useMutation({
-    onSuccess: (data) => {
-      setCreatingFolders((prev) => {
-        const next = new Map(prev);
-        next.delete(data.folderPath);
-        return next;
-      });
-      foldersQuery.refetch();
-    },
-    onError: (error, variables) => {
-      setCreatingFolders((prev) => {
-        const next = new Map(prev);
-        next.delete(variables.folderPath);
-        return next;
-      });
-      const message = error.message || 'Onbekende fout bij folder aanmaken';
-      setErrorMessage(`Folder aanmaken mislukt: ${message}`);
-      setTimeout(() => setErrorMessage(null), 5000);
-    },
-  });
+  const [isUploading, setIsUploading] = useState(false);
 
   const folders = useMemo<FolderItem[]>(() => {
     const creatingFoldersList = Array.from(creatingFolders.values());
-    if (!foldersQuery.data) return creatingFoldersList;
+    const allFolderPaths = appState.getFolders();
     
     const folderMap = new Map<string, number>();
     
-    foldersQuery.data.forEach((folderPath) => {
+    allFolderPaths.forEach((folderPath) => {
       if (currentPath && !folderPath.startsWith(currentPath + '/')) {
         return;
       }
@@ -125,9 +74,9 @@ export default function LibraryScreen() {
       }
     });
     
-    const mediaData = mediaQuery.data as MediaItem[] | undefined;
+    const mediaInFolders = appState.mediaLibrary;
     
-    mediaData?.forEach((item) => {
+    mediaInFolders.forEach((item) => {
       if (item.folder_path.startsWith(currentPath)) {
         const remaining = item.folder_path.substring(currentPath ? currentPath.length + 1 : 0);
         const parts = remaining.split('/').filter(Boolean);
@@ -146,16 +95,25 @@ export default function LibraryScreen() {
     }));
     
     return [...creatingFoldersList, ...existingFolders];
-  }, [foldersQuery.data, mediaQuery.data, currentPath, creatingFolders]);
+  }, [appState.mediaLibrary, currentPath, creatingFolders, appState]);
 
   const mediaItems = useMemo<MediaItem[]>(() => {
-    const mediaData = mediaQuery.data as MediaItem[] | undefined;
     const uploadingList = Array.from(uploadingFiles.values()).filter(
       (item) => item.folder_path === currentPath
     );
-    const existingMedia = mediaData?.filter((item) => item.folder_path === currentPath) || [];
+    const existingMedia = appState.getMediaInFolder(currentPath).map(m => ({
+      id: m.id,
+      name: m.name,
+      path: m.path,
+      folder_path: m.folder_path,
+      file_type: m.file_type,
+      file_size: m.file_size,
+      mime_type: m.mime_type,
+      storage_path: m.storage_path,
+      created_at: m.created_at,
+    }));
     return [...uploadingList, ...existingMedia];
-  }, [mediaQuery.data, currentPath, uploadingFiles]);
+  }, [appState, currentPath, uploadingFiles]);
 
   const breadcrumbText = useMemo(() => {
     if (!currentPath) return '';
@@ -218,6 +176,7 @@ export default function LibraryScreen() {
         next.set(file.name, uploadingItem);
         return next;
       });
+      setIsUploading(true);
 
       console.log('[CLIENT] Reading file data...');
       let base64Data = '';
@@ -249,6 +208,7 @@ export default function LibraryScreen() {
           next.delete(file.name);
           return next;
         });
+        setIsUploading(false);
         throw new Error('Kon bestand niet lezen. Controleer bestandsrechten.');
       }
 
@@ -261,8 +221,8 @@ export default function LibraryScreen() {
         return next;
       });
 
-      console.log('[CLIENT] Uploading to backend...');
-      await uploadMutation.mutateAsync({
+      console.log('[CLIENT] Uploading to Supabase via AppState...');
+      await appState.uploadMedia({
         name: file.name,
         folderPath: currentPath,
         fileType,
@@ -271,12 +231,62 @@ export default function LibraryScreen() {
         base64Data,
       });
       
+      setUploadingFiles((prev) => {
+        const next = new Map(prev);
+        next.delete(file.name);
+        return next;
+      });
+      setIsUploading(false);
+      
+      await appState.refreshStorageUsage();
+      
       console.log('[CLIENT] Upload successful!');
     } catch (error: any) {
       console.error('[CLIENT] Upload error:', error);
+      setIsUploading(false);
       const message = error?.message || error?.toString() || 'Onbekende fout opgetreden';
       setErrorMessage(`Upload fout: ${message}`);
       setTimeout(() => setErrorMessage(null), 8000);
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    if (!folderName.trim()) return;
+    
+    const newFolderPath = currentPath ? `${currentPath}/${folderName.trim()}` : folderName.trim();
+    const tempFolder: FolderItem = {
+      name: folderName.trim(),
+      path: newFolderPath,
+      itemCount: 0,
+      isCreating: true,
+    };
+    
+    setCreatingFolders((prev) => {
+      const next = new Map(prev);
+      next.set(newFolderPath, tempFolder);
+      return next;
+    });
+    
+    setShowFolderModal(false);
+    setFolderName("");
+    
+    try {
+      await appState.createFolder(newFolderPath);
+      setCreatingFolders((prev) => {
+        const next = new Map(prev);
+        next.delete(newFolderPath);
+        return next;
+      });
+    } catch (error: any) {
+      console.error('Create folder error:', error);
+      setCreatingFolders((prev) => {
+        const next = new Map(prev);
+        next.delete(newFolderPath);
+        return next;
+      });
+      const message = error?.message || 'Onbekende fout bij folder aanmaken';
+      setErrorMessage(`Folder aanmaken mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     }
   };
 
@@ -285,8 +295,6 @@ export default function LibraryScreen() {
     ...folders.map((f) => ({ kind: "folder" as const, folder: f })),
     ...mediaItems.map((m) => ({ kind: "media" as const, media: m })),
   ];
-
-  const isLoading = mediaQuery.isLoading || foldersQuery.isLoading;
 
   return (
     <>
@@ -314,9 +322,9 @@ export default function LibraryScreen() {
         <View style={styles.header}>
           <Text style={styles.appName}>WAKA RHYTHMZ</Text>
           <Text style={styles.title}>Bibliotheek</Text>
-          {breadcrumbText && (
+          {breadcrumbText ? (
             <Text style={styles.breadcrumb}>{breadcrumbText}</Text>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.storageCard}>
@@ -324,28 +332,24 @@ export default function LibraryScreen() {
             <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
             <Text style={styles.storageTitle}>Opslag</Text>
           </View>
-          {storageQuery.isLoading ? (
+          {!appState.storageUsage ? (
             <View style={styles.storageLoading}>
               <ActivityIndicator size="small" color={Colors.light.primary} />
             </View>
-          ) : storageQuery.error ? (
-            <View style={styles.storageMeter}>
-              <Text style={styles.storageErrorText}>Kon opslag niet laden</Text>
-            </View>
-          ) : storageQuery.data ? (
+          ) : (
             <View style={styles.storageMeter}>
               <View style={styles.storageBar}>
                 <LinearGradient
                   colors={
-                    (storageQuery.data.percentage || 0) > 90
+                    (appState.storageUsage.percentage || 0) > 90
                       ? ['#DC2626', '#991B1B']
-                      : (storageQuery.data.percentage || 0) > 75
+                      : (appState.storageUsage.percentage || 0) > 75
                       ? ['#F59E0B', '#D97706']
                       : [Colors.light.primary, Colors.light.primaryDark]
                   }
                   style={[
                     styles.storageBarFill,
-                    { width: `${Math.min(storageQuery.data.percentage || 0, 100)}%` }
+                    { width: `${Math.min(appState.storageUsage.percentage || 0, 100)}%` }
                   ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -353,30 +357,26 @@ export default function LibraryScreen() {
               </View>
               <View style={styles.storageTextRow}>
                 <Text style={styles.storageText}>
-                  {(storageQuery.data.usageGB || 0).toFixed(2)} GB gebruikt
+                  {(appState.storageUsage.usageGB || 0).toFixed(2)} GB gebruikt
                 </Text>
                 <Text style={styles.storageTextSecondary}>
-                  van {storageQuery.data.maxGB || 0} GB
+                  van {appState.storageUsage.maxGB || 0} GB
                 </Text>
               </View>
-            </View>
-          ) : (
-            <View style={styles.storageMeter}>
-              <Text style={styles.storageErrorText}>Geen gegevens beschikbaar</Text>
             </View>
           )}
         </View>
 
-        {errorMessage && (
+        {errorMessage ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{errorMessage}</Text>
             <Pressable onPress={() => setErrorMessage(null)} style={styles.errorClose}>
               <X color={Colors.light.text} size={16} strokeWidth={2.5} />
             </Pressable>
           </View>
-        )}
+        ) : null}
 
-        {currentPath && (
+        {currentPath ? (
           <Pressable 
             onPress={handleBack} 
             style={styles.backButton} 
@@ -385,84 +385,78 @@ export default function LibraryScreen() {
             <ArrowLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
             <Text style={styles.backText}>Terug</Text>
           </Pressable>
-        )}
+        ) : null}
 
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.light.primary} />
-          </View>
-        ) : (
-          <FlatList
-            data={items}
-            keyExtractor={(item, index) => 
-              item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.id}`
-            }
-            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-            renderItem={({ item }) => {
-              if (item.kind === "folder") {
-                return (
-                  <TouchableOpacity 
-                    style={[styles.card, item.folder.isCreating && styles.cardCreating]} 
-                    onPress={() => !item.folder.isCreating && setCurrentPath(item.folder.path)}
-                    disabled={item.folder.isCreating}
-                    testID={`folder-${item.folder.path}`}
-                  >
-                    <View style={styles.iconContainer}>
-                      {item.folder.isCreating ? (
-                        <ActivityIndicator size="small" color={Colors.light.primary} />
-                      ) : (
-                        <Folder color={Colors.light.primary} size={28} strokeWidth={2} />
-                      )}
-                    </View>
-                    <View style={styles.cardContent}>
-                      <Text style={styles.cardTitle}>{item.folder.name}</Text>
-                      <Text style={styles.cardMeta}>
-                        {item.folder.isCreating ? 'Aanmaken...' : `${item.folder.itemCount} items`}
-                      </Text>
-                    </View>
-                    {!item.folder.isCreating && <ChevronRight color={Colors.light.muted} size={20} />}
-                  </TouchableOpacity>
-                );
-              }
-              
-              const Icon = item.media.file_type === 'video' ? Video : ImageIcon;
+        <FlatList
+          data={items}
+          keyExtractor={(item, index) => 
+            item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.id}`
+          }
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          renderItem={({ item }) => {
+            if (item.kind === "folder") {
               return (
-                <Pressable 
-                  style={[styles.card, item.media.isUploading && styles.cardUploading]} 
-                  onPress={() => !item.media.isUploading && handleOpenMedia(item.media)}
-                  disabled={item.media.isUploading}
-                  testID={`media-${item.media.id}`}
+                <TouchableOpacity 
+                  style={[styles.card, item.folder.isCreating && styles.cardCreating]} 
+                  onPress={() => !item.folder.isCreating && setCurrentPath(item.folder.path)}
+                  disabled={item.folder.isCreating}
+                  testID={`folder-${item.folder.path}`}
                 >
-                  <View style={[styles.iconContainer, styles.mediaIcon]}>
-                    {item.media.isUploading ? (
-                      <ActivityIndicator size="small" color={Colors.light.text} />
+                  <View style={styles.iconContainer}>
+                    {item.folder.isCreating ? (
+                      <ActivityIndicator size="small" color={Colors.light.primary} />
                     ) : (
-                      <Icon color={Colors.light.text} size={24} strokeWidth={2} />
+                      <Folder color={Colors.light.primary} size={28} strokeWidth={2} />
                     )}
                   </View>
                   <View style={styles.cardContent}>
-                    <Text style={styles.cardTitle}>{item.media.name}</Text>
+                    <Text style={styles.cardTitle}>{item.folder.name}</Text>
                     <Text style={styles.cardMeta}>
-                      {item.media.isUploading
-                        ? 'Uploaden...'
-                        : `${item.media.file_type.toUpperCase()} • ${(item.media.file_size / (1024 * 1024)).toFixed(1)} MB`}
+                      {item.folder.isCreating ? 'Aanmaken...' : `${item.folder.itemCount} items`}
                     </Text>
-                    {item.media.isUploading && item.media.uploadProgress !== undefined && (
-                      <View style={styles.progressBar}>
-                        <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` }]} />
-                      </View>
-                    )}
                   </View>
-                  {!item.media.isUploading && (
-                    <View style={styles.playBadge}>
-                      <Text style={styles.playBadgeText}>▶</Text>
+                  {!item.folder.isCreating && <ChevronRight color={Colors.light.muted} size={20} />}
+                </TouchableOpacity>
+              );
+            }
+            
+            const Icon = item.media.file_type === 'video' ? Video : ImageIcon;
+            return (
+              <Pressable 
+                style={[styles.card, item.media.isUploading && styles.cardUploading]} 
+                onPress={() => !item.media.isUploading && handleOpenMedia(item.media)}
+                disabled={item.media.isUploading}
+                testID={`media-${item.media.id}`}
+              >
+                <View style={[styles.iconContainer, styles.mediaIcon]}>
+                  {item.media.isUploading ? (
+                    <ActivityIndicator size="small" color={Colors.light.text} />
+                  ) : (
+                    <Icon color={Colors.light.text} size={24} strokeWidth={2} />
+                  )}
+                </View>
+                <View style={styles.cardContent}>
+                  <Text style={styles.cardTitle}>{item.media.name}</Text>
+                  <Text style={styles.cardMeta}>
+                    {item.media.isUploading
+                      ? 'Uploaden...'
+                      : `${item.media.file_type.toUpperCase()} • ${(item.media.file_size / (1024 * 1024)).toFixed(1)} MB`}
+                  </Text>
+                  {item.media.isUploading && item.media.uploadProgress !== undefined && (
+                    <View style={styles.progressBar}>
+                      <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` }]} />
                     </View>
                   )}
-                </Pressable>
-              );
-            }}
-          />
-        )}
+                </View>
+                {!item.media.isUploading && (
+                  <View style={styles.playBadge}>
+                    <Text style={styles.playBadgeText}>▶</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          }}
+        />
 
         <Modal
           visible={showFolderModal}
@@ -512,34 +506,7 @@ export default function LibraryScreen() {
                 
                 <Pressable
                   style={[styles.actionButton, styles.createButton, !folderName.trim() && styles.disabledButton]}
-                  onPress={async () => {
-                    if (folderName.trim()) {
-                      const newFolderPath = currentPath ? `${currentPath}/${folderName.trim()}` : folderName.trim();
-                      const tempFolder: FolderItem = {
-                        name: folderName.trim(),
-                        path: newFolderPath,
-                        itemCount: 0,
-                        isCreating: true,
-                      };
-                      
-                      setCreatingFolders((prev) => {
-                        const next = new Map(prev);
-                        next.set(newFolderPath, tempFolder);
-                        return next;
-                      });
-                      
-                      setShowFolderModal(false);
-                      setFolderName("");
-                      
-                      try {
-                        await createFolderMutation.mutateAsync({
-                          folderPath: newFolderPath,
-                        });
-                      } catch (error: any) {
-                        console.error('Create folder error:', error);
-                      }
-                    }
-                  }}
+                  onPress={handleCreateFolder}
                   disabled={!folderName.trim()}
                   testID="create-folder-button"
                 >
@@ -609,11 +576,11 @@ export default function LibraryScreen() {
               <TouchableOpacity
                 style={styles.actionSheetOption}
                 onPress={handleUploadMedia}
-                disabled={uploadingFiles.size > 0}
+                disabled={isUploading}
                 testID="upload-media-option"
               >
                 <View style={styles.actionSheetIconContainer}>
-                  {uploadingFiles.size > 0 ? (
+                  {isUploading ? (
                     <ActivityIndicator size="small" color={Colors.light.primary} />
                   ) : (
                     <Upload color={Colors.light.primary} size={24} strokeWidth={2.5} />
@@ -621,7 +588,7 @@ export default function LibraryScreen() {
                 </View>
                 <View style={styles.actionSheetTextContainer}>
                   <Text style={styles.actionSheetTitle}>
-                    {uploadingFiles.size > 0 ? 'Uploaden...' : 'Media Uploaden'}
+                    {isUploading ? 'Uploaden...' : 'Media Uploaden'}
                   </Text>
                   <Text style={styles.actionSheetSubtitle}>
                     Video, foto of audio uploaden
@@ -806,12 +773,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'flex-start',
   },
-  storageErrorText: {
-    color: Colors.light.muted,
-    fontSize: 13,
-    fontWeight: '600' as const,
-    fontStyle: 'italic' as const,
-  },
   backButton: { 
     marginHorizontal: 20, 
     marginBottom: 16,
@@ -824,11 +785,6 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     fontSize: 16,
     fontWeight: "700" as const,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   list: { 
     padding: 20, 
@@ -996,17 +952,6 @@ const styles = StyleSheet.create({
     minHeight: 200,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  playerPlaceholder: {
-    color: Colors.light.text,
-    fontSize: 18,
-    fontWeight: '700' as const,
-    marginBottom: 12,
-  },
-  playerUrl: {
-    color: Colors.light.muted,
-    fontSize: 12,
-    textAlign: 'center',
   },
   video: {
     width: '100%',

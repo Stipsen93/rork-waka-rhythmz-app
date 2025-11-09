@@ -131,6 +131,25 @@ export interface NotificationSettings {
   performancesHoursAdvance: number;
 }
 
+export interface MediaLibraryItem {
+  id: string;
+  name: string;
+  path: string;
+  folder_path: string;
+  file_type: string;
+  file_size: number;
+  mime_type: string;
+  storage_path: string;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+export interface StorageUsage {
+  usageGB: number;
+  maxGB: number;
+  percentage: number;
+}
+
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
@@ -167,6 +186,14 @@ export interface AppStateValue {
   deleteAppointments: (ids: string[]) => void;
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (settings: NotificationSettings) => void;
+  mediaLibrary: MediaLibraryItem[];
+  uploadMedia: (input: { name: string; folderPath: string; fileType: string; fileSize: number; mimeType: string; base64Data: string }) => Promise<MediaLibraryItem>;
+  deleteMedia: (ids: string[]) => Promise<void>;
+  getMediaInFolder: (folderPath: string) => MediaLibraryItem[];
+  getFolders: () => string[];
+  createFolder: (folderPath: string) => Promise<void>;
+  storageUsage: StorageUsage | null;
+  refreshStorageUsage: () => Promise<void>;
 }
 
 function genId(prefix: string): string {
@@ -243,11 +270,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     performancesHoursAdvance: 48,
   });
 
+  const [mediaLibrary, setMediaLibrary] = useState<MediaLibraryItem[]>([]);
+  const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
+
   useEffect(() => {
     const initializeData = async () => {
       try {
         console.log('🔄 Loading data from Supabase...');
-        const [usersRes, libraryRes, assignmentsRes, trainingsRes, scheduleRes, announcementsRes, appointmentsRes, settingsRes] = await Promise.all([
+        const [usersRes, libraryRes, assignmentsRes, trainingsRes, scheduleRes, announcementsRes, appointmentsRes, settingsRes, mediaLibraryRes] = await Promise.all([
           supabase.from('users').select('*'),
           supabase.from('library').select('*'),
           supabase.from('assignments').select('*'),
@@ -256,6 +286,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           supabase.from('announcements').select('*'),
           supabase.from('appointments').select('*'),
           supabase.from('notification_settings').select('*').single(),
+          supabase.from('media_library').select('*'),
         ]);
 
         if (usersRes.data) {
@@ -393,6 +424,21 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               status: 'active',
             }]);
           }
+        }
+
+        if (mediaLibraryRes.data) {
+          setMediaLibrary(mediaLibraryRes.data.map(m => ({
+            id: m.id,
+            name: m.name,
+            path: m.path,
+            folder_path: m.folder_path,
+            file_type: m.file_type,
+            file_size: m.file_size,
+            mime_type: m.mime_type,
+            storage_path: m.storage_path,
+            uploaded_by: m.uploaded_by,
+            created_at: m.created_at,
+          })));
         }
 
         if (settingsRes.data) {
@@ -593,6 +639,29 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       })
       .subscribe();
 
+    const mediaLibrarySubscription = supabase
+      .channel('media-library-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_library' }, () => {
+        console.log('🔄 Media library changed, reloading...');
+        supabase.from('media_library').select('*').then(res => {
+          if (res.data) {
+            setMediaLibrary(res.data.map(m => ({
+              id: m.id,
+              name: m.name,
+              path: m.path,
+              folder_path: m.folder_path,
+              file_type: m.file_type,
+              file_size: m.file_size,
+              mime_type: m.mime_type,
+              storage_path: m.storage_path,
+              uploaded_by: m.uploaded_by,
+              created_at: m.created_at,
+            })));
+          }
+        });
+      })
+      .subscribe();
+
     return () => {
       console.log('🔌 Unsubscribing from Supabase real-time...');
       usersSubscription.unsubscribe();
@@ -602,6 +671,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       trainingsSubscription.unsubscribe();
       scheduleSubscription.unsubscribe();
       settingsSubscription.unsubscribe();
+      mediaLibrarySubscription.unsubscribe();
     };
   }, []);
 
@@ -1037,6 +1107,169 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Notification settings updated');
   }, []);
 
+  const uploadMedia = useCallback(async (input: { 
+    name: string; 
+    folderPath: string; 
+    fileType: string; 
+    fileSize: number; 
+    mimeType: string; 
+    base64Data: string 
+  }): Promise<MediaLibraryItem> => {
+    console.log('💾 Uploading media to Supabase...');
+    
+    const timestamp = Date.now();
+    const sanitizedName = input.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const storagePath = input.folderPath 
+      ? `${input.folderPath}/${timestamp}_${sanitizedName}`
+      : `${timestamp}_${sanitizedName}`;
+    
+    const base64Data = input.base64Data.includes(',') 
+      ? input.base64Data.split(',')[1] 
+      : input.base64Data;
+    
+    const binaryData = Buffer.from(base64Data, 'base64');
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('media-library')
+      .upload(storagePath, binaryData, {
+        contentType: input.mimeType,
+        upsert: false,
+      });
+    
+    if (uploadError) {
+      throw new Error(`Storage upload mislukt: ${uploadError.message}`);
+    }
+    
+    const insertData: Database['public']['Tables']['media_library']['Insert'] = {
+      name: input.name,
+      path: storagePath,
+      folder_path: input.folderPath || '',
+      file_type: input.fileType,
+      file_size: input.fileSize,
+      mime_type: input.mimeType,
+      storage_path: storagePath,
+      uploaded_by: currentUser?.id ?? null,
+    };
+    
+    const { data: mediaData, error: dbError } = await supabase
+      .from('media_library')
+      .insert(insertData)
+      .select()
+      .single();
+    
+    if (dbError) {
+      await supabase.storage.from('media-library').remove([storagePath]);
+      throw new Error(`Database fout: ${dbError.message}`);
+    }
+    
+    if (!mediaData) {
+      throw new Error('Geen data ontvangen van database');
+    }
+    
+    const result: MediaLibraryItem = {
+      id: mediaData.id,
+      name: mediaData.name,
+      path: mediaData.path,
+      folder_path: mediaData.folder_path,
+      file_type: mediaData.file_type,
+      file_size: mediaData.file_size,
+      mime_type: mediaData.mime_type,
+      storage_path: mediaData.storage_path,
+      uploaded_by: mediaData.uploaded_by,
+      created_at: mediaData.created_at,
+    };
+    
+    setMediaLibrary(prev => [result, ...prev]);
+    console.log('✅ Media uploaded');
+    return result;
+  }, [currentUser]);
+
+  const deleteMedia = useCallback(async (ids: string[]) => {
+    console.log('💾 Deleting media from Supabase...');
+    
+    const itemsToDelete = mediaLibrary.filter(m => ids.includes(m.id));
+    const storagePaths = itemsToDelete.map(m => m.storage_path);
+    
+    await supabase.storage.from('media-library').remove(storagePaths);
+    await supabase.from('media_library').delete().in('id', ids);
+    
+    setMediaLibrary(prev => prev.filter(m => !ids.includes(m.id)));
+    console.log('✅ Media deleted');
+  }, [mediaLibrary]);
+
+  const getMediaInFolder = useCallback((folderPath: string): MediaLibraryItem[] => {
+    return mediaLibrary.filter(m => m.folder_path === folderPath);
+  }, [mediaLibrary]);
+
+  const getFolders = useCallback((): string[] => {
+    const folderSet = new Set<string>();
+    mediaLibrary.forEach(item => {
+      if (item.folder_path) {
+        folderSet.add(item.folder_path);
+        
+        const parts = item.folder_path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          folderSet.add(parts.slice(0, i).join('/'));
+        }
+      }
+    });
+    return Array.from(folderSet);
+  }, [mediaLibrary]);
+
+  const createFolder = useCallback(async (folderPath: string) => {
+    console.log('💾 Creating folder placeholder...');
+    
+    const placeholderPath = `${folderPath}/.emptyFolderPlaceholder`;
+    const placeholderData = new Blob([''], { type: 'text/plain' });
+    
+    const { error: uploadError } = await supabase.storage
+      .from('media-library')
+      .upload(placeholderPath, placeholderData, {
+        contentType: 'text/plain',
+        upsert: false,
+      });
+    
+    if (uploadError && !uploadError.message.includes('already exists')) {
+      throw new Error(`Folder aanmaken mislukt: ${uploadError.message}`);
+    }
+    
+    console.log('✅ Folder created');
+  }, []);
+
+  const refreshStorageUsage = useCallback(async () => {
+    console.log('💾 Refreshing storage usage...');
+    try {
+      const { data, error } = await supabase.rpc('get_storage_usage');
+      
+      if (error) {
+        console.error('Error getting storage usage:', error);
+        return;
+      }
+      
+      const usageBytes = data || 0;
+      const maxBytes = 10 * 1024 * 1024 * 1024;
+      const usageGB = usageBytes / (1024 * 1024 * 1024);
+      const maxGB = maxBytes / (1024 * 1024 * 1024);
+      const percentage = (usageBytes / maxBytes) * 100;
+      
+      setStorageUsage({
+        usageGB,
+        maxGB,
+        percentage,
+      });
+      
+      console.log('✅ Storage usage refreshed:', { usageGB, maxGB, percentage });
+    } catch (error) {
+      console.error('Error refreshing storage usage:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      refreshStorageUsage();
+    }
+  }, [isInitialized, refreshStorageUsage]);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -1073,6 +1306,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     deleteAppointments,
     notificationSettings,
     updateNotificationSettings,
+    mediaLibrary,
+    uploadMedia,
+    deleteMedia,
+    getMediaInFolder,
+    getFolders,
+    createFolder,
+    storageUsage,
+    refreshStorageUsage,
   };
 
   return value;
