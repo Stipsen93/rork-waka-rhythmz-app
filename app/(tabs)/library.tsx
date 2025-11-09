@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform, PanResponder, GestureResponderEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1021,6 +1021,9 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
   const [isDragging, setIsDragging] = useState(false);
   const videoRef = useRef<ExpoVideo>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const progressBarRef = useRef<View>(null);
+  const progressBarWidthRef = useRef<number>(0);
+  const progressBarXRef = useRef<number>(0);
 
   useEffect(() => {
     const getUrl = async () => {
@@ -1152,20 +1155,77 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
 
   const handleProgressBarPress = (e: any) => {
     e.stopPropagation();
-    const nativeEvent = e.nativeEvent as any;
+    const nativeEvent = e.nativeEvent;
     const locationX = nativeEvent.locationX;
-    const target = nativeEvent.target || nativeEvent.currentTarget;
     
-    if (target && typeof locationX === 'number') {
-      const rect = target.getBoundingClientRect?.();
-      if (rect && rect.width > 0) {
-        const progress = locationX / rect.width;
-        if (isFinite(progress)) {
-          handleSeek(progress);
-        }
+    if (progressBarWidthRef.current > 0 && typeof locationX === 'number') {
+      const progress = locationX / progressBarWidthRef.current;
+      if (isFinite(progress)) {
+        handleSeek(progress);
       }
     }
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      
+      onPanResponderGrant: (event) => {
+        setIsDragging(true);
+        setShowControls(true);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+        
+        const locationX = event.nativeEvent.locationX;
+        if (progressBarWidthRef.current > 0 && typeof locationX === 'number') {
+          const progress = locationX / progressBarWidthRef.current;
+          const clampedProgress = Math.max(0, Math.min(1, progress));
+          
+          if (isFinite(clampedProgress) && durationMillis > 0) {
+            const targetPosition = Math.floor(clampedProgress * durationMillis);
+            setPositionMillis(targetPosition);
+          }
+        }
+      },
+      
+      onPanResponderMove: (event, gestureState) => {
+        if (progressBarWidthRef.current > 0 && progressBarXRef.current !== undefined) {
+          const relativeX = gestureState.moveX - progressBarXRef.current;
+          const progress = relativeX / progressBarWidthRef.current;
+          const clampedProgress = Math.max(0, Math.min(1, progress));
+          
+          if (isFinite(clampedProgress) && durationMillis > 0) {
+            const targetPosition = Math.floor(clampedProgress * durationMillis);
+            setPositionMillis(targetPosition);
+          }
+        }
+      },
+      
+      onPanResponderRelease: (event, gestureState) => {
+        if (progressBarWidthRef.current > 0 && progressBarXRef.current !== undefined) {
+          const relativeX = gestureState.moveX - progressBarXRef.current;
+          const progress = relativeX / progressBarWidthRef.current;
+          const clampedProgress = Math.max(0, Math.min(1, progress));
+          
+          if (isFinite(clampedProgress)) {
+            handleSeek(clampedProgress);
+          }
+        }
+        
+        setIsDragging(false);
+        
+        controlsTimeoutRef.current = setTimeout(() => {
+          setShowControls(false);
+        }, 3000);
+      },
+      
+      onPanResponderTerminate: () => {
+        setIsDragging(false);
+      },
+    })
+  ).current;
 
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis / 1000);
@@ -1258,7 +1318,15 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
                       </View>
                       <View style={styles.controlsBottom}>
                         <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
-                        <View style={styles.progressBarContainer}>
+                        <View 
+                          style={styles.progressBarContainer}
+                          ref={progressBarRef}
+                          onLayout={(event) => {
+                            const layout = event.nativeEvent.layout;
+                            progressBarWidthRef.current = layout.width;
+                            progressBarXRef.current = layout.x;
+                          }}
+                        >
                           <Pressable
                             style={styles.progressBarHitbox}
                             onPress={handleProgressBarPress}
@@ -1271,10 +1339,11 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
                                 end={{ x: 1, y: 0 }}
                               />
                             </View>
-                            <View 
-                              style={[styles.progressThumb, { left: `${durationMillis > 0 ? (positionMillis / durationMillis) * 100 : 0}%` }]}
-                            />
                           </Pressable>
+                          <View 
+                            style={[styles.progressThumb, { left: `${durationMillis > 0 ? (positionMillis / durationMillis) * 100 : 0}%` }]}
+                            {...panResponder.panHandlers}
+                          />
                         </View>
                         <Text style={styles.timeText}>{formatTime(durationMillis)}</Text>
                       </View>
