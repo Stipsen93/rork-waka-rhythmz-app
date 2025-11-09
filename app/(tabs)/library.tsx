@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, Touchabl
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause, Download, Gauge } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -1017,6 +1017,8 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
   const [positionMillis, setPositionMillis] = useState(0);
   const [durationMillis, setDurationMillis] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
   const videoRef = useRef<ExpoVideo>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1081,6 +1083,34 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
     }
   };
 
+  const handleToggleSlowMotion = async () => {
+    if (!videoRef.current) return;
+    
+    try {
+      const newRate = playbackRate === 1 ? 0.5 : 1;
+      await videoRef.current.setRateAsync(newRate, true);
+      setPlaybackRate(newRate);
+    } catch (error) {
+      console.error('Error toggling slow motion:', error);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const link = document.createElement('a');
+        link.href = mediaUrl;
+        link.download = media.name;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error('Error downloading:', error);
+    }
+  };
+
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsPlaying(status.isPlaying);
@@ -1120,6 +1150,23 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
     }
   };
 
+  const handleProgressBarPress = (e: any) => {
+    e.stopPropagation();
+    const nativeEvent = e.nativeEvent as any;
+    const locationX = nativeEvent.locationX;
+    const target = nativeEvent.target || nativeEvent.currentTarget;
+    
+    if (target && typeof locationX === 'number') {
+      const rect = target.getBoundingClientRect?.();
+      if (rect && rect.width > 0) {
+        const progress = locationX / rect.width;
+        if (isFinite(progress)) {
+          handleSeek(progress);
+        }
+      }
+    }
+  };
+
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -1138,9 +1185,16 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
         <View style={styles.playerModalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{media.name}</Text>
-            <Pressable onPress={onClose} testID="close-player-modal">
-              <X color={Colors.light.muted} size={24} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              {media.file_type === 'video' && (
+                <Pressable onPress={handleDownload} style={styles.downloadButton}>
+                  <Download color={Colors.light.text} size={24} strokeWidth={2.5} />
+                </Pressable>
+              )}
+              <Pressable onPress={onClose} testID="close-player-modal">
+                <X color={Colors.light.muted} size={24} />
+              </Pressable>
+            </View>
           </View>
 
           {isLoadingUrl ? (
@@ -1164,56 +1218,63 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
                   />
                   {showControls && (
                     <View style={styles.controlsOverlay}>
-                      <Pressable 
-                        style={styles.controlsCenter}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handlePlayPause();
-                        }}
-                      >
-                        <LinearGradient
-                          colors={[Colors.light.primary, '#B91C1C']}
-                          style={styles.playPauseButton}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                        >
-                          {isPlaying ? (
-                            <Pause color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
-                          ) : (
-                            <Play color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
-                          )}
-                        </LinearGradient>
-                      </Pressable>
+                      <View style={styles.controlsCenter}>
+                        <View style={styles.centerButtonsRow}>
+                          <Pressable 
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handlePlayPause();
+                            }}
+                          >
+                            <LinearGradient
+                              colors={[Colors.light.primary, '#B91C1C']}
+                              style={styles.playPauseButton}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                            >
+                              {isPlaying ? (
+                                <Pause color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
+                              ) : (
+                                <Play color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
+                              )}
+                            </LinearGradient>
+                          </Pressable>
+                          <Pressable 
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleToggleSlowMotion();
+                            }}
+                          >
+                            <LinearGradient
+                              colors={playbackRate === 0.5 ? [Colors.light.primary, '#B91C1C'] : ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.2)']}
+                              style={styles.slowMotionButton}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                            >
+                              <Gauge color={Colors.light.text} size={32} strokeWidth={2.5} />
+                            </LinearGradient>
+                          </Pressable>
+                        </View>
+                      </View>
                       <View style={styles.controlsBottom}>
                         <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
                         <View style={styles.progressBarContainer}>
-                          <View style={styles.progressBarTrack}>
-                            <LinearGradient
-                              colors={[Colors.light.primary, '#B91C1C']}
-                              style={[styles.progressBarFilled, { width: `${durationMillis > 0 ? (positionMillis / durationMillis) * 100 : 0}%` }]}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 0 }}
-                            />
-                          </View>
                           <Pressable
                             style={styles.progressBarHitbox}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              const nativeEvent = e.nativeEvent as any;
-                              const locationX = nativeEvent.locationX;
-                              const target = nativeEvent.target || nativeEvent.currentTarget;
-                              
-                              if (target && typeof locationX === 'number') {
-                                const rect = target.getBoundingClientRect?.();
-                                if (rect && rect.width > 0) {
-                                  const progress = locationX / rect.width;
-                                  if (isFinite(progress)) {
-                                    handleSeek(progress);
-                                  }
-                                }
-                              }
-                            }}
-                          />
+                            onPress={handleProgressBarPress}
+                          >
+                            <View style={styles.progressBarTrack}>
+                              <LinearGradient
+                                colors={[Colors.light.primary, '#B91C1C']}
+                                style={[styles.progressBarFilled, { width: `${durationMillis > 0 ? (positionMillis / durationMillis) * 100 : 0}%` }]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                              />
+                            </View>
+                            <View 
+                              style={[styles.progressThumb, { left: `${durationMillis > 0 ? (positionMillis / durationMillis) * 100 : 0}%` }]}
+                            />
+                          </Pressable>
                         </View>
                         <Text style={styles.timeText}>{formatTime(durationMillis)}</Text>
                       </View>
@@ -1432,6 +1493,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 16,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  downloadButton: {
+    padding: 4,
+  },
   inputContainer: {
     marginBottom: 24,
   },
@@ -1525,6 +1594,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  centerButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
   controlsBottom: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1543,10 +1617,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
   },
+  slowMotionButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
   progressBarContainer: {
     flex: 1,
     height: 40,
     justifyContent: 'center',
+    position: 'relative' as const,
   },
   progressBarTrack: {
     height: 4,
@@ -1559,7 +1645,24 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressBarHitbox: {
-    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+  },
+  progressThumb: {
+    position: 'absolute' as const,
+    top: '50%',
+    marginTop: -8,
+    marginLeft: -8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.light.text,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   timeText: {
     color: Colors.light.text,
