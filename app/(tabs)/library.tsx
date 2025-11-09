@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, Touchabl
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { trpc } from "@/lib/trpc";
@@ -332,6 +332,21 @@ export default function LibraryScreen() {
           visible={showMenuModal} 
           onClose={() => setShowMenuModal(false)}
         />
+
+        <Pressable 
+          style={[styles.fab, { bottom: insets.bottom + 20 }]} 
+          onPress={() => setShowFolderModal(true)}
+          testID="add-library-fab"
+        >
+          <LinearGradient
+            colors={[Colors.light.primary, '#B91C1C']}
+            style={styles.fabGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Plus color={Colors.light.text} size={28} strokeWidth={3} />
+          </LinearGradient>
+        </Pressable>
       </View>
     </>
   );
@@ -684,5 +699,24 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
     borderRadius: 12,
     backgroundColor: Colors.light.darkGray,
+  },
+  fab: {
+    position: "absolute",
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
