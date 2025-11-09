@@ -25,7 +25,26 @@ export const trpcClient = trpc.createClient({
         const { data: { session } } = await supabase.auth.getSession();
         return {
           authorization: session?.access_token ? `Bearer ${session.access_token}` : '',
+          'Content-Type': 'application/json',
         };
+      },
+      fetch(url, options) {
+        console.log('[TRPC FETCH] URL:', url);
+        console.log('[TRPC FETCH] Method:', options?.method);
+        return fetch(url, options).then(async (response) => {
+          console.log('[TRPC RESPONSE] Status:', response.status);
+          console.log('[TRPC RESPONSE] Headers:', JSON.stringify([...response.headers.entries()]));
+          
+          if (!response.ok) {
+            const text = await response.clone().text();
+            console.error('[TRPC RESPONSE] Error body:', text.substring(0, 500));
+          }
+          
+          return response;
+        }).catch((error) => {
+          console.error('[TRPC FETCH ERROR]:', error);
+          throw error;
+        });
       },
     }),
   ],

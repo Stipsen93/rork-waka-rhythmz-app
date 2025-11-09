@@ -330,9 +330,7 @@ export default function LibraryScreen() {
             </View>
           ) : storageQuery.error ? (
             <View style={styles.storageMeter}>
-              <Text style={styles.storageErrorText}>
-                Kon opslag niet laden
-              </Text>
+              <Text style={styles.storageErrorText}>Kon opslag niet laden</Text>
             </View>
           ) : storageQuery.data ? (
             <View style={styles.storageMeter}>
@@ -364,9 +362,7 @@ export default function LibraryScreen() {
             </View>
           ) : (
             <View style={styles.storageMeter}>
-              <Text style={styles.storageErrorText}>
-                Geen gegevens beschikbaar
-              </Text>
+              <Text style={styles.storageErrorText}>Geen gegevens beschikbaar</Text>
             </View>
           )}
         </View>
