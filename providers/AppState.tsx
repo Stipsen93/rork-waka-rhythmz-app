@@ -1165,11 +1165,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       : input.base64Data;
     
     const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
+    const byteArray = new Uint8Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+      byteArray[i] = byteCharacters.charCodeAt(i);
     }
-    const byteArray = new Uint8Array(byteNumbers);
     const binaryData = new Blob([byteArray], { type: input.mimeType });
     
     const { data: uploadData, error: uploadError } = await supabase.storage
