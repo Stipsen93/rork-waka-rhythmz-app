@@ -169,18 +169,22 @@ export default function LibraryScreen() {
 
   const handleUploadMedia = async () => {
     setShowActionSheet(false);
+    setErrorMessage(null);
     
     try {
+      console.log('[CLIENT] Opening document picker...');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['video/*', 'image/*', 'audio/*'],
         copyToCacheDirectory: true,
       });
 
       if (result.canceled) {
+        console.log('[CLIENT] User canceled document picker');
         return;
       }
 
       const file = result.assets[0];
+      console.log('[CLIENT] File selected:', file.name, file.mimeType, file.size);
 
       let fileType = 'other';
       if (file.mimeType?.startsWith('video/')) fileType = 'video';
@@ -199,46 +203,59 @@ export default function LibraryScreen() {
         storage_path: '',
         created_at: new Date().toISOString(),
         isUploading: true,
-        uploadProgress: 0,
+        uploadProgress: 20,
       };
 
+      console.log('[CLIENT] Adding to uploading list...');
       setUploadingFiles((prev) => {
         const next = new Map(prev);
         next.set(file.name, uploadingItem);
         return next;
       });
 
+      console.log('[CLIENT] Reading file data...');
       let base64Data = '';
       try {
         const response = await fetch(file.uri);
+        if (!response.ok) {
+          throw new Error(`Fetch failed: ${response.status}`);
+        }
         const blob = await response.blob();
-        const reader = new FileReader();
+        
         base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
           reader.onloadend = () => {
             const result = reader.result as string;
-            resolve(result.split(',')[1]);
+            const base64 = result.includes(',') ? result.split(',')[1] : result;
+            console.log('[CLIENT] File read successfully, base64 length:', base64.length);
+            resolve(base64);
           };
-          reader.onerror = reject;
+          reader.onerror = () => {
+            console.error('[CLIENT] FileReader error:', reader.error);
+            reject(new Error('FileReader error'));
+          };
           reader.readAsDataURL(blob);
         });
       } catch (error) {
+        console.error('[CLIENT] Error reading file:', error);
         setUploadingFiles((prev) => {
           const next = new Map(prev);
           next.delete(file.name);
           return next;
         });
-        throw new Error('Kon bestand niet lezen. Probeer opnieuw.');
+        throw new Error('Kon bestand niet lezen. Controleer bestandsrechten.');
       }
 
       setUploadingFiles((prev) => {
         const next = new Map(prev);
         const item = next.get(file.name);
         if (item) {
-          next.set(file.name, { ...item, uploadProgress: 50 });
+          next.set(file.name, { ...item, uploadProgress: 60 });
         }
         return next;
       });
 
+      console.log('[CLIENT] Uploading to backend...');
       await uploadMutation.mutateAsync({
         name: file.name,
         folderPath: currentPath,
@@ -247,11 +264,13 @@ export default function LibraryScreen() {
         mimeType: file.mimeType || 'application/octet-stream',
         base64Data,
       });
+      
+      console.log('[CLIENT] Upload successful!');
     } catch (error: any) {
-      console.error('Upload error:', error);
-      const message = error?.message || 'Onbekende fout opgetreden';
-      setErrorMessage(`Upload mislukt: ${message}`);
-      setTimeout(() => setErrorMessage(null), 5000);
+      console.error('[CLIENT] Upload error:', error);
+      const message = error?.message || error?.toString() || 'Onbekende fout opgetreden';
+      setErrorMessage(`Upload fout: ${message}`);
+      setTimeout(() => setErrorMessage(null), 8000);
     }
   };
 

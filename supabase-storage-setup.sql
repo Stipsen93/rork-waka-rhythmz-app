@@ -1,26 +1,42 @@
 -- =====================================================
--- WAKA RHYTHMZ - STORAGE SETUP FOR BIBLIOTHEEK
+-- WAKA RHYTHMZ - STORAGE SETUP
 -- =====================================================
--- This SQL script sets up Supabase Storage for media library
--- 
--- Features:
--- - Media metadata storage with folder structure
--- - Storage bucket for files (videos, images, audio)
--- - Row Level Security (RLS) policies for PUBLIC access
--- - Storage usage tracking function
--- - Automatic timestamp updates
---
--- To use:
--- 1. Go to Supabase Dashboard > SQL Editor
--- 2. Paste this entire script
--- 3. Click "Run"
+-- Clean setup for media library with Supabase Storage
+-- Run this script in Supabase SQL Editor
 -- =====================================================
 
 -- =====================================================
--- TABLE: media_library
+-- CLEAN UP EXISTING SETUP
 -- =====================================================
--- Stores metadata for all uploaded media files
--- Includes folder path for organization
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Anyone can view media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Anyone can upload media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Anyone can update media" ON public.media_library;
+DROP POLICY IF EXISTS "Anyone can delete media" ON public.media_library;
+DROP POLICY IF EXISTS "Authenticated users can upload media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Users can update own media" ON public.media_library;
+DROP POLICY IF EXISTS "Users can delete own media" ON public.media_library;
+
+DROP POLICY IF EXISTS "Anyone can view media files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can upload media" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can update files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can delete files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own files" ON storage.objects;
+
+-- Drop existing triggers
+DROP TRIGGER IF EXISTS update_media_library_updated_at ON public.media_library;
+
+-- Drop existing functions
+DROP FUNCTION IF EXISTS update_updated_at_column();
+DROP FUNCTION IF EXISTS cleanup_orphaned_storage();
+DROP FUNCTION IF EXISTS get_storage_usage();
+
+-- =====================================================
+-- CREATE TABLE
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.media_library (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -39,7 +55,6 @@ CREATE TABLE IF NOT EXISTS public.media_library (
 -- =====================================================
 -- INDEXES
 -- =====================================================
--- Improve query performance for folder-based queries
 
 CREATE INDEX IF NOT EXISTS idx_media_library_folder_path 
   ON public.media_library(folder_path);
@@ -51,37 +66,27 @@ CREATE INDEX IF NOT EXISTS idx_media_library_file_type
   ON public.media_library(file_type);
 
 -- =====================================================
--- ROW LEVEL SECURITY (RLS)
+-- ENABLE RLS
 -- =====================================================
--- Enable RLS for security but allow public access
 
 ALTER TABLE public.media_library ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies first to avoid conflicts
-DROP POLICY IF EXISTS "Anyone can view media metadata" ON public.media_library;
-DROP POLICY IF EXISTS "Anyone can upload media metadata" ON public.media_library;
-DROP POLICY IF EXISTS "Anyone can update media" ON public.media_library;
-DROP POLICY IF EXISTS "Anyone can delete media" ON public.media_library;
-DROP POLICY IF EXISTS "Authenticated users can upload media metadata" ON public.media_library;
-DROP POLICY IF EXISTS "Users can update own media" ON public.media_library;
-DROP POLICY IF EXISTS "Users can delete own media" ON public.media_library;
+-- =====================================================
+-- RLS POLICIES - PUBLIC ACCESS
+-- =====================================================
 
--- Policy: Allow everyone to view media metadata (PUBLIC ACCESS)
 CREATE POLICY "Anyone can view media metadata"
   ON public.media_library FOR SELECT
   USING (true);
 
--- Policy: Allow everyone to upload media metadata (PUBLIC ACCESS)
 CREATE POLICY "Anyone can upload media metadata"
   ON public.media_library FOR INSERT
   WITH CHECK (true);
 
--- Policy: Allow everyone to update media (PUBLIC ACCESS)
 CREATE POLICY "Anyone can update media"
   ON public.media_library FOR UPDATE
   USING (true);
 
--- Policy: Allow everyone to delete media (PUBLIC ACCESS)
 CREATE POLICY "Anyone can delete media"
   ON public.media_library FOR DELETE
   USING (true);
@@ -89,42 +94,27 @@ CREATE POLICY "Anyone can delete media"
 -- =====================================================
 -- STORAGE BUCKET
 -- =====================================================
--- Create public storage bucket for media files
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('media-library', 'media-library', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- =====================================================
--- STORAGE POLICIES
+-- STORAGE POLICIES - PUBLIC ACCESS
 -- =====================================================
--- Control access to files in storage bucket - PUBLIC ACCESS
 
--- Drop existing storage policies first to avoid conflicts
-DROP POLICY IF EXISTS "Anyone can view media files" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can upload media" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can update files" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can delete files" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
-DROP POLICY IF EXISTS "Users can update own files" ON storage.objects;
-DROP POLICY IF EXISTS "Users can delete own files" ON storage.objects;
-
--- Policy: Allow everyone to view files (PUBLIC ACCESS)
 CREATE POLICY "Anyone can view media files"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'media-library');
 
--- Policy: Allow everyone to upload files (PUBLIC ACCESS)
 CREATE POLICY "Anyone can upload media"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'media-library');
 
--- Policy: Allow everyone to update files (PUBLIC ACCESS)
 CREATE POLICY "Anyone can update files"
   ON storage.objects FOR UPDATE
   USING (bucket_id = 'media-library');
 
--- Policy: Allow everyone to delete files (PUBLIC ACCESS)
 CREATE POLICY "Anyone can delete files"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'media-library');
@@ -132,8 +122,6 @@ CREATE POLICY "Anyone can delete files"
 -- =====================================================
 -- FUNCTION: get_storage_usage
 -- =====================================================
--- Calculate total storage usage from media_library table
--- Returns total file size in bytes
 
 CREATE OR REPLACE FUNCTION get_storage_usage()
 RETURNS BIGINT
@@ -151,14 +139,12 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission on the function to public
 GRANT EXECUTE ON FUNCTION get_storage_usage() TO anon;
 GRANT EXECUTE ON FUNCTION get_storage_usage() TO authenticated;
 
 -- =====================================================
 -- FUNCTION: update_updated_at_column
 -- =====================================================
--- Automatically update updated_at timestamp on row updates
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -171,9 +157,6 @@ $$ LANGUAGE plpgsql;
 -- =====================================================
 -- TRIGGER: update_media_library_updated_at
 -- =====================================================
--- Apply updated_at update function to media_library table
-
-DROP TRIGGER IF EXISTS update_media_library_updated_at ON public.media_library;
 
 CREATE TRIGGER update_media_library_updated_at
   BEFORE UPDATE ON public.media_library
@@ -181,30 +164,9 @@ CREATE TRIGGER update_media_library_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
--- CLEANUP FUNCTION (OPTIONAL)
+-- SETUP COMPLETE
 -- =====================================================
--- Function to clean up orphaned storage files
--- Run manually if needed to remove files without metadata
-
-CREATE OR REPLACE FUNCTION cleanup_orphaned_storage()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  -- This function can be used to identify orphaned files
-  -- Run manually from SQL editor if needed
-  RAISE NOTICE 'Check storage.objects for files not in media_library';
-END;
-$$;
-
--- =====================================================
--- Setup complete!
--- =====================================================
--- Next steps:
--- 1. Storage bucket 'media-library' is ready
--- 2. Upload media through the app (PUBLIC ACCESS - NO AUTH NEEDED)
--- 3. Files will be stored in Supabase Storage
--- 4. Metadata will be saved in media_library table
--- 5. Monitor storage usage with get_storage_usage()
+-- Your media library is ready!
+-- You can now upload files through the app
+-- All access is public (no authentication required)
 -- =====================================================
