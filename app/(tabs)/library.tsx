@@ -1345,7 +1345,7 @@ const styles = StyleSheet.create({
   },
   video: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    height: 400,
     borderRadius: 12,
     backgroundColor: Colors.light.darkGray,
   },
