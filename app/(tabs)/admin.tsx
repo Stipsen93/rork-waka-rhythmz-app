@@ -1,12 +1,10 @@
 import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, Platform, Modal, ActivityIndicator } from "react-native";
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, Platform } from "react-native";
 import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
 import { Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw, Upload, HardDrive, X, Copy } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Copy } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 
@@ -15,11 +13,6 @@ export default function AdminScreen() {
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
   const insets = useSafeAreaInsets();
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [folderPath, setFolderPath] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-
-  const appState = useAppState();
 
   const handleCopyPassword = async (password: string, userName: string) => {
     await Clipboard.setStringAsync(password);
@@ -47,62 +40,7 @@ export default function AdminScreen() {
     );
   };
 
-  const handleUploadMedia = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Toestemming Vereist', 'We hebben toegang nodig tot je mediabibliotheek om bestanden te uploaden.');
-      return;
-    }
-    
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsEditing: false,
-      quality: 1,
-    });
-    
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-      console.log('[Admin] Selected media:', {
-        uri: asset.uri,
-        type: asset.type,
-        fileName: asset.fileName,
-      });
 
-      setIsUploading(true);
-      setShowUploadModal(false);
-
-      try {
-        const base64Data = await FileSystem.readAsStringAsync(asset.uri, {
-          encoding: 'base64',
-        });
-
-        const fileName = asset.fileName || `media_${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`;
-        const fileSize = asset.fileSize || 0;
-        const mimeType = asset.type === 'video' 
-          ? 'video/mp4' 
-          : asset.mimeType || 'image/jpeg';
-
-        await appState.uploadMedia({
-          name: fileName,
-          folderPath: folderPath.trim(),
-          fileType: asset.type || 'image',
-          fileSize,
-          mimeType,
-          base64Data,
-        });
-
-        await appState.refreshStorageUsage();
-
-        setFolderPath("");
-        Alert.alert('Succes', 'Media succesvol geüpload!');
-      } catch (error) {
-        console.error('[Admin] Error uploading media:', error);
-        Alert.alert('Fout', 'Er is een fout opgetreden bij het uploaden van media.');
-      } finally {
-        setIsUploading(false);
-      }
-    }
-  };
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -121,57 +59,6 @@ export default function AdminScreen() {
       </View>
 
       <View style={styles.scrollContent}>
-        {isAdmin && appState.storageUsage && (
-          <View style={styles.storageSection}>
-            <View style={styles.sectionHeader}>
-              <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
-              <Text style={styles.sectionTitle}>Opslag Beheer</Text>
-            </View>
-
-            <View style={styles.storageCard}>
-              <View style={styles.storageMeter}>
-                <View style={styles.storageBar}>
-                  <LinearGradient
-                    colors={
-                      (appState.storageUsage.percentage || 0) > 90
-                        ? ['#DC2626', '#991B1B']
-                        : (appState.storageUsage.percentage || 0) > 75
-                        ? ['#F59E0B', '#D97706']
-                        : [Colors.light.primary, Colors.light.primaryDark]
-                    }
-                    style={[styles.storageBarFill, { width: `${Math.min(appState.storageUsage.percentage || 0, 100)}%` }]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  />
-                </View>
-                <Text style={styles.storageText}>
-                  {(appState.storageUsage.usageGB || 0).toFixed(2)} GB / {appState.storageUsage.maxGB || 0} GB ({appState.storageUsage.percentage || 0}%)
-                </Text>
-                {(appState.storageUsage.percentage || 0) > 90 && (
-                  <Text style={styles.warningText}>
-                    ⚠️ Opslag bijna vol! Verwijder ongebruikte media.
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <Pressable
-              style={styles.uploadButton}
-              onPress={() => setShowUploadModal(true)}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <ActivityIndicator size="small" color={Colors.light.text} />
-              ) : (
-                <>
-                  <Upload color={Colors.light.text} size={20} strokeWidth={2.5} />
-                  <Text style={styles.uploadButtonText}>Media Uploaden</Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-        )}
-
         <View style={styles.createSection}>
           <View style={styles.sectionHeader}>
             <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
@@ -304,53 +191,6 @@ export default function AdminScreen() {
           </View>
         )}
       />
-
-      <Modal
-        visible={showUploadModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUploadModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Media Uploaden</Text>
-              <Pressable onPress={() => setShowUploadModal(false)}>
-                <X color={Colors.light.muted} size={24} />
-              </Pressable>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Map (optioneel)</Text>
-              <TextInput
-                style={styles.input}
-                value={folderPath}
-                onChangeText={setFolderPath}
-                placeholder="bijv. trainings/2025"
-                placeholderTextColor={Colors.light.muted}
-              />
-              <Text style={styles.inputHint}>
-                Laat leeg voor de hoofdmap. Gebruik / voor submappen.
-              </Text>
-            </View>
-
-            <Pressable
-              style={styles.selectMediaButton}
-              onPress={handleUploadMedia}
-            >
-              <LinearGradient
-                colors={[Colors.light.primary, Colors.light.primaryDark]}
-                style={styles.selectMediaGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Upload color={Colors.light.text} size={20} strokeWidth={2.5} />
-                <Text style={styles.selectMediaButtonText}>Selecteer Bestand</Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -392,59 +232,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500" as const,
   },
-  storageSection: {
-    marginBottom: 24,
-  },
-  storageCard: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-    marginBottom: 12,
-  },
-  storageMeter: {
-    gap: 8,
-  },
-  storageBar: {
-    height: 8,
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  storageBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  storageText: {
-    color: Colors.light.muted,
-    fontSize: 13,
-    fontWeight: '600' as const,
-  },
-  warningText: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '700' as const,
-    marginTop: 4,
-  },
-  uploadButton: {
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 15,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  uploadButtonText: {
-    color: Colors.light.text,
-    fontWeight: "700" as const,
-    fontSize: 16,
-  },
+
   createSection: {
     backgroundColor: Colors.light.surface,
     borderRadius: 20,
@@ -633,62 +421,5 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    color: Colors.light.text,
-    fontSize: 24,
-    fontWeight: '800' as const,
-  },
-  inputContainer: {
-    marginBottom: 24,
-  },
-  inputLabel: {
-    color: Colors.light.text,
-    fontSize: 15,
-    fontWeight: '600' as const,
-    marginBottom: 10,
-  },
-  inputHint: {
-    color: Colors.light.muted,
-    fontSize: 12,
-    marginTop: 8,
-  },
-  selectMediaButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  selectMediaGradient: {
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  selectMediaButtonText: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '700' as const,
   },
 });
