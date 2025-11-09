@@ -53,6 +53,7 @@ export default function LibraryScreen() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const folders = useMemo<FolderItem[]>(() => {
     const creatingFoldersList = Array.from(creatingFolders.values());
@@ -367,8 +368,9 @@ export default function LibraryScreen() {
   };
 
   const handleRenameConfirm = async () => {
-    if (!renameValue.trim() || !renamingItemId) return;
+    if (!renameValue.trim() || !renamingItemId || isRenaming) return;
     
+    setIsRenaming(true);
     try {
       if (renamingItemId.startsWith('media-')) {
         const id = renamingItemId.replace('media-', '');
@@ -399,6 +401,8 @@ export default function LibraryScreen() {
       const message = error?.message || 'Onbekende fout bij hernoemen';
       setErrorMessage(`Hernoemen mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -770,18 +774,22 @@ export default function LibraryScreen() {
                 </Pressable>
                 
                 <Pressable
-                  style={[styles.actionButton, styles.createButton, !renameValue.trim() && styles.disabledButton]}
+                  style={[styles.actionButton, styles.createButton, (!renameValue.trim() || isRenaming) && styles.disabledButton]}
                   onPress={handleRenameConfirm}
-                  disabled={!renameValue.trim()}
+                  disabled={!renameValue.trim() || isRenaming}
                   testID="confirm-rename-button"
                 >
                   <LinearGradient
-                    colors={renameValue.trim() ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
+                    colors={renameValue.trim() && !isRenaming ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
                     style={styles.createButtonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <Text style={[styles.createButtonText, !renameValue.trim() && styles.disabledButtonText]}>Hernoemen</Text>
+                    {isRenaming ? (
+                      <ActivityIndicator size="small" color={Colors.light.text} />
+                    ) : (
+                      <Text style={[styles.createButtonText, !renameValue.trim() && styles.disabledButtonText]}>Hernoemen</Text>
+                    )}
                   </LinearGradient>
                 </Pressable>
               </View>

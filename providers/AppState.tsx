@@ -1280,37 +1280,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       throw new Error('Media item niet gevonden');
     }
     
-    const timestamp = Date.now();
-    const sanitizedName = newName.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const newStoragePath = item.folder_path 
-      ? `${item.folder_path}/${timestamp}_${sanitizedName}`
-      : `${timestamp}_${sanitizedName}`;
-    
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('media-library')
-      .download(item.storage_path);
-    
-    if (downloadError || !fileData) {
-      throw new Error('Kon bestand niet downloaden');
-    }
-    
-    const { error: uploadError } = await supabase.storage
-      .from('media-library')
-      .upload(newStoragePath, fileData, {
-        contentType: item.mime_type,
-        upsert: false,
-      });
-    
-    if (uploadError) {
-      throw new Error(`Upload mislukt: ${uploadError.message}`);
-    }
-    
-    await supabase.storage.from('media-library').remove([item.storage_path]);
-    
     const updateData: Database['public']['Tables']['media_library']['Update'] = {
       name: newName,
-      path: newStoragePath,
-      storage_path: newStoragePath,
     };
     
     const { error: dbError } = await supabase
@@ -1322,11 +1293,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       throw new Error(`Database fout: ${dbError.message}`);
     }
     
-    setMediaLibrary(prev => prev.map(m => 
-      m.id === id 
-        ? { ...m, name: newName, path: newStoragePath, storage_path: newStoragePath }
-        : m
-    ));
     console.log('✅ Media renamed');
   }, [mediaLibrary]);
 
@@ -1345,57 +1311,24 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       const pathParts = item.storage_path.split('/');
       const fileName = pathParts[pathParts.length - 1];
       const newStoragePath = newFolderPath ? `${newFolderPath}/${fileName}` : fileName;
-      
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('media-library')
-        .download(item.storage_path);
-      
-      if (downloadError || !fileData) {
-        console.error('Download error:', downloadError);
-        continue;
-      }
-      
-      const { error: uploadError } = await supabase.storage
-        .from('media-library')
-        .upload(newStoragePath, fileData, {
-          contentType: item.mime_type,
-          upsert: false,
-        });
-      
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        continue;
-      }
-      
-      await supabase.storage.from('media-library').remove([item.storage_path]);
+      const newPath_field = newStoragePath;
       
       const updateData: Database['public']['Tables']['media_library']['Update'] = {
         folder_path: newFolderPath,
-        path: newStoragePath,
+        path: newPath_field,
         storage_path: newStoragePath,
       };
       
-      await supabase
+      const { error: dbError } = await supabase
         .from('media_library')
         .update(updateData)
         .eq('id', item.id);
+      
+      if (dbError) {
+        console.error('Database update error:', dbError);
+      }
     }
     
-    setMediaLibrary(prev => prev.map(m => {
-      if (m.folder_path === oldPath) {
-        const pathParts = m.storage_path.split('/');
-        const fileName = pathParts[pathParts.length - 1];
-        const newStoragePath = newPath ? `${newPath}/${fileName}` : fileName;
-        return { ...m, folder_path: newPath, path: newStoragePath, storage_path: newStoragePath };
-      } else if (m.folder_path.startsWith(oldPath + '/')) {
-        const newFolderPath = newPath + m.folder_path.substring(oldPath.length);
-        const pathParts = m.storage_path.split('/');
-        const fileName = pathParts[pathParts.length - 1];
-        const newStoragePath = `${newFolderPath}/${fileName}`;
-        return { ...m, folder_path: newFolderPath, path: newStoragePath, storage_path: newStoragePath };
-      }
-      return m;
-    }));
     console.log('✅ Folder renamed');
   }, [mediaLibrary]);
 
