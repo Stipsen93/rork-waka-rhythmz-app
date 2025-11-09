@@ -1293,6 +1293,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       throw new Error(`Database fout: ${dbError.message}`);
     }
     
+    setMediaLibrary(prev => prev.map(m => 
+      m.id === id ? { ...m, name: newName } : m
+    ));
+    
     console.log('✅ Media renamed');
   }, [mediaLibrary]);
 
@@ -1326,8 +1330,29 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       
       if (dbError) {
         console.error('Database update error:', dbError);
+        throw new Error(`Database fout: ${dbError.message}`);
       }
     }
+    
+    setMediaLibrary(prev => prev.map(m => {
+      if (m.folder_path === oldPath || m.folder_path.startsWith(oldPath + '/')) {
+        const newFolderPath = m.folder_path === oldPath
+          ? newPath
+          : newPath + m.folder_path.substring(oldPath.length);
+        
+        const pathParts = m.storage_path.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const newStoragePath = newFolderPath ? `${newFolderPath}/${fileName}` : fileName;
+        
+        return {
+          ...m,
+          folder_path: newFolderPath,
+          path: newStoragePath,
+          storage_path: newStoragePath,
+        };
+      }
+      return m;
+    }));
     
     console.log('✅ Folder renamed');
   }, [mediaLibrary]);
