@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3 } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import { Video as ExpoVideo, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Image } from 'expo-image';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAppState } from "@/providers/AppState";
@@ -1012,8 +1012,12 @@ export default function LibraryScreen() {
 function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visible: boolean; onClose: () => void }) {
   const [mediaUrl, setMediaUrl] = useState<string>('');
   const [isLoadingUrl, setIsLoadingUrl] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [showControls, setShowControls] = useState(false);
+  const videoRef = useRef<ExpoVideo>(null);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const getUrl = async () => {
       setIsLoadingUrl(true);
       const { data } = supabase.storage
@@ -1026,8 +1030,59 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
     
     if (visible) {
       getUrl();
+      setIsPlaying(true);
+      setShowControls(false);
     }
   }, [visible, media.storage_path]);
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleVideoPress = () => {
+    setShowControls(true);
+    
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
+
+  const handlePlayPause = async () => {
+    if (!videoRef.current) return;
+    
+    try {
+      if (isPlaying) {
+        await videoRef.current.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        await videoRef.current.playAsync();
+        setIsPlaying(true);
+        
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+        controlsTimeoutRef.current = setTimeout(() => {
+          setShowControls(false);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error toggling play/pause:', error);
+    }
+  };
+
+  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setIsPlaying(status.isPlaying);
+    }
+  };
 
   return (
     <Modal
@@ -1052,13 +1107,36 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
           ) : (
             <View style={styles.playerContainer}>
               {media.file_type === 'video' ? (
-                <ExpoVideo
-                  source={{ uri: mediaUrl }}
-                  style={styles.video}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay
-                />
+                <Pressable 
+                  style={styles.videoWrapper}
+                  onPress={handleVideoPress}
+                >
+                  <ExpoVideo
+                    ref={videoRef}
+                    source={{ uri: mediaUrl }}
+                    style={styles.video}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay
+                    onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+                  />
+                  {showControls && (
+                    <Pressable 
+                      style={styles.controlsOverlay}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handlePlayPause();
+                      }}
+                    >
+                      <View style={styles.playPauseButton}>
+                        {isPlaying ? (
+                          <Pause color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
+                        ) : (
+                          <Play color={Colors.light.text} size={40} strokeWidth={2.5} fill={Colors.light.text} />
+                        )}
+                      </View>
+                    </Pressable>
+                  )}
+                </Pressable>
               ) : (
                 <Image
                   source={{ uri: mediaUrl }}
@@ -1343,10 +1421,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  video: {
+  videoWrapper: {
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: Colors.light.darkGray,
+    position: 'relative',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.light.darkGray,
+  },
+  controlsOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  playPauseButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   image: {
     width: '100%',
