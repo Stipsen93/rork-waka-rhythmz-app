@@ -12,7 +12,18 @@ export default function AssignmentsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
-  const nextAssignment = assignments[0];
+  
+  const myAssignments = React.useMemo(() => {
+    if (currentUser?.role === 'admin') {
+      return assignments;
+    } else {
+      return assignments.filter(a => 
+        a.assignedUserIds.length === 0 || a.assignedUserIds.includes(currentUser?.id ?? '')
+      );
+    }
+  }, [assignments, currentUser]);
+  
+  const nextAssignment = myAssignments[0];
   
   const upcomingAnnouncements = React.useMemo(() => {
     const today = new Date();

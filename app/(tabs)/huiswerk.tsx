@@ -1,13 +1,15 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity, ActivityIndicator, FlatList } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState, useEffect } from "react";
-import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2 } from "lucide-react-native";
+import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import * as DocumentPicker from 'expo-document-picker';
+import { supabase } from "@/lib/supabase";
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
   const { addAssignment, updateAssignment, users } = useAppState();
