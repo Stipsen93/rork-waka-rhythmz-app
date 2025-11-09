@@ -678,10 +678,11 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
     const mediaLibrarySubscription = supabase
       .channel('media-library-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_library' }, () => {
-        console.log('🔄 Media library changed, reloading...');
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_library' }, (payload) => {
+        console.log('🔄 Media library changed:', payload.eventType, payload);
         supabase.from('media_library').select('*').then(res => {
           if (res.data) {
+            console.log('✅ Reloaded media library:', res.data.length, 'items');
             setMediaLibrary(res.data.map(m => ({
               id: m.id,
               name: m.name,
@@ -1227,49 +1228,102 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [currentUser]);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
-    console.log('💾 Deleting media from Supabase...');
+    console.log('💾 Deleting media from Supabase...', ids);
     
-    const itemsToDelete = mediaLibrary.filter(m => ids.includes(m.id));
-    const storagePaths = itemsToDelete.map(m => m.storage_path);
-    
-    await supabase.storage.from('media-library').remove(storagePaths);
-    await supabase.from('media_library').delete().in('id', ids);
-    
-    setMediaLibrary(prev => prev.filter(m => !ids.includes(m.id)));
-    console.log('✅ Media deleted');
+    try {
+      const itemsToDelete = mediaLibrary.filter(m => ids.includes(m.id));
+      console.log('Items to delete:', itemsToDelete.length);
+      
+      const storagePaths = itemsToDelete.map(m => m.storage_path);
+      console.log('Storage paths:', storagePaths);
+      
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('media-library')
+          .remove(storagePaths);
+        
+        if (storageError) {
+          console.error('Storage delete error:', storageError);
+          throw new Error(`Storage verwijderen mislukt: ${storageError.message}`);
+        }
+      }
+      
+      const { error: dbError } = await supabase
+        .from('media_library')
+        .delete()
+        .in('id', ids);
+      
+      if (dbError) {
+        console.error('Database delete error:', dbError);
+        throw new Error(`Database verwijderen mislukt: ${dbError.message}`);
+      }
+      
+      setMediaLibrary(prev => prev.filter(m => !ids.includes(m.id)));
+      console.log('✅ Media deleted successfully');
+    } catch (error) {
+      console.error('❌ Delete media error:', error);
+      throw error;
+    }
   }, [mediaLibrary]);
 
   const deleteFolder = useCallback(async (folderPath: string) => {
-    console.log('💾 Deleting folder from Supabase...');
+    console.log('💾 Deleting folder from Supabase...', folderPath);
     
-    const itemsInFolder = mediaLibrary.filter(m => 
-      m.folder_path === folderPath || m.folder_path.startsWith(folderPath + '/')
-    );
-    const storagePaths = itemsInFolder.map(m => m.storage_path);
-    const ids = itemsInFolder.map(m => m.id);
-    
-    if (storagePaths.length > 0) {
-      await supabase.storage.from('media-library').remove(storagePaths);
-    }
-    if (ids.length > 0) {
-      await supabase.from('media_library').delete().in('id', ids);
-    }
-    
-    const { data: files } = await supabase.storage
-      .from('media-library')
-      .list(folderPath);
-    
-    if (files) {
-      const filesToRemove = files.map(file => `${folderPath}/${file.name}`);
-      if (filesToRemove.length > 0) {
-        await supabase.storage.from('media-library').remove(filesToRemove);
+    try {
+      const itemsInFolder = mediaLibrary.filter(m => 
+        m.folder_path === folderPath || m.folder_path.startsWith(folderPath + '/')
+      );
+      console.log('Items in folder to delete:', itemsInFolder.length);
+      
+      const storagePaths = itemsInFolder.map(m => m.storage_path);
+      const ids = itemsInFolder.map(m => m.id);
+      
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('media-library')
+          .remove(storagePaths);
+        
+        if (storageError) {
+          console.error('Storage delete error:', storageError);
+        }
       }
+      
+      if (ids.length > 0) {
+        const { error: dbError } = await supabase
+          .from('media_library')
+          .delete()
+          .in('id', ids);
+        
+        if (dbError) {
+          console.error('Database delete error:', dbError);
+          throw new Error(`Database verwijderen mislukt: ${dbError.message}`);
+        }
+      }
+      
+      const { data: files } = await supabase.storage
+        .from('media-library')
+        .list(folderPath);
+      
+      if (files && files.length > 0) {
+        const filesToRemove = files.map(file => `${folderPath}/${file.name}`);
+        console.log('Additional files to remove:', filesToRemove.length);
+        const { error: cleanupError } = await supabase.storage
+          .from('media-library')
+          .remove(filesToRemove);
+        
+        if (cleanupError) {
+          console.error('Cleanup error:', cleanupError);
+        }
+      }
+      
+      setMediaLibrary(prev => prev.filter(m => 
+        m.folder_path !== folderPath && !m.folder_path.startsWith(folderPath + '/')
+      ));
+      console.log('✅ Folder deleted successfully');
+    } catch (error) {
+      console.error('❌ Delete folder error:', error);
+      throw error;
     }
-    
-    setMediaLibrary(prev => prev.filter(m => 
-      m.folder_path !== folderPath && !m.folder_path.startsWith(folderPath + '/')
-    ));
-    console.log('✅ Folder deleted');
   }, [mediaLibrary]);
 
   const renameMedia = useCallback(async (id: string, newName: string) => {
