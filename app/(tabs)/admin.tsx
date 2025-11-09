@@ -8,7 +8,7 @@ import { Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserPlus, Shield, User, RotateCcw, Upload, HardDrive, X, Copy } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { trpc } from "@/lib/trpc";
+
 
 export default function AdminScreen() {
   const { users, addUser, setRole, resetPassword, currentUser } = useAppState();
@@ -19,9 +19,7 @@ export default function AdminScreen() {
   const [folderPath, setFolderPath] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const storageQuery = trpc.media.getStorageUsage.useQuery();
-  const uploadMutation = trpc.media.uploadMedia.useMutation();
-  const utils = trpc.useUtils();
+  const appState = useAppState();
 
   const handleCopyPassword = async (password: string, userName: string) => {
     await Clipboard.setStringAsync(password);
@@ -84,7 +82,7 @@ export default function AdminScreen() {
           ? 'video/mp4' 
           : asset.mimeType || 'image/jpeg';
 
-        await uploadMutation.mutateAsync({
+        await appState.uploadMedia({
           name: fileName,
           folderPath: folderPath.trim(),
           fileType: asset.type || 'image',
@@ -93,9 +91,7 @@ export default function AdminScreen() {
           base64Data,
         });
 
-        await utils.media.getMediaList.invalidate();
-        await utils.media.getFolders.invalidate();
-        await utils.media.getStorageUsage.invalidate();
+        await appState.refreshStorageUsage();
 
         setFolderPath("");
         Alert.alert('Succes', 'Media succesvol geüpload!');
@@ -125,7 +121,7 @@ export default function AdminScreen() {
       </View>
 
       <View style={styles.scrollContent}>
-        {isAdmin && storageQuery.data && (
+        {isAdmin && appState.storageUsage && (
           <View style={styles.storageSection}>
             <View style={styles.sectionHeader}>
               <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
@@ -137,21 +133,21 @@ export default function AdminScreen() {
                 <View style={styles.storageBar}>
                   <LinearGradient
                     colors={
-                      storageQuery.data.percentage > 90
+                      (appState.storageUsage.percentage || 0) > 90
                         ? ['#DC2626', '#991B1B']
-                        : storageQuery.data.percentage > 75
+                        : (appState.storageUsage.percentage || 0) > 75
                         ? ['#F59E0B', '#D97706']
                         : [Colors.light.primary, Colors.light.primaryDark]
                     }
-                    style={[styles.storageBarFill, { width: `${Math.min(storageQuery.data.percentage, 100)}%` }]}
+                    style={[styles.storageBarFill, { width: `${Math.min(appState.storageUsage.percentage || 0, 100)}%` }]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   />
                 </View>
                 <Text style={styles.storageText}>
-                  {storageQuery.data.usageGB} GB / {storageQuery.data.maxGB} GB ({storageQuery.data.percentage}%)
+                  {(appState.storageUsage.usageGB || 0).toFixed(2)} GB / {appState.storageUsage.maxGB || 0} GB ({appState.storageUsage.percentage || 0}%)
                 </Text>
-                {storageQuery.data.percentage > 90 && (
+                {(appState.storageUsage.percentage || 0) > 90 && (
                   <Text style={styles.warningText}>
                     ⚠️ Opslag bijna vol! Verwijder ongebruikte media.
                   </Text>
