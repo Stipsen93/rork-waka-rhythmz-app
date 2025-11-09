@@ -1118,7 +1118,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         }
       }
     }
-  }, [appointments, announcements, setAnnouncements]);
+  }, [appointments, announcements]);
 
   const deleteAppointments = useCallback(async (ids: string[]) => {
     console.log('💾 Deleting appointments from Supabase...');
