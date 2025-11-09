@@ -5,11 +5,21 @@ import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState, useEffect } from "react";
-import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight } from "lucide-react-native";
+import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from "@/lib/supabase";
+
+const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
+const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+
+const formatDateToLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
   const { addAssignment, updateAssignment, users } = useAppState();
@@ -19,7 +29,8 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(editingAssignment?.assignedUserIds ?? []);
   const [dueDate, setDueDate] = useState<Date>(editingAssignment?.dueDate ? new Date(editingAssignment.dueDate) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showHourPicker, setShowHourPicker] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
   const [mediaUri, setMediaUri] = useState<string>(editingAssignment?.mediaUri ?? "");
   const [mediaType, setMediaType] = useState<'video' | 'image' | 'audio' | undefined>(editingAssignment?.mediaType);
 
@@ -158,16 +169,25 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             <View style={localStyles.dateTimeContainer}>
               <Pressable
                 style={localStyles.dateTimeButton}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                  setShowDatePicker(!showDatePicker);
+                  setShowHourPicker(false);
+                  if (!showDatePicker) {
+                    setPickerMonth(dueDate);
+                  }
+                }}
               >
                 <Calendar color={Colors.light.primary} size={20} />
                 <Text style={localStyles.dateTimeText}>
-                  {dueDate.toLocaleDateString("nl-NL")}
+                  {dueDate.toLocaleDateString("nl-NL", { day: '2-digit', month: 'long', year: 'numeric' })}
                 </Text>
               </Pressable>
               <Pressable
                 style={localStyles.dateTimeButton}
-                onPress={() => setShowTimePicker(true)}
+                onPress={() => {
+                  setShowHourPicker(!showHourPicker);
+                  setShowDatePicker(false);
+                }}
               >
                 <Text style={localStyles.dateTimeText}>
                   {dueDate.toLocaleTimeString("nl-NL", { hour: '2-digit', minute: '2-digit' })}
@@ -176,31 +196,185 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             </View>
 
             {showDatePicker && (
-              <DateTimePicker
-                value={dueDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-                  setShowDatePicker(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    setDueDate(selectedDate);
-                  }
-                }}
-              />
+              <View style={localStyles.calendarPickerContainer}>
+                <View style={localStyles.calendarPickerHeader}>
+                  <TouchableOpacity 
+                    onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
+                    style={localStyles.calendarPickerButton}
+                  >
+                    <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                  <Text style={localStyles.calendarPickerMonth}>
+                    {MONTHS[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))}
+                    style={localStyles.calendarPickerButton}
+                  >
+                    <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+                <View style={localStyles.calendarPickerWeekDays}>
+                  {DAYS.map((day) => (
+                    <Text key={day} style={localStyles.calendarPickerWeekDay}>{day}</Text>
+                  ))}
+                </View>
+                <View style={localStyles.calendarPickerGrid}>
+                  {(() => {
+                    const year = pickerMonth.getFullYear();
+                    const month = pickerMonth.getMonth();
+                    const firstDay = new Date(year, month, 1);
+                    const lastDay = new Date(year, month + 1, 0);
+                    const startDayOfWeek = firstDay.getDay();
+                    const daysInMonth = lastDay.getDate();
+                    const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
+                    
+                    for (let i = 0; i < startDayOfWeek; i++) {
+                      const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
+                      days.push({
+                        date: prevMonthDay.getDate(),
+                        isCurrentMonth: false,
+                        fullDate: formatDateToLocal(prevMonthDay),
+                      });
+                    }
+                    
+                    for (let i = 1; i <= daysInMonth; i++) {
+                      const fullDate = new Date(year, month, i);
+                      days.push({
+                        date: i,
+                        isCurrentMonth: true,
+                        fullDate: formatDateToLocal(fullDate),
+                      });
+                    }
+                    
+                    const remainingDays = 42 - days.length;
+                    for (let i = 1; i <= remainingDays; i++) {
+                      const nextMonthDay = new Date(year, month + 1, i);
+                      days.push({
+                        date: i,
+                        isCurrentMonth: false,
+                        fullDate: formatDateToLocal(nextMonthDay),
+                      });
+                    }
+                    
+                    return days;
+                  })().map((day, index) => {
+                    const selectedDate = formatDateToLocal(dueDate);
+                    return (
+                      <TouchableOpacity
+                        key={`${day.fullDate}-${index}`}
+                        style={localStyles.calendarPickerDay}
+                        onPress={() => {
+                          if (day.isCurrentMonth) {
+                            const [year, month, dayNum] = day.fullDate.split('-').map(Number);
+                            const newDate = new Date(dueDate);
+                            newDate.setFullYear(year, month - 1, dayNum);
+                            setDueDate(newDate);
+                            setShowDatePicker(false);
+                          }
+                        }}
+                        disabled={!day.isCurrentMonth}
+                      >
+                        <View style={[
+                          localStyles.calendarPickerDayCircle,
+                          !day.isCurrentMonth && localStyles.calendarPickerDayInactive,
+                          selectedDate === day.fullDate && localStyles.calendarPickerDaySelected,
+                        ]}>
+                          <Text style={[
+                            localStyles.calendarPickerDayText,
+                            !day.isCurrentMonth && localStyles.calendarPickerDayTextInactive,
+                            selectedDate === day.fullDate && localStyles.calendarPickerDayTextSelected,
+                          ]}>
+                            {day.date}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
             )}
 
-            {showTimePicker && (
-              <DateTimePicker
-                value={dueDate}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-                  setShowTimePicker(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    setDueDate(selectedDate);
-                  }
-                }}
-              />
+            {showHourPicker && (
+              <View style={localStyles.timePickerContainer}>
+                <View style={localStyles.timePickerContent}>
+                  <View style={localStyles.timePickerColumn}>
+                    <Text style={localStyles.timePickerColumnLabel}>Uur</Text>
+                    <ScrollView 
+                      style={localStyles.timePickerScroll}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled
+                    >
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const hour = String(i).padStart(2, '0');
+                        const isSelected = String(dueDate.getHours()).padStart(2, '0') === hour;
+                        return (
+                          <TouchableOpacity
+                            key={hour}
+                            style={[
+                              localStyles.timePickerItem,
+                              isSelected && localStyles.timePickerItemSelected
+                            ]}
+                            onPress={() => {
+                              const newDate = new Date(dueDate);
+                              newDate.setHours(parseInt(hour));
+                              setDueDate(newDate);
+                            }}
+                          >
+                            <Text style={[
+                              localStyles.timePickerItemText,
+                              isSelected && localStyles.timePickerItemTextSelected
+                            ]}>
+                              {hour}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                  <Text style={localStyles.timePickerColon}>:</Text>
+                  <View style={localStyles.timePickerColumn}>
+                    <Text style={localStyles.timePickerColumnLabel}>Min</Text>
+                    <ScrollView 
+                      style={localStyles.timePickerScroll}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled
+                    >
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const minute = String(i * 5).padStart(2, '0');
+                        const isSelected = String(Math.floor(dueDate.getMinutes() / 5) * 5).padStart(2, '0') === minute;
+                        return (
+                          <TouchableOpacity
+                            key={minute}
+                            style={[
+                              localStyles.timePickerItem,
+                              isSelected && localStyles.timePickerItemSelected
+                            ]}
+                            onPress={() => {
+                              const newDate = new Date(dueDate);
+                              newDate.setMinutes(parseInt(minute));
+                              setDueDate(newDate);
+                            }}
+                          >
+                            <Text style={[
+                              localStyles.timePickerItemText,
+                              isSelected && localStyles.timePickerItemTextSelected
+                            ]}>
+                              {minute}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={localStyles.timePickerDoneButton}
+                  onPress={() => setShowHourPicker(false)}
+                >
+                  <Text style={localStyles.timePickerDoneButtonText}>Klaar</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             <Text style={localStyles.label}>Media Type (Optioneel)</Text>
@@ -924,5 +1098,138 @@ const localStyles = StyleSheet.create({
     color: Colors.light.text,
     fontWeight: '700' as const,
     fontSize: 16,
+  },
+  calendarPickerContainer: {
+    marginTop: 8,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    padding: 12,
+  },
+  calendarPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  calendarPickerButton: {
+    padding: 4,
+  },
+  calendarPickerMonth: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  calendarPickerWeekDays: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calendarPickerWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
+  calendarPickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarPickerDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    padding: 2,
+  },
+  calendarPickerDayCircle: {
+    flex: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarPickerDayInactive: {
+    opacity: 0.3,
+  },
+  calendarPickerDaySelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  calendarPickerDayText: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  calendarPickerDayTextInactive: {
+    color: Colors.light.muted,
+  },
+  calendarPickerDayTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
+  },
+  timePickerContainer: {
+    marginTop: 8,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    padding: 12,
+  },
+  timePickerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  timePickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timePickerColumnLabel: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  timePickerScroll: {
+    maxHeight: 180,
+    width: '100%',
+  },
+  timePickerItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  timePickerItemSelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  timePickerItemText: {
+    color: Colors.light.text,
+    fontSize: 18,
+    fontWeight: '600' as const,
+  },
+  timePickerItemTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
+  },
+  timePickerColon: {
+    color: Colors.light.text,
+    fontSize: 24,
+    fontWeight: '700' as const,
+    marginBottom: 32,
+  },
+  timePickerDoneButton: {
+    marginTop: 12,
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  timePickerDoneButtonText: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
 });
