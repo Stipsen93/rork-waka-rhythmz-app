@@ -6,7 +6,7 @@
 -- Features:
 -- - Media metadata storage with folder structure
 -- - Storage bucket for files (videos, images, audio)
--- - Row Level Security (RLS) policies
+-- - Row Level Security (RLS) policies for PUBLIC access
 -- - Storage usage tracking function
 -- - Automatic timestamp updates
 --
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.media_library (
   file_size BIGINT NOT NULL,
   mime_type TEXT NOT NULL,
   storage_path TEXT NOT NULL,
-  uploaded_by UUID REFERENCES auth.users(id),
+  uploaded_by UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -53,39 +53,38 @@ CREATE INDEX IF NOT EXISTS idx_media_library_file_type
 -- =====================================================
 -- ROW LEVEL SECURITY (RLS)
 -- =====================================================
--- Enable RLS for security
+-- Enable RLS for security but allow public access
 
 ALTER TABLE public.media_library ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies first to avoid conflicts
 DROP POLICY IF EXISTS "Anyone can view media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Anyone can upload media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Anyone can update media" ON public.media_library;
+DROP POLICY IF EXISTS "Anyone can delete media" ON public.media_library;
 DROP POLICY IF EXISTS "Authenticated users can upload media metadata" ON public.media_library;
 DROP POLICY IF EXISTS "Users can update own media" ON public.media_library;
 DROP POLICY IF EXISTS "Users can delete own media" ON public.media_library;
 
--- Policy: Allow all authenticated users to view media metadata
+-- Policy: Allow everyone to view media metadata (PUBLIC ACCESS)
 CREATE POLICY "Anyone can view media metadata"
   ON public.media_library FOR SELECT
-  TO authenticated
   USING (true);
 
--- Policy: Allow authenticated users to upload media metadata
-CREATE POLICY "Authenticated users can upload media metadata"
+-- Policy: Allow everyone to upload media metadata (PUBLIC ACCESS)
+CREATE POLICY "Anyone can upload media metadata"
   ON public.media_library FOR INSERT
-  TO authenticated
   WITH CHECK (true);
 
--- Policy: Allow users to update their own media
-CREATE POLICY "Users can update own media"
+-- Policy: Allow everyone to update media (PUBLIC ACCESS)
+CREATE POLICY "Anyone can update media"
   ON public.media_library FOR UPDATE
-  TO authenticated
-  USING (uploaded_by = auth.uid());
+  USING (true);
 
--- Policy: Allow users to delete their own media
-CREATE POLICY "Users can delete own media"
+-- Policy: Allow everyone to delete media (PUBLIC ACCESS)
+CREATE POLICY "Anyone can delete media"
   ON public.media_library FOR DELETE
-  TO authenticated
-  USING (uploaded_by = auth.uid());
+  USING (true);
 
 -- =====================================================
 -- STORAGE BUCKET
@@ -99,36 +98,35 @@ ON CONFLICT (id) DO NOTHING;
 -- =====================================================
 -- STORAGE POLICIES
 -- =====================================================
--- Control access to files in storage bucket
+-- Control access to files in storage bucket - PUBLIC ACCESS
 
 -- Drop existing storage policies first to avoid conflicts
 DROP POLICY IF EXISTS "Anyone can view media files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can upload media" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can update files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can delete files" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
 DROP POLICY IF EXISTS "Users can update own files" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete own files" ON storage.objects;
 
--- Policy: Allow all authenticated users to view files
+-- Policy: Allow everyone to view files (PUBLIC ACCESS)
 CREATE POLICY "Anyone can view media files"
   ON storage.objects FOR SELECT
-  TO authenticated
   USING (bucket_id = 'media-library');
 
--- Policy: Allow authenticated users to upload files
-CREATE POLICY "Authenticated users can upload media"
+-- Policy: Allow everyone to upload files (PUBLIC ACCESS)
+CREATE POLICY "Anyone can upload media"
   ON storage.objects FOR INSERT
-  TO authenticated
   WITH CHECK (bucket_id = 'media-library');
 
--- Policy: Allow users to update their own files
-CREATE POLICY "Users can update own files"
+-- Policy: Allow everyone to update files (PUBLIC ACCESS)
+CREATE POLICY "Anyone can update files"
   ON storage.objects FOR UPDATE
-  TO authenticated
   USING (bucket_id = 'media-library');
 
--- Policy: Allow users to delete their own files
-CREATE POLICY "Users can delete own files"
+-- Policy: Allow everyone to delete files (PUBLIC ACCESS)
+CREATE POLICY "Anyone can delete files"
   ON storage.objects FOR DELETE
-  TO authenticated
   USING (bucket_id = 'media-library');
 
 -- =====================================================
@@ -153,7 +151,8 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission on the function
+-- Grant execute permission on the function to public
+GRANT EXECUTE ON FUNCTION get_storage_usage() TO anon;
 GRANT EXECUTE ON FUNCTION get_storage_usage() TO authenticated;
 
 -- =====================================================
@@ -204,7 +203,7 @@ $$;
 -- =====================================================
 -- Next steps:
 -- 1. Storage bucket 'media-library' is ready
--- 2. Upload media through the app
+-- 2. Upload media through the app (PUBLIC ACCESS - NO AUTH NEEDED)
 -- 3. Files will be stored in Supabase Storage
 -- 4. Metadata will be saved in media_library table
 -- 5. Monitor storage usage with get_storage_usage()
