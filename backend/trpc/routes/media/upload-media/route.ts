@@ -2,6 +2,7 @@ import { publicProcedure } from "@/backend/trpc/create-context";
 import { supabaseAdmin } from "@/lib/supabase";
 import { z } from "zod";
 import type { Database } from "@/lib/database.types";
+import { TRPCError } from "@trpc/server";
 
 type MediaInsert = Database['public']['Tables']['media_library']['Insert'];
 type MediaRow = Database['public']['Tables']['media_library']['Row'];
@@ -46,7 +47,10 @@ export const uploadMediaRoute = publicProcedure
     
     if (uploadError) {
       console.error('[UPLOAD ERROR] Storage error:', uploadError);
-      throw new Error(`Storage upload mislukt: ${uploadError.message}`);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Storage upload mislukt: ${uploadError.message}`,
+      });
     }
     
     console.log('[UPLOAD SUCCESS] File uploaded:', uploadData.path);
@@ -74,11 +78,17 @@ export const uploadMediaRoute = publicProcedure
       console.error('[DATABASE ERROR]:', dbError);
       console.log('[CLEANUP] Removing uploaded file...');
       await supabaseAdmin.storage.from('media-library').remove([storagePath]);
-      throw new Error(`Database fout: ${dbError.message}`);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Database fout: ${dbError.message}`,
+      });
     }
     
     if (!mediaData) {
-      throw new Error('Geen data ontvangen van database');
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Geen data ontvangen van database',
+      });
     }
     
     const result = mediaData as unknown as MediaRow;

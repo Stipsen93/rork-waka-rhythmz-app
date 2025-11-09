@@ -1,6 +1,7 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
 import { supabaseAdmin } from "@/lib/supabase";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 
 export const createFolderRoute = publicProcedure
   .input(z.object({
@@ -24,13 +25,22 @@ export const createFolderRoute = publicProcedure
       
       if (uploadError) {
         console.error('[FOLDER ERROR]:', JSON.stringify(uploadError));
-        throw new Error(`Folder aanmaken mislukt: ${uploadError.message}`);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Folder aanmaken mislukt: ${uploadError.message}`,
+        });
       }
       
       console.log('[FOLDER SUCCESS]:', input.folderPath, 'Data:', data);
       return { success: true, folderPath: input.folderPath };
     } catch (error: any) {
       console.error('[FOLDER EXCEPTION]:', error);
-      throw new Error(error?.message || 'Unknown error creating folder');
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error?.message || 'Unknown error creating folder',
+      });
     }
   });

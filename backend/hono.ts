@@ -14,7 +14,10 @@ app.use(
     router: appRouter,
     createContext,
     onError({ error, path }) {
-      console.error(`[TRPC ERROR] Path: ${path}`, error);
+      console.error(`[TRPC ERROR] Path: ${path}`);
+      console.error('[TRPC ERROR] Code:', error.code);
+      console.error('[TRPC ERROR] Message:', error.message);
+      console.error('[TRPC ERROR] Stack:', error.stack);
     },
   })
 );
