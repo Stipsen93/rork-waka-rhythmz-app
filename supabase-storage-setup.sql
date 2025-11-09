@@ -57,6 +57,12 @@ CREATE INDEX IF NOT EXISTS idx_media_library_file_type
 
 ALTER TABLE public.media_library ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Anyone can view media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Authenticated users can upload media metadata" ON public.media_library;
+DROP POLICY IF EXISTS "Users can update own media" ON public.media_library;
+DROP POLICY IF EXISTS "Users can delete own media" ON public.media_library;
+
 -- Policy: Allow all authenticated users to view media metadata
 CREATE POLICY "Anyone can view media metadata"
   ON public.media_library FOR SELECT
@@ -94,6 +100,12 @@ ON CONFLICT (id) DO NOTHING;
 -- STORAGE POLICIES
 -- =====================================================
 -- Control access to files in storage bucket
+
+-- Drop existing storage policies first to avoid conflicts
+DROP POLICY IF EXISTS "Anyone can view media files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own files" ON storage.objects;
 
 -- Policy: Allow all authenticated users to view files
 CREATE POLICY "Anyone can view media files"
