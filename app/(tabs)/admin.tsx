@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform, Modal, ActivityIndicator } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, Platform, Modal, ActivityIndicator } from "react-native";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
@@ -110,8 +110,8 @@ export default function AdminScreen() {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
+  const renderHeader = () => (
+    <>
       <LinearGradient 
         colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
         style={styles.headerBg} 
@@ -124,7 +124,7 @@ export default function AdminScreen() {
         <Text style={styles.subtitle}>Beheer gebruikers & media</Text>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
+      <View style={styles.scrollContent}>
         {isAdmin && storageQuery.data && (
           <View style={styles.storageSection}>
             <View style={styles.sectionHeader}>
@@ -234,73 +234,78 @@ export default function AdminScreen() {
           <Text style={styles.usersSectionTitle}>
             Alle Gebruikers ({users.length})
           </Text>
-          
-          <FlatList
-            data={users}
-            keyExtractor={(u) => u.id}
-            contentContainerStyle={styles.list}
-            renderItem={({ item }) => (
-              <View style={styles.userCard}>
-                <View style={styles.userCardLeft}>
-                  <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
-                    {item.role === "admin" ? (
-                      <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
-                    ) : (
-                      <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
-                    )}
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{item.username}</Text>
-                    <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
-                    <View style={styles.passwordRow}>
-                      <Text style={styles.userPassword}>
-                        {item.passwordChangedByUser ? "••••••••" : item.password}
-                      </Text>
-                      {!item.passwordChangedByUser && (
-                        <Pressable
-                          style={styles.copyButton}
-                          onPress={() => handleCopyPassword(item.password, item.username)}
-                          testID={`copy-password-${item.id}`}
-                        >
-                          <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                        </Pressable>
-                      )}
-                    </View>
-                  </View>
-                </View>
-                
-                <View style={styles.userActions}>
-                  <Pressable
-                    style={styles.resetButton}
-                    onPress={() => handleResetPassword(item.id, item.username)}
-                    testID={`reset-password-${item.id}`}
-                  >
-                    <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                  </Pressable>
-                  <Pressable 
-                    style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                    onPress={() => setRole(item.id, "member")} 
-                    testID={`make-member-${item.id}`}
-                  >
-                    <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
-                      Lid
-                    </Text>
-                  </Pressable>
-                  <Pressable 
-                    style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                    onPress={() => setRole(item.id, "admin")} 
-                    testID={`make-admin-${item.id}`}
-                  >
-                    <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
-                      Admin
-                    </Text>
-                  </Pressable>
+        </View>
+      </View>
+    </>
+  );
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
+      <FlatList
+        data={users}
+        keyExtractor={(u) => u.id}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        renderItem={({ item }) => (
+          <View style={styles.userCard}>
+            <View style={styles.userCardLeft}>
+              <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
+                {item.role === "admin" ? (
+                  <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
+                ) : (
+                  <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
+                )}
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{item.username}</Text>
+                <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
+                <View style={styles.passwordRow}>
+                  <Text style={styles.userPassword}>
+                    {item.passwordChangedByUser ? "••••••••" : item.password}
+                  </Text>
+                  {!item.passwordChangedByUser && (
+                    <Pressable
+                      style={styles.copyButton}
+                      onPress={() => handleCopyPassword(item.password, item.username)}
+                      testID={`copy-password-${item.id}`}
+                    >
+                      <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                    </Pressable>
+                  )}
                 </View>
               </View>
-            )}
-          />
-        </View>
-      </ScrollView>
+            </View>
+            
+            <View style={styles.userActions}>
+              <Pressable
+                style={styles.resetButton}
+                onPress={() => handleResetPassword(item.id, item.username)}
+                testID={`reset-password-${item.id}`}
+              >
+                <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
+              </Pressable>
+              <Pressable 
+                style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
+                onPress={() => setRole(item.id, "member")} 
+                testID={`make-member-${item.id}`}
+              >
+                <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
+                  Lid
+                </Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
+                onPress={() => setRole(item.id, "admin")} 
+                testID={`make-admin-${item.id}`}
+              >
+                <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
+                  Admin
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      />
 
       <Modal
         visible={showUploadModal}
@@ -529,20 +534,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    gap: 24,
   },
   usersSection: {
-    gap: 12,
+    marginBottom: 16,
   },
   usersSectionTitle: {
     color: Colors.light.text,
     fontSize: 20,
     fontWeight: "700" as const,
     marginBottom: 16,
-  },
-  list: { 
-    gap: 12,
-    paddingBottom: 20,
   },
   userCard: {
     backgroundColor: Colors.light.surface,
@@ -553,6 +553,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginBottom: 12,
   },
   userCardLeft: {
     flexDirection: "row",
