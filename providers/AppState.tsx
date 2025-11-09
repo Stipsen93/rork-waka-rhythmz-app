@@ -1431,13 +1431,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       if (item.folder_path) {
         folderSet.add(item.folder_path);
         
-        const parts = item.folder_path.split('/');
-        for (let i = 1; i < parts.length; i++) {
-          folderSet.add(parts.slice(0, i).join('/'));
+        const parts = item.folder_path.split('/').filter(Boolean);
+        for (let i = 1; i <= parts.length; i++) {
+          const parentPath = parts.slice(0, i).join('/');
+          if (parentPath) {
+            folderSet.add(parentPath);
+          }
         }
       }
     });
-    return Array.from(folderSet);
+    return Array.from(folderSet).sort();
   }, [mediaLibrary]);
 
   const createFolder = useCallback(async (folderPath: string) => {
@@ -1458,8 +1461,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       throw new Error(`Folder aanmaken mislukt: ${uploadError.message}`);
     }
     
-    const placeholderItem: MediaLibraryItem = {
-      id: `placeholder_${Date.now()}`,
+    const insertData: Database['public']['Tables']['media_library']['Insert'] = {
       name: '.emptyFolderPlaceholder',
       path: placeholderPath,
       folder_path: folderPath,
@@ -1468,10 +1470,35 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       mime_type: 'text/plain',
       storage_path: placeholderPath,
       uploaded_by: currentUser?.id ?? null,
-      created_at: new Date().toISOString(),
     };
     
-    setMediaLibrary(prev => [...prev, placeholderItem]);
+    const { data: mediaData, error: dbError } = await supabase
+      .from('media_library')
+      .insert(insertData)
+      .select()
+      .single();
+    
+    if (dbError && !dbError.message.includes('duplicate')) {
+      console.error('❌ Database insert error:', dbError);
+      throw new Error(`Database fout: ${dbError.message}`);
+    }
+    
+    if (mediaData) {
+      const placeholderItem: MediaLibraryItem = {
+        id: mediaData.id,
+        name: mediaData.name,
+        path: mediaData.path,
+        folder_path: mediaData.folder_path,
+        file_type: mediaData.file_type,
+        file_size: mediaData.file_size,
+        mime_type: mediaData.mime_type,
+        storage_path: mediaData.storage_path,
+        uploaded_by: mediaData.uploaded_by,
+        created_at: mediaData.created_at,
+      };
+      
+      setMediaLibrary(prev => [...prev, placeholderItem]);
+    }
     console.log('✅ Folder created');
   }, [currentUser]);
 
