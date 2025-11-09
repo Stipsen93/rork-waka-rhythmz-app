@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
@@ -34,6 +34,8 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
   const [mediaUri, setMediaUri] = useState<string>(editingAssignment?.mediaUri ?? "");
   const [mediaType, setMediaType] = useState<'video' | 'image' | 'audio' | undefined>(editingAssignment?.mediaType);
   const [isUploading, setIsUploading] = useState(false);
+  const [showMediaExplorer, setShowMediaExplorer] = useState(false);
+  const [explorerPath, setExplorerPath] = useState<string>("");
 
   useEffect(() => {
     if (editingAssignment) {
@@ -56,6 +58,32 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
     setMediaUri("");
     setMediaType(undefined);
     setIsUploading(false);
+    setShowMediaExplorer(false);
+    setExplorerPath("");
+  };
+
+  const handleOpenMediaExplorer = () => {
+    setShowMediaExplorer(true);
+    setExplorerPath("");
+  };
+
+  const handleSelectMedia = (media: any) => {
+    const { data } = supabase.storage
+      .from('media-library')
+      .getPublicUrl(media.storage_path);
+    
+    setMediaUri(data.publicUrl);
+    
+    if (media.mime_type?.startsWith('video/')) {
+      setMediaType('video');
+    } else if (media.mime_type?.startsWith('image/')) {
+      setMediaType('image');
+    } else if (media.mime_type?.startsWith('audio/')) {
+      setMediaType('audio');
+    }
+    
+    setShowMediaExplorer(false);
+    setExplorerPath("");
   };
 
   const pickAndUploadMedia = async () => {
@@ -436,19 +464,12 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             <Text style={localStyles.label}>Media (Optioneel)</Text>
             <Pressable
               style={localStyles.uploadButton}
-              onPress={pickAndUploadMedia}
-              disabled={isUploading}
+              onPress={handleOpenMediaExplorer}
             >
-              {isUploading ? (
-                <ActivityIndicator color={Colors.light.text} />
-              ) : (
-                <>
-                  <Upload color={Colors.light.text} size={20} />
-                  <Text style={localStyles.uploadButtonText}>
-                    {mediaUri ? "Media Wijzigen" : "Media Uploaden"}
-                  </Text>
-                </>
-              )}
+              <Folder color={Colors.light.text} size={20} />
+              <Text style={localStyles.uploadButtonText}>
+                {mediaUri ? "Media Wijzigen" : "Media Kiezen"}
+              </Text>
             </Pressable>
 
             {mediaUri && (
@@ -481,6 +502,182 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
               <Text style={localStyles.submitButtonText}>{editingAssignment ? "Opdracht Bijwerken" : "Opdracht Toevoegen"}</Text>
             </Pressable>
           </ScrollView>
+        </View>
+      </View>
+
+      <MediaExplorerModal
+        visible={showMediaExplorer}
+        currentPath={explorerPath}
+        onClose={() => {
+          setShowMediaExplorer(false);
+          setExplorerPath("");
+        }}
+        onNavigate={setExplorerPath}
+        onSelectMedia={handleSelectMedia}
+      />
+    </Modal>
+  );
+}
+
+function MediaExplorerModal({ 
+  visible, 
+  currentPath, 
+  onClose, 
+  onNavigate, 
+  onSelectMedia 
+}: { 
+  visible: boolean; 
+  currentPath: string; 
+  onClose: () => void; 
+  onNavigate: (path: string) => void;
+  onSelectMedia: (media: any) => void;
+}) {
+  const { mediaLibrary, getFolders, getMediaInFolder } = useAppState();
+  const insets = useSafeAreaInsets();
+
+  const folders = useMemo(() => {
+    const allFolderPaths = getFolders();
+    const folderMap = new Map<string, number>();
+    
+    allFolderPaths.forEach((folderPath) => {
+      if (currentPath && !folderPath.startsWith(currentPath + '/')) {
+        return;
+      }
+      
+      if (currentPath === '' && folderPath.includes('/')) {
+        const firstFolder = folderPath.split('/')[0];
+        folderMap.set(firstFolder, (folderMap.get(firstFolder) || 0) + 1);
+      } else if (currentPath && folderPath.startsWith(currentPath + '/')) {
+        const remaining = folderPath.substring(currentPath.length + 1);
+        if (remaining.includes('/')) {
+          const nextFolder = remaining.split('/')[0];
+          const fullPath = currentPath + '/' + nextFolder;
+          folderMap.set(fullPath, (folderMap.get(fullPath) || 0) + 1);
+        }
+      } else if (currentPath === '' && !folderPath.includes('/')) {
+        folderMap.set(folderPath, 0);
+      }
+    });
+    
+    mediaLibrary.forEach((item) => {
+      if (item.folder_path.startsWith(currentPath)) {
+        const remaining = item.folder_path.substring(currentPath ? currentPath.length + 1 : 0);
+        const parts = remaining.split('/').filter(Boolean);
+        
+        if (parts.length > 0) {
+          const nextFolder = currentPath ? currentPath + '/' + parts[0] : parts[0];
+          folderMap.set(nextFolder, (folderMap.get(nextFolder) || 0) + 1);
+        }
+      }
+    });
+    
+    return Array.from(folderMap.entries()).map(([path, count]) => ({
+      name: path.split('/').pop() || path,
+      path,
+      itemCount: count,
+    }));
+  }, [mediaLibrary, currentPath]);
+
+  const mediaItems = useMemo(() => {
+    return getMediaInFolder(currentPath)
+      .filter(m => m.name !== '.emptyFolderPlaceholder')
+      .filter(m => {
+        const type = m.file_type;
+        return type === 'video' || type === 'image' || type === 'audio';
+      });
+  }, [currentPath, getMediaInFolder]);
+
+  const breadcrumbText = useMemo(() => {
+    if (!currentPath) return 'Bibliotheek';
+    return currentPath.split('/').join(' > ');
+  }, [currentPath]);
+
+  const handleBack = () => {
+    const parts = currentPath.split('/');
+    parts.pop();
+    onNavigate(parts.join('/'));
+  };
+
+  type Item = { kind: "folder"; folder: { name: string; path: string; itemCount: number } } | { kind: "media"; media: any };
+  const items: Item[] = [
+    ...folders.map((f) => ({ kind: "folder" as const, folder: f })),
+    ...mediaItems.map((m) => ({ kind: "media" as const, media: m })),
+  ];
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={explorerStyles.modalOverlay}>
+        <View style={[explorerStyles.modalContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+          <View style={explorerStyles.modalHeader}>
+            <Text style={explorerStyles.modalTitle}>Media Kiezen</Text>
+            <Pressable onPress={onClose}>
+              <X color={Colors.light.text} size={28} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          <View style={explorerStyles.breadcrumbContainer}>
+            <Text style={explorerStyles.breadcrumbText}>{breadcrumbText}</Text>
+          </View>
+
+          {currentPath ? (
+            <Pressable onPress={handleBack} style={explorerStyles.backButton}>
+              <ArrowLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
+              <Text style={explorerStyles.backText}>Terug</Text>
+            </Pressable>
+          ) : null}
+
+          <FlatList
+            data={items}
+            keyExtractor={(item, index) => 
+              item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.id}`
+            }
+            style={explorerStyles.list}
+            contentContainerStyle={explorerStyles.listContent}
+            renderItem={({ item }) => {
+              if (item.kind === "folder") {
+                return (
+                  <TouchableOpacity 
+                    style={explorerStyles.item} 
+                    onPress={() => onNavigate(item.folder.path)}
+                  >
+                    <View style={explorerStyles.iconContainer}>
+                      <Folder color={Colors.light.primary} size={24} strokeWidth={2} />
+                    </View>
+                    <View style={explorerStyles.itemContent}>
+                      <Text style={explorerStyles.itemTitle}>{item.folder.name}</Text>
+                      <Text style={explorerStyles.itemMeta}>{item.folder.itemCount} items</Text>
+                    </View>
+                    <ChevronRight color={Colors.light.muted} size={20} />
+                  </TouchableOpacity>
+                );
+              }
+              
+              const Icon = item.media.file_type === 'video' ? Video : item.media.file_type === 'audio' ? Music : ImageIcon;
+              
+              return (
+                <TouchableOpacity 
+                  style={explorerStyles.item} 
+                  onPress={() => onSelectMedia(item.media)}
+                >
+                  <View style={[explorerStyles.iconContainer, explorerStyles.mediaIcon]}>
+                    <Icon color={Colors.light.text} size={20} strokeWidth={2} />
+                  </View>
+                  <View style={explorerStyles.itemContent}>
+                    <Text style={explorerStyles.itemTitle}>{item.media.name}</Text>
+                    <Text style={explorerStyles.itemMeta}>
+                      {item.media.file_type.toUpperCase()} • {(item.media.file_size / (1024 * 1024)).toFixed(1)} MB
+                    </Text>
+                  </View>
+                  <CheckCircle2 color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                </TouchableOpacity>
+              );
+            }}
+          />
         </View>
       </View>
     </Modal>
@@ -1291,5 +1488,93 @@ const localStyles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 15,
     fontWeight: '700' as const,
+  },
+});
+
+const explorerStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: Colors.light.text,
+    fontSize: 28,
+    fontWeight: '800' as const,
+  },
+  breadcrumbContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  breadcrumbText: {
+    color: Colors.light.muted,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  backButton: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  backText: {
+    color: Colors.light.primary,
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 20,
+    paddingTop: 0,
+    gap: 12,
+  },
+  item: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.light.darkGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  mediaIcon: {
+    backgroundColor: Colors.light.primary,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTitle: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 3,
+  },
+  itemMeta: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: '500' as const,
   },
 });
