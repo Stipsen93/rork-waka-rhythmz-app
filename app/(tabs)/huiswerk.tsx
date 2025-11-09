@@ -33,6 +33,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
   const [mediaUri, setMediaUri] = useState<string>(editingAssignment?.mediaUri ?? "");
   const [mediaType, setMediaType] = useState<'video' | 'image' | 'audio' | undefined>(editingAssignment?.mediaType);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (editingAssignment) {
@@ -54,6 +55,61 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
     setDueDate(new Date());
     setMediaUri("");
     setMediaType(undefined);
+    setIsUploading(false);
+  };
+
+  const pickAndUploadMedia = async () => {
+    try {
+      setIsUploading(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'video/*', 'audio/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setIsUploading(false);
+        return;
+      }
+
+      const file = result.assets[0];
+      const fileName = `${Date.now()}_${file.name}`;
+      const filePath = `assignments/${fileName}`;
+
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+
+      const { data, error } = await supabase.storage
+        .from('media')
+        .upload(filePath, blob, {
+          contentType: file.mimeType || 'application/octet-stream',
+          upsert: false,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(data.path);
+
+      setMediaUri(urlData.publicUrl);
+
+      if (file.mimeType?.startsWith('video/')) {
+        setMediaType('video');
+      } else if (file.mimeType?.startsWith('image/')) {
+        setMediaType('image');
+      } else if (file.mimeType?.startsWith('audio/')) {
+        setMediaType('audio');
+      }
+
+      Alert.alert("Succes", "Media is succesvol geüpload!");
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert("Fout", "Er is een fout opgetreden bij het uploaden van media");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -377,48 +433,43 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
               </View>
             )}
 
-            <Text style={localStyles.label}>Media Type (Optioneel)</Text>
-            <View style={localStyles.mediaTypeContainer}>
-              <Pressable
-                style={[localStyles.mediaTypeButton, mediaType === 'video' && localStyles.mediaTypeButtonSelected]}
-                onPress={() => setMediaType(mediaType === 'video' ? undefined : 'video')}
-              >
-                <Video color={mediaType === 'video' ? Colors.light.text : Colors.light.muted} size={20} />
-                <Text style={[localStyles.mediaTypeText, mediaType === 'video' && localStyles.mediaTypeTextSelected]}>
-                  Video
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[localStyles.mediaTypeButton, mediaType === 'image' && localStyles.mediaTypeButtonSelected]}
-                onPress={() => setMediaType(mediaType === 'image' ? undefined : 'image')}
-              >
-                <ImageIcon color={mediaType === 'image' ? Colors.light.text : Colors.light.muted} size={20} />
-                <Text style={[localStyles.mediaTypeText, mediaType === 'image' && localStyles.mediaTypeTextSelected]}>
-                  Foto
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[localStyles.mediaTypeButton, mediaType === 'audio' && localStyles.mediaTypeButtonSelected]}
-                onPress={() => setMediaType(mediaType === 'audio' ? undefined : 'audio')}
-              >
-                <Music color={mediaType === 'audio' ? Colors.light.text : Colors.light.muted} size={20} />
-                <Text style={[localStyles.mediaTypeText, mediaType === 'audio' && localStyles.mediaTypeTextSelected]}>
-                  Audio
-                </Text>
-              </Pressable>
-            </View>
+            <Text style={localStyles.label}>Media (Optioneel)</Text>
+            <Pressable
+              style={localStyles.uploadButton}
+              onPress={pickAndUploadMedia}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <ActivityIndicator color={Colors.light.text} />
+              ) : (
+                <>
+                  <Upload color={Colors.light.text} size={20} />
+                  <Text style={localStyles.uploadButtonText}>
+                    {mediaUri ? "Media Wijzigen" : "Media Uploaden"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
 
-            {mediaType && (
-              <>
-                <Text style={localStyles.label}>Media URL</Text>
-                <TextInput
-                  style={localStyles.input}
-                  placeholder="Bijv. https://example.com/media.mp4"
-                  placeholderTextColor={Colors.light.muted}
-                  value={mediaUri}
-                  onChangeText={setMediaUri}
-                />
-              </>
+            {mediaUri && (
+              <View style={localStyles.uploadedMediaContainer}>
+                <View style={localStyles.uploadedMediaInfo}>
+                  {mediaType === 'video' && <Video color={Colors.light.primary} size={20} />}
+                  {mediaType === 'image' && <ImageIcon color={Colors.light.primary} size={20} />}
+                  {mediaType === 'audio' && <Music color={Colors.light.primary} size={20} />}
+                  <Text style={localStyles.uploadedMediaText} numberOfLines={1}>
+                    {mediaType === 'video' ? 'Video' : mediaType === 'image' ? 'Foto' : 'Audio'} bestand
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    setMediaUri("");
+                    setMediaType(undefined);
+                  }}
+                >
+                  <X color={Colors.light.muted} size={20} />
+                </Pressable>
+              </View>
             )}
 
             <Pressable
@@ -1056,33 +1107,42 @@ const localStyles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.light.text,
   },
-  mediaTypeContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  mediaTypeButton: {
-    flex: 1,
+  uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  uploadButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  uploadedMediaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.light.surface,
     paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
   },
-  mediaTypeButtonSelected: {
-    backgroundColor: Colors.light.primary,
-    borderColor: Colors.light.primary,
+  uploadedMediaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
-  mediaTypeText: {
+  uploadedMediaText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.light.muted,
-  },
-  mediaTypeTextSelected: {
     color: Colors.light.text,
+    flex: 1,
   },
   submitButton: {
     backgroundColor: Colors.light.primary,
