@@ -259,49 +259,51 @@ export default function AdminScreen() {
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{item.username}</Text>
                 <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
-                <View style={styles.passwordRow}>
-                  <Text style={styles.userPassword}>
-                    {item.passwordChangedByUser ? "••••••••" : item.password}
-                  </Text>
-                  {!item.passwordChangedByUser && (
-                    <Pressable
-                      style={styles.copyButton}
-                      onPress={() => handleCopyPassword(item.password, item.username)}
-                      testID={`copy-password-${item.id}`}
-                    >
-                      <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                    </Pressable>
-                  )}
-                </View>
+                <Text style={styles.userPassword}>
+                  {item.passwordChangedByUser ? "••••••••" : item.password}
+                </Text>
               </View>
             </View>
             
             <View style={styles.userActions}>
-              <Pressable
-                style={styles.resetButton}
-                onPress={() => handleResetPassword(item.id, item.username)}
-                testID={`reset-password-${item.id}`}
-              >
-                <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
-              </Pressable>
-              <Pressable 
-                style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                onPress={() => setRole(item.id, "member")} 
-                testID={`make-member-${item.id}`}
-              >
-                <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
-                  Lid
-                </Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                onPress={() => setRole(item.id, "admin")} 
-                testID={`make-admin-${item.id}`}
-              >
-                <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
-                  Admin
-                </Text>
-              </Pressable>
+              <View style={styles.iconButtons}>
+                {!item.passwordChangedByUser && (
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => handleCopyPassword(item.password, item.username)}
+                    testID={`copy-password-${item.id}`}
+                  >
+                    <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                  </Pressable>
+                )}
+                <Pressable
+                  style={styles.iconButton}
+                  onPress={() => handleResetPassword(item.id, item.username)}
+                  testID={`reset-password-${item.id}`}
+                >
+                  <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                </Pressable>
+              </View>
+              <View style={styles.roleButtonsWrapper}>
+                <Pressable 
+                  style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
+                  onPress={() => setRole(item.id, "member")} 
+                  testID={`make-member-${item.id}`}
+                >
+                  <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
+                    Lid
+                  </Text>
+                </Pressable>
+                <Pressable 
+                  style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
+                  onPress={() => setRole(item.id, "admin")} 
+                  testID={`make-admin-${item.id}`}
+                >
+                  <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
+                    Admin
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         )}
@@ -589,6 +591,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   userActions: {
+    flexDirection: "column",
+    gap: 8,
+    alignItems: "flex-end",
+  },
+  iconButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: `${Colors.light.primary}15`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  roleButtonsWrapper: {
     flexDirection: "row",
     gap: 8,
   },
@@ -612,35 +631,12 @@ const styles = StyleSheet.create({
   actionButtonTextActive: {
     color: Colors.light.text,
   },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
   userPassword: {
     color: Colors.light.muted,
     fontSize: 13,
     fontWeight: "600" as const,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
-  copyButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: `${Colors.light.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  resetButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: Colors.light.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-    justifyContent: "center",
-    alignItems: "center",
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
