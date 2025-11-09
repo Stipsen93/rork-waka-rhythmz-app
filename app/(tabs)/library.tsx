@@ -1333,7 +1333,7 @@ const styles = StyleSheet.create({
   playerContainer: {
     backgroundColor: Colors.light.darkGray,
     borderRadius: 16,
-    padding: 24,
+    overflow: 'hidden',
     minHeight: 200,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1345,8 +1345,7 @@ const styles = StyleSheet.create({
   },
   video: {
     width: '100%',
-    height: 400,
-    borderRadius: 12,
+    aspectRatio: 16 / 9,
     backgroundColor: Colors.light.darkGray,
   },
   image: {
