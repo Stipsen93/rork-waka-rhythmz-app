@@ -5,11 +5,13 @@ import Colors from "@/constants/colors";
 import { useState } from "react";
 import { User, Lock, Calendar, MapPin, Phone, Mail, LogOut } from "lucide-react-native";
 import { useAppState } from "@/providers/AppState";
+import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser, logout, changePassword } = useAppState();
   const router = useRouter();
+  const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
   const [name, setName] = useState<string>(currentUser?.username || "");
   const [currentPassword, setCurrentPassword] = useState<string>("");
@@ -21,6 +23,7 @@ export default function AccountScreen() {
   const [email, setEmail] = useState<string>("jan@example.com");
   
   const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
+  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
 
   const handleSavePassword = () => {
     if (!currentUser) return;
@@ -41,7 +44,12 @@ export default function AccountScreen() {
   };
 
   const handleSaveProfile = () => {
-    Alert.alert("Gelukt", "Profiel opgeslagen");
+    if (isEditingProfile) {
+      Alert.alert("Gelukt", "Profiel opgeslagen");
+      setIsEditingProfile(false);
+    } else {
+      setIsEditingProfile(true);
+    }
   };
   
   const handleLogout = () => {
@@ -64,7 +72,20 @@ export default function AccountScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen 
+        options={{ 
+          headerShown: true,
+          headerTitle: "WAKA RHYTHMZ",
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: "800" as const,
+            letterSpacing: 1,
+          },
+          headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
+          headerStyle: { backgroundColor: Colors.light.background },
+          headerShadowVisible: false,
+        }} 
+      />
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Account</Text>
@@ -73,92 +94,99 @@ export default function AccountScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Persoonlijke informatie</Text>
             
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconWrapper}>
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
                 <User size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Naam</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={name}
                   onChangeText={setName}
                   placeholder="Voer je naam in"
                   placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
                 />
               </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconWrapper}>
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
                 <Calendar size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Leeftijd</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={age}
                   onChangeText={setAge}
                   placeholder="Voer je leeftijd in"
                   keyboardType="number-pad"
                   placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
                 />
               </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconWrapper}>
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
                 <MapPin size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Adres</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={address}
                   onChangeText={setAddress}
                   placeholder="Voer je adres in"
                   placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
                 />
               </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconWrapper}>
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
                 <Phone size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Telefoonnummer</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Voer je telefoonnummer in"
                   keyboardType="phone-pad"
                   placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
                 />
               </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconWrapper}>
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
                 <Mail size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Voer je email in"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
                 />
               </View>
             </View>
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-              <Text style={styles.saveButtonText}>Profiel opslaan</Text>
+              <Text style={styles.saveButtonText}>
+                {isEditingProfile ? "Profiel opslaan" : "Profiel bewerken"}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -257,6 +285,10 @@ export default function AccountScreen() {
           </View>
         </ScrollView>
       </View>
+      <MenuModal 
+        visible={showMenuModal} 
+        onClose={() => setShowMenuModal(false)}
+      />
     </>
   );
 }
@@ -311,12 +343,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  inputContainerDisabled: {
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+  },
   inputIconWrapper: {
     width: 56,
     height: 56,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.02)",
+  },
+  inputIconWrapperDisabled: {
+    backgroundColor: "rgba(0, 0, 0, 0.04)",
   },
   inputWrapper: {
     flex: 1,
@@ -336,6 +374,10 @@ const styles = StyleSheet.create({
     fontWeight: "500" as const,
     color: Colors.light.text,
     padding: 0,
+  },
+  inputDisabled: {
+    color: Colors.light.muted,
+    backgroundColor: "rgba(0, 0, 0, 0.02)",
   },
   saveButton: {
     backgroundColor: Colors.light.primary,

@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from "expo-router";
-import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell } from "lucide-react-native";
+import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell, LogOut } from "lucide-react-native";
 import React, { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,9 +7,28 @@ import Colors from "@/constants/colors";
 import { useAppState, Role } from "@/providers/AppState";
 
 function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { currentUser } = useAppState();
+  const { currentUser, logout } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Uitloggen",
+      "Weet je zeker dat je wilt uitloggen?",
+      [
+        { text: "Annuleren", style: "cancel" },
+        { 
+          text: "Uitloggen", 
+          style: "destructive",
+          onPress: () => {
+            logout();
+            onClose();
+            router.replace("/login");
+          }
+        },
+      ]
+    );
+  };
 
   return (
     <Modal
@@ -161,6 +180,18 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             </View>
             <Text style={localStyles.menuItemText}>Instellingen</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[localStyles.menuItem, localStyles.logoutMenuItem]}
+            onPress={handleLogout}
+            testID="menu-logout"
+          >
+            <View style={[localStyles.menuIconContainer, localStyles.logoutIconContainer]}>
+              <LogOut color={Colors.light.error} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={[localStyles.menuItemText, localStyles.logoutText]}>Uitloggen</Text>
+            <ChevronRight color={Colors.light.error} size={20} />
           </TouchableOpacity>
           </ScrollView>
         </View>
@@ -631,6 +662,16 @@ const localStyles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 17,
     fontWeight: '700' as const,
+  },
+  logoutMenuItem: {
+    borderColor: Colors.light.error,
+    borderWidth: 2,
+  },
+  logoutIconContainer: {
+    backgroundColor: `${Colors.light.error}15`,
+  },
+  logoutText: {
+    color: Colors.light.error,
   },
 });
 

@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform, Modal, ActivityIndicator } from "react-native";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
 import { Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw, Upload, HardDrive, X } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Upload, HardDrive, X, Copy } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { trpc } from "@/lib/trpc";
 
@@ -21,6 +22,11 @@ export default function AdminScreen() {
   const storageQuery = trpc.media.getStorageUsage.useQuery();
   const uploadMutation = trpc.media.uploadMedia.useMutation();
   const utils = trpc.useUtils();
+
+  const handleCopyPassword = async (password: string, userName: string) => {
+    await Clipboard.setStringAsync(password);
+    Alert.alert("Gekopieerd", `Wachtwoord voor ${userName} is gekopieerd naar klembord`);
+  };
 
   const handleResetPassword = (userId: string, userName: string) => {
     Alert.alert(
@@ -246,9 +252,20 @@ export default function AdminScreen() {
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{item.username}</Text>
                     <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
-                    <Text style={styles.userPassword}>
-                      {item.passwordChangedByUser ? "••••••••" : item.password}
-                    </Text>
+                    <View style={styles.passwordRow}>
+                      <Text style={styles.userPassword}>
+                        {item.passwordChangedByUser ? "••••••••" : item.password}
+                      </Text>
+                      {!item.passwordChangedByUser && (
+                        <Pressable
+                          style={styles.copyButton}
+                          onPress={() => handleCopyPassword(item.password, item.username)}
+                          testID={`copy-password-${item.id}`}
+                        >
+                          <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                        </Pressable>
+                      )}
+                    </View>
                   </View>
                 </View>
                 
@@ -593,12 +610,25 @@ const styles = StyleSheet.create({
   actionButtonTextActive: {
     color: Colors.light.text,
   },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
   userPassword: {
     color: Colors.light.muted,
     fontSize: 13,
     fontWeight: "600" as const,
-    marginTop: 4,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  copyButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: `${Colors.light.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resetButton: {
     width: 40,

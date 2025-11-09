@@ -6,6 +6,7 @@ import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
 import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 type TimeOption = { label: string; hours: number };
 
@@ -24,6 +25,7 @@ const TIME_OPTIONS: TimeOption[] = [
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
   const { notificationSettings, updateNotificationSettings } = useAppState();
+  const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
   const [newsEnabled, setNewsEnabled] = useState<boolean>(notificationSettings.newsEnabled);
   const [newsReminders, setNewsReminders] = useState<number[]>([notificationSettings.newsHoursAdvance]);
@@ -127,7 +129,20 @@ export default function MeldingenScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen 
+        options={{ 
+          headerShown: true,
+          headerTitle: "WAKA RHYTHMZ",
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: "800" as const,
+            letterSpacing: 1,
+          },
+          headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
+          headerStyle: { backgroundColor: Colors.light.background },
+          headerShadowVisible: false,
+        }} 
+      />
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <LinearGradient 
           colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
@@ -386,6 +401,10 @@ export default function MeldingenScreen() {
           </TouchableOpacity>
         </Modal>
       </View>
+      <MenuModal 
+        visible={showMenuModal} 
+        onClose={() => setShowMenuModal(false)}
+      />
     </>
   );
 }
