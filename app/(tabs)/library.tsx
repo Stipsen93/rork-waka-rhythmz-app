@@ -331,48 +331,67 @@ export default function LibraryScreen() {
   };
 
   const handleDeleteSelected = async () => {
-    if (selectedItems.size === 0) return;
+    console.log('[CLIENT] Delete button pressed');
+    console.log('[CLIENT] Selected items:', Array.from(selectedItems));
+    
+    if (selectedItems.size === 0) {
+      console.log('[CLIENT] No items selected, returning');
+      return;
+    }
     
     Alert.alert(
       'Items verwijderen',
       `Weet je zeker dat je ${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'} wilt verwijderen?`,
       [
-        { text: 'Annuleren', style: 'cancel' },
+        { text: 'Annuleren', style: 'cancel', onPress: () => console.log('[CLIENT] Delete cancelled') },
         { 
           text: 'Verwijderen', 
           style: 'destructive',
           onPress: async () => {
+            console.log('[CLIENT] Delete confirmed, starting deletion...');
             setIsDeleting(true);
             try {
               const itemsToDelete = Array.from(selectedItems);
+              console.log('[CLIENT] Items to delete:', itemsToDelete);
               
               const mediaToDelete = itemsToDelete.filter(id => id.startsWith('media-'));
               const foldersToDelete = itemsToDelete.filter(id => id.startsWith('folder-'));
               
+              console.log('[CLIENT] Media to delete:', mediaToDelete.length);
+              console.log('[CLIENT] Folders to delete:', foldersToDelete.length);
+              
               if (mediaToDelete.length > 0) {
                 const ids = mediaToDelete.map(id => id.replace('media-', ''));
+                console.log('[CLIENT] Calling deleteMedia with IDs:', ids);
                 await appState.deleteMedia(ids);
+                console.log('[CLIENT] deleteMedia completed');
               }
               
               for (const folderId of foldersToDelete) {
                 const path = folderId.replace('folder-', '');
                 const folder = folders.find(f => f.path === path);
                 if (folder) {
+                  console.log('[CLIENT] Calling deleteFolder with path:', folder.path);
                   await appState.deleteFolder(folder.path);
+                  console.log('[CLIENT] deleteFolder completed');
                 }
               }
               
+              console.log('[CLIENT] Refreshing storage usage...');
               await appState.refreshStorageUsage();
+              console.log('[CLIENT] Storage usage refreshed');
               
               setSelectionMode(false);
               setSelectedItems(new Set());
+              console.log('[CLIENT] Deletion completed successfully');
             } catch (error: any) {
-              console.error('Delete error:', error);
+              console.error('[CLIENT] Delete error:', error);
               const message = error?.message || 'Onbekende fout bij verwijderen';
               setErrorMessage(`Verwijderen mislukt: ${message}`);
               setTimeout(() => setErrorMessage(null), 5000);
             } finally {
               setIsDeleting(false);
+              console.log('[CLIENT] Delete operation finished');
             }
           }
         },

@@ -1228,40 +1228,50 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [currentUser]);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
-    console.log('💾 Deleting media from Supabase...', ids);
+    console.log('💾 [DELETE_MEDIA] Starting delete for IDs:', ids);
+    console.log('💾 [DELETE_MEDIA] Current mediaLibrary length:', mediaLibrary.length);
     
     try {
       const itemsToDelete = mediaLibrary.filter(m => ids.includes(m.id));
-      console.log('Items to delete:', itemsToDelete.length);
+      console.log('💾 [DELETE_MEDIA] Items to delete:', itemsToDelete.length);
+      console.log('💾 [DELETE_MEDIA] Items details:', itemsToDelete);
       
       const storagePaths = itemsToDelete.map(m => m.storage_path);
-      console.log('Storage paths:', storagePaths);
+      console.log('💾 [DELETE_MEDIA] Storage paths to delete:', storagePaths);
       
       if (storagePaths.length > 0) {
+        console.log('💾 [DELETE_MEDIA] Deleting from storage...');
         const { error: storageError } = await supabase.storage
           .from('media-library')
           .remove(storagePaths);
         
         if (storageError) {
-          console.error('Storage delete error:', storageError);
+          console.error('💾 [DELETE_MEDIA] Storage delete error:', storageError);
           throw new Error(`Storage verwijderen mislukt: ${storageError.message}`);
         }
+        console.log('💾 [DELETE_MEDIA] Storage deletion completed');
       }
       
+      console.log('💾 [DELETE_MEDIA] Deleting from database...');
       const { error: dbError } = await supabase
         .from('media_library')
         .delete()
         .in('id', ids);
       
       if (dbError) {
-        console.error('Database delete error:', dbError);
+        console.error('💾 [DELETE_MEDIA] Database delete error:', dbError);
         throw new Error(`Database verwijderen mislukt: ${dbError.message}`);
       }
+      console.log('💾 [DELETE_MEDIA] Database deletion completed');
       
-      setMediaLibrary(prev => prev.filter(m => !ids.includes(m.id)));
-      console.log('✅ Media deleted successfully');
+      setMediaLibrary(prev => {
+        const filtered = prev.filter(m => !ids.includes(m.id));
+        console.log('💾 [DELETE_MEDIA] Updating local state, new length:', filtered.length);
+        return filtered;
+      });
+      console.log('✅ [DELETE_MEDIA] Media deleted successfully');
     } catch (error) {
-      console.error('❌ Delete media error:', error);
+      console.error('❌ [DELETE_MEDIA] Delete media error:', error);
       throw error;
     }
   }, [mediaLibrary]);
