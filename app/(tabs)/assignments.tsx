@@ -24,7 +24,7 @@ export default function AssignmentsScreen() {
     const now = new Date();
     return appointments.filter(a => {
       const appointmentDate = new Date(`${a.date} ${a.time}`);
-      return appointmentDate >= now;
+      return appointmentDate >= now && a.status !== 'cancelled';
     }).sort((a, b) => {
       const dateA = new Date(`${a.date} ${a.time}`);
       const dateB = new Date(`${b.date} ${b.time}`);
