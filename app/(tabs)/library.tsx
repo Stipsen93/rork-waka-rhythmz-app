@@ -148,7 +148,7 @@ export default function LibraryScreen() {
           )}
         </View>
 
-        {storageQuery.data && (
+        {storageQuery.data && storageQuery.data.usageGB !== undefined && (
           <View style={styles.storageCard}>
             <View style={styles.storageHeader}>
               <HardDrive color={Colors.light.primary} size={20} strokeWidth={2.5} />
@@ -164,13 +164,16 @@ export default function LibraryScreen() {
                       ? ['#F59E0B', '#D97706']
                       : [Colors.light.primary, Colors.light.primaryDark]
                   }
-                  style={[styles.storageBarFill, { width: `${Math.min(storageQuery.data.percentage, 100)}%` }]}
+                  style={[
+                    styles.storageBarFill,
+                    { width: `${Math.min(storageQuery.data.percentage || 0, 100)}%` as any }
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 />
               </View>
               <Text style={styles.storageText}>
-                {storageQuery.data.usageGB} GB / {storageQuery.data.maxGB} GB ({storageQuery.data.percentage}%)
+                {storageQuery.data.usageGB || 0} GB / {storageQuery.data.maxGB || 100} GB ({storageQuery.data.percentage || 0}%)
               </Text>
             </View>
           </View>
