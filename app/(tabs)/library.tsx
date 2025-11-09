@@ -1155,13 +1155,30 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
 
   const handleProgressBarPress = (e: any) => {
     e.stopPropagation();
-    const nativeEvent = e.nativeEvent;
-    const locationX = nativeEvent.locationX;
     
-    if (progressBarWidthRef.current > 0 && typeof locationX === 'number') {
-      const progress = locationX / progressBarWidthRef.current;
-      if (isFinite(progress)) {
-        handleSeek(progress);
+    if (Platform.OS === 'web') {
+      if (progressBarRef.current) {
+        const rect = (progressBarRef.current as any).getBoundingClientRect?.();
+        if (rect) {
+          const clickX = e.nativeEvent.pageX || e.nativeEvent.clientX;
+          const relativeX = clickX - rect.left;
+          const progress = relativeX / rect.width;
+          const clampedProgress = Math.max(0, Math.min(1, progress));
+          
+          if (isFinite(clampedProgress)) {
+            handleSeek(clampedProgress);
+          }
+        }
+      }
+    } else {
+      const nativeEvent = e.nativeEvent;
+      const locationX = nativeEvent.locationX;
+      
+      if (progressBarWidthRef.current > 0 && typeof locationX === 'number') {
+        const progress = locationX / progressBarWidthRef.current;
+        if (isFinite(progress)) {
+          handleSeek(progress);
+        }
       }
     }
   };
@@ -1178,39 +1195,89 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
           clearTimeout(controlsTimeoutRef.current);
         }
         
-        const locationX = event.nativeEvent.locationX;
-        if (progressBarWidthRef.current > 0 && typeof locationX === 'number') {
-          const progress = locationX / progressBarWidthRef.current;
-          const clampedProgress = Math.max(0, Math.min(1, progress));
-          
-          if (isFinite(clampedProgress) && durationMillis > 0) {
-            const targetPosition = Math.floor(clampedProgress * durationMillis);
-            setPositionMillis(targetPosition);
+        if (Platform.OS === 'web') {
+          if (progressBarRef.current) {
+            const rect = (progressBarRef.current as any).getBoundingClientRect?.();
+            if (rect) {
+              const clickX = event.nativeEvent.pageX || event.nativeEvent.clientX;
+              const relativeX = clickX - rect.left;
+              const progress = relativeX / rect.width;
+              const clampedProgress = Math.max(0, Math.min(1, progress));
+              
+              if (isFinite(clampedProgress) && durationMillis > 0) {
+                const targetPosition = Math.floor(clampedProgress * durationMillis);
+                setPositionMillis(targetPosition);
+              }
+            }
+          }
+        } else {
+          const locationX = event.nativeEvent.locationX;
+          if (progressBarWidthRef.current > 0 && typeof locationX === 'number') {
+            const progress = locationX / progressBarWidthRef.current;
+            const clampedProgress = Math.max(0, Math.min(1, progress));
+            
+            if (isFinite(clampedProgress) && durationMillis > 0) {
+              const targetPosition = Math.floor(clampedProgress * durationMillis);
+              setPositionMillis(targetPosition);
+            }
           }
         }
       },
       
       onPanResponderMove: (event, gestureState) => {
-        if (progressBarWidthRef.current > 0 && progressBarXRef.current !== undefined) {
-          const relativeX = gestureState.moveX - progressBarXRef.current;
-          const progress = relativeX / progressBarWidthRef.current;
-          const clampedProgress = Math.max(0, Math.min(1, progress));
-          
-          if (isFinite(clampedProgress) && durationMillis > 0) {
-            const targetPosition = Math.floor(clampedProgress * durationMillis);
-            setPositionMillis(targetPosition);
+        if (Platform.OS === 'web') {
+          if (progressBarRef.current) {
+            const rect = (progressBarRef.current as any).getBoundingClientRect?.();
+            if (rect) {
+              const moveX = event.nativeEvent.pageX || event.nativeEvent.clientX;
+              const relativeX = moveX - rect.left;
+              const progress = relativeX / rect.width;
+              const clampedProgress = Math.max(0, Math.min(1, progress));
+              
+              if (isFinite(clampedProgress) && durationMillis > 0) {
+                const targetPosition = Math.floor(clampedProgress * durationMillis);
+                setPositionMillis(targetPosition);
+              }
+            }
+          }
+        } else {
+          if (progressBarWidthRef.current > 0 && progressBarXRef.current !== undefined) {
+            const relativeX = gestureState.moveX - progressBarXRef.current;
+            const progress = relativeX / progressBarWidthRef.current;
+            const clampedProgress = Math.max(0, Math.min(1, progress));
+            
+            if (isFinite(clampedProgress) && durationMillis > 0) {
+              const targetPosition = Math.floor(clampedProgress * durationMillis);
+              setPositionMillis(targetPosition);
+            }
           }
         }
       },
       
       onPanResponderRelease: (event, gestureState) => {
-        if (progressBarWidthRef.current > 0 && progressBarXRef.current !== undefined) {
-          const relativeX = gestureState.moveX - progressBarXRef.current;
-          const progress = relativeX / progressBarWidthRef.current;
-          const clampedProgress = Math.max(0, Math.min(1, progress));
-          
-          if (isFinite(clampedProgress)) {
-            handleSeek(clampedProgress);
+        if (Platform.OS === 'web') {
+          if (progressBarRef.current) {
+            const rect = (progressBarRef.current as any).getBoundingClientRect?.();
+            if (rect) {
+              const moveX = event.nativeEvent.pageX || event.nativeEvent.clientX;
+              const relativeX = moveX - rect.left;
+              const progress = relativeX / rect.width;
+              const clampedProgress = Math.max(0, Math.min(1, progress));
+              
+              if (isFinite(clampedProgress)) {
+                handleSeek(clampedProgress);
+              }
+            }
+          }
+        } else {
+          if (progressBarWidthRef.current > 0 && progressBarXRef.current !== undefined) {
+            const relativeX = gestureState.moveX - progressBarXRef.current;
+            const progress = relativeX / progressBarWidthRef.current;
+            const clampedProgress = Math.max(0, Math.min(1, progress));
+            
+            if (isFinite(clampedProgress)) {
+              handleSeek(clampedProgress);
+            }
           }
         }
         
