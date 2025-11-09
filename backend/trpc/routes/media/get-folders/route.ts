@@ -1,12 +1,12 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const getFoldersRoute = publicProcedure.query(async () => {
   console.log('[Media] Getting all folders');
   
   const folderSet = new Set<string>();
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('media_library')
     .select('folder_path');
   

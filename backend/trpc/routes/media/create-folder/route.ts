@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { z } from "zod";
 
 export const createFolderRoute = publicProcedure
@@ -14,7 +14,7 @@ export const createFolderRoute = publicProcedure
     
     console.log('[FOLDER] Uploading placeholder:', placeholderPath);
     
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabaseAdmin.storage
       .from('media-library')
       .upload(placeholderPath, placeholderContent, {
         contentType: 'application/octet-stream',

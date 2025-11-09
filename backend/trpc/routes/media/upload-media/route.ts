@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { z } from "zod";
 import type { Database } from "@/lib/database.types";
 
@@ -37,7 +37,7 @@ export const uploadMediaRoute = publicProcedure
     console.log('[UPLOAD] Binary data size:', binaryData.length);
     
     console.log('[UPLOAD] Uploading to Supabase Storage...');
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('media-library')
       .upload(storagePath, binaryData, {
         contentType: input.mimeType,
@@ -64,7 +64,7 @@ export const uploadMediaRoute = publicProcedure
       uploaded_by: null,
     };
     
-    const { data: mediaData, error: dbError } = await supabase
+    const { data: mediaData, error: dbError } = await supabaseAdmin
       .from('media_library')
       .insert(insertData as any)
       .select()
@@ -73,7 +73,7 @@ export const uploadMediaRoute = publicProcedure
     if (dbError) {
       console.error('[DATABASE ERROR]:', dbError);
       console.log('[CLEANUP] Removing uploaded file...');
-      await supabase.storage.from('media-library').remove([storagePath]);
+      await supabaseAdmin.storage.from('media-library').remove([storagePath]);
       throw new Error(`Database fout: ${dbError.message}`);
     }
     

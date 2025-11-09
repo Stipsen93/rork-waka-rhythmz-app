@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { z } from "zod";
 
 export const deleteMediaRoute = publicProcedure
@@ -10,7 +10,7 @@ export const deleteMediaRoute = publicProcedure
   .mutation(async ({ input }) => {
     console.log('[Media] Deleting media:', input.id);
     
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await supabaseAdmin.storage
       .from('media-library')
       .remove([input.storagePath]);
     
@@ -19,7 +19,7 @@ export const deleteMediaRoute = publicProcedure
       throw new Error('Failed to delete file from storage');
     }
     
-    const { error: dbError } = await supabase
+    const { error: dbError } = await supabaseAdmin
       .from('media_library')
       .delete()
       .eq('id', input.id);

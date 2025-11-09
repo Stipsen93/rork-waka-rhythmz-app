@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { z } from "zod";
 
 export const getMediaListRoute = publicProcedure
@@ -9,7 +9,7 @@ export const getMediaListRoute = publicProcedure
   .query(async ({ input }) => {
     console.log('[Media] Getting media list for folder:', input.folderPath);
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('media_library')
       .select('*')
       .eq('folder_path', input.folderPath)

@@ -1,10 +1,10 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const getStorageUsageRoute = publicProcedure.query(async () => {
   console.log('[Media] Getting storage usage');
   
-  const { data, error } = await supabase.rpc('get_storage_usage');
+  const { data, error } = await supabaseAdmin.rpc('get_storage_usage');
   
   if (error) {
     console.error('[Media] Error getting storage usage:', error);
