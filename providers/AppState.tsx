@@ -1161,7 +1161,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       ? input.base64Data.split(',')[1] 
       : input.base64Data;
     
-    const binaryData = Buffer.from(base64Data, 'base64');
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const binaryData = new Blob([byteArray], { type: input.mimeType });
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('media-library')
