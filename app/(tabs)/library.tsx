@@ -72,6 +72,27 @@ export default function LibraryScreen() {
     },
   });
 
+  const createFolderMutation = trpc.media.createFolder.useMutation({
+    onSuccess: (data) => {
+      setCreatingFolders((prev) => {
+        const next = new Map(prev);
+        next.delete(data.folderPath);
+        return next;
+      });
+      foldersQuery.refetch();
+    },
+    onError: (error, variables) => {
+      setCreatingFolders((prev) => {
+        const next = new Map(prev);
+        next.delete(variables.folderPath);
+        return next;
+      });
+      const message = error.message || 'Onbekende fout bij folder aanmaken';
+      setErrorMessage(`Folder aanmaken mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    },
+  });
+
   const folders = useMemo<FolderItem[]>(() => {
     const creatingFoldersList = Array.from(creatingFolders.values());
     if (!foldersQuery.data) return creatingFoldersList;
@@ -449,7 +470,7 @@ export default function LibraryScreen() {
                 
                 <Pressable
                   style={[styles.actionButton, styles.createButton, !folderName.trim() && styles.disabledButton]}
-                  onPress={() => {
+                  onPress={async () => {
                     if (folderName.trim()) {
                       const newFolderPath = currentPath ? `${currentPath}/${folderName.trim()}` : folderName.trim();
                       const tempFolder: FolderItem = {
@@ -465,17 +486,16 @@ export default function LibraryScreen() {
                         return next;
                       });
                       
-                      setTimeout(() => {
-                        setCreatingFolders((prev) => {
-                          const next = new Map(prev);
-                          next.delete(newFolderPath);
-                          return next;
-                        });
-                        foldersQuery.refetch();
-                      }, 1000);
-                      
                       setShowFolderModal(false);
                       setFolderName("");
+                      
+                      try {
+                        await createFolderMutation.mutateAsync({
+                          folderPath: newFolderPath,
+                        });
+                      } catch (error: any) {
+                        console.error('Create folder error:', error);
+                      }
                     }
                   }}
                   disabled={!folderName.trim()}

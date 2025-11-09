@@ -5,6 +5,7 @@ import { getMediaListRoute } from "@/backend/trpc/routes/media/get-media-list/ro
 import { getFoldersRoute } from "@/backend/trpc/routes/media/get-folders/route";
 import { deleteMediaRoute } from "@/backend/trpc/routes/media/delete-media/route";
 import { uploadMediaRoute } from "@/backend/trpc/routes/media/upload-media/route";
+import { createFolderRoute } from "@/backend/trpc/routes/media/create-folder/route";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
     getFolders: getFoldersRoute,
     deleteMedia: deleteMediaRoute,
     uploadMedia: uploadMediaRoute,
+    createFolder: createFolderRoute,
   }),
 });
 

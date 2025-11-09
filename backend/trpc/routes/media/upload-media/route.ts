@@ -13,7 +13,8 @@ export const uploadMediaRoute = publicProcedure
     base64Data: z.string(),
   }))
   .mutation(async ({ input }) => {
-    console.log('[Media] Uploading media:', input.name);
+    console.log('[Media] Uploading media:', input.name, 'to folder:', input.folderPath);
+    console.log('[Media] File details - Type:', input.fileType, 'Size:', input.fileSize, 'bytes');
     
     try {
       const timestamp = Date.now();
