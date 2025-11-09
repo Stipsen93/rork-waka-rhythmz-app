@@ -322,8 +322,6 @@ export default function CalendarScreen() {
     return days;
   };
 
-  const today = formatDateToLocal(new Date());
-
   return (
     <>
       <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="calendar-screen">
