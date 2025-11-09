@@ -319,12 +319,22 @@ export default function LibraryScreen() {
           )}
         </View>
 
-        {storageQuery.data && storageQuery.data.usageGB !== undefined && (
-          <View style={styles.storageCard}>
-            <View style={styles.storageHeader}>
-              <HardDrive color={Colors.light.primary} size={20} strokeWidth={2.5} />
-              <Text style={styles.storageTitle}>Opslag</Text>
+        <View style={styles.storageCard}>
+          <View style={styles.storageHeader}>
+            <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            <Text style={styles.storageTitle}>Opslag</Text>
+          </View>
+          {storageQuery.isLoading ? (
+            <View style={styles.storageLoading}>
+              <ActivityIndicator size="small" color={Colors.light.primary} />
             </View>
+          ) : storageQuery.error ? (
+            <View style={styles.storageMeter}>
+              <Text style={styles.storageErrorText}>
+                Kon opslag niet laden
+              </Text>
+            </View>
+          ) : storageQuery.data ? (
             <View style={styles.storageMeter}>
               <View style={styles.storageBar}>
                 <LinearGradient
@@ -343,12 +353,23 @@ export default function LibraryScreen() {
                   end={{ x: 1, y: 0 }}
                 />
               </View>
-              <Text style={styles.storageText}>
-                {`${storageQuery.data.usageGB || 0} GB / ${storageQuery.data.maxGB || 100} GB (${storageQuery.data.percentage || 0}%)`}
+              <View style={styles.storageTextRow}>
+                <Text style={styles.storageText}>
+                  {storageQuery.data.usageGB.toFixed(2)} GB gebruikt
+                </Text>
+                <Text style={styles.storageTextSecondary}>
+                  van {storageQuery.data.maxGB} GB
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.storageMeter}>
+              <Text style={styles.storageErrorText}>
+                Geen gegevens beschikbaar
               </Text>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
         {errorMessage && (
           <View style={styles.errorContainer}>
@@ -771,9 +792,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   storageText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  storageTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  storageTextSecondary: {
     color: Colors.light.muted,
     fontSize: 13,
     fontWeight: '600' as const,
+  },
+  storageLoading: {
+    paddingVertical: 8,
+    alignItems: 'flex-start',
+  },
+  storageErrorText: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: '600' as const,
+    fontStyle: 'italic' as const,
   },
   backButton: { 
     marginHorizontal: 20, 
