@@ -1092,9 +1092,22 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
   };
 
   const handleSeek = async (progress: number) => {
-    if (!videoRef.current || !durationMillis) return;
+    if (!videoRef.current || !durationMillis || durationMillis <= 0) return;
     
-    const targetPosition = progress * durationMillis;
+    const clampedProgress = Math.max(0, Math.min(1, progress));
+    
+    if (!isFinite(clampedProgress)) {
+      console.error('Invalid progress value:', progress);
+      return;
+    }
+    
+    const targetPosition = Math.floor(clampedProgress * durationMillis);
+    
+    if (!isFinite(targetPosition) || targetPosition < 0) {
+      console.error('Invalid target position:', targetPosition);
+      return;
+    }
+    
     setIsSeeking(true);
     setPositionMillis(targetPosition);
     
@@ -1186,10 +1199,18 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
                             style={styles.progressBarHitbox}
                             onPress={(e) => {
                               e.stopPropagation();
-                              const { locationX, currentTarget } = e.nativeEvent as any;
-                              if (currentTarget?.offsetWidth) {
-                                const progress = locationX / currentTarget.offsetWidth;
-                                handleSeek(Math.max(0, Math.min(1, progress)));
+                              const nativeEvent = e.nativeEvent as any;
+                              const locationX = nativeEvent.locationX;
+                              const target = nativeEvent.target || nativeEvent.currentTarget;
+                              
+                              if (target && typeof locationX === 'number') {
+                                const rect = target.getBoundingClientRect?.();
+                                if (rect && rect.width > 0) {
+                                  const progress = locationX / rect.width;
+                                  if (isFinite(progress)) {
+                                    handleSeek(progress);
+                                  }
+                                }
                               }
                             }}
                           />
