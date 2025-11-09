@@ -1,18 +1,26 @@
 import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, ScrollView, Platform, Modal, ActivityIndicator } from "react-native";
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import Colors from "@/constants/colors";
 import { Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Upload, HardDrive, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-
-
+import { trpc } from "@/lib/trpc";
 
 export default function AdminScreen() {
-  const { users, addUser, setRole, resetPassword } = useAppState();
+  const { users, addUser, setRole, resetPassword, currentUser } = useAppState();
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
   const insets = useSafeAreaInsets();
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [folderPath, setFolderPath] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  const storageQuery = trpc.media.getStorageUsage.useQuery();
+  const uploadMutation = trpc.media.uploadMedia.useMutation();
+  const utils = trpc.useUtils();
 
   const handleResetPassword = (userId: string, userName: string) => {
     Alert.alert(
@@ -35,6 +43,67 @@ export default function AdminScreen() {
     );
   };
 
+  const handleUploadMedia = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Toestemming Vereist', 'We hebben toegang nodig tot je mediabibliotheek om bestanden te uploaden.');
+      return;
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      allowsEditing: false,
+      quality: 1,
+    });
+    
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      console.log('[Admin] Selected media:', {
+        uri: asset.uri,
+        type: asset.type,
+        fileName: asset.fileName,
+      });
+
+      setIsUploading(true);
+      setShowUploadModal(false);
+
+      try {
+        const base64Data = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: 'base64',
+        });
+
+        const fileName = asset.fileName || `media_${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`;
+        const fileSize = asset.fileSize || 0;
+        const mimeType = asset.type === 'video' 
+          ? 'video/mp4' 
+          : asset.mimeType || 'image/jpeg';
+
+        await uploadMutation.mutateAsync({
+          name: fileName,
+          folderPath: folderPath.trim(),
+          fileType: asset.type || 'image',
+          fileSize,
+          mimeType,
+          base64Data,
+        });
+
+        await utils.media.getMediaList.invalidate();
+        await utils.media.getFolders.invalidate();
+        await utils.media.getStorageUsage.invalidate();
+
+        setFolderPath("");
+        Alert.alert('Succes', 'Media succesvol geüpload!');
+      } catch (error) {
+        console.error('[Admin] Error uploading media:', error);
+        Alert.alert('Fout', 'Er is een fout opgetreden bij het uploaden van media.');
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
       <LinearGradient 
@@ -45,125 +114,223 @@ export default function AdminScreen() {
       
       <View style={styles.header}>
         <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-        <Text style={styles.title}>Leden</Text>
-        <Text style={styles.subtitle}>Beheer gebruikers & rechten</Text>
+        <Text style={styles.title}>Admin</Text>
+        <Text style={styles.subtitle}>Beheer gebruikers & media</Text>
       </View>
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
-        <View style={styles.createSection}>
-        <View style={styles.sectionHeader}>
-          <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
-          <Text style={styles.sectionTitle}>Nieuwe Gebruiker Aanmaken</Text>
-        </View>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Voer gebruikersnaam in"
-          placeholderTextColor={Colors.light.muted}
-          value={username}
-          onChangeText={setUsername}
-          testID="new-username"
-        />
-        
-        <View style={styles.roleSelector}>
-          <Text style={styles.roleLabel}>Rol:</Text>
-          <View style={styles.roleButtons}>
-            <Pressable 
-              style={[styles.roleButton, role === "member" && styles.roleButtonActive]} 
-              onPress={() => setRoleLocal("member")}
+        {isAdmin && storageQuery.data && (
+          <View style={styles.storageSection}>
+            <View style={styles.sectionHeader}>
+              <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
+              <Text style={styles.sectionTitle}>Opslag Beheer</Text>
+            </View>
+
+            <View style={styles.storageCard}>
+              <View style={styles.storageMeter}>
+                <View style={styles.storageBar}>
+                  <LinearGradient
+                    colors={
+                      storageQuery.data.percentage > 90
+                        ? ['#DC2626', '#991B1B']
+                        : storageQuery.data.percentage > 75
+                        ? ['#F59E0B', '#D97706']
+                        : [Colors.light.primary, Colors.light.primaryDark]
+                    }
+                    style={[styles.storageBarFill, { width: `${Math.min(storageQuery.data.percentage, 100)}%` }]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                </View>
+                <Text style={styles.storageText}>
+                  {storageQuery.data.usageGB} GB / {storageQuery.data.maxGB} GB ({storageQuery.data.percentage}%)
+                </Text>
+                {storageQuery.data.percentage > 90 && (
+                  <Text style={styles.warningText}>
+                    ⚠️ Opslag bijna vol! Verwijder ongebruikte media.
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <Pressable
+              style={styles.uploadButton}
+              onPress={() => setShowUploadModal(true)}
+              disabled={isUploading}
             >
-              <User color={role === "member" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
-              <Text style={[styles.roleButtonText, role === "member" && styles.roleButtonTextActive]}>
-                Lid
-              </Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.roleButton, role === "admin" && styles.roleButtonActive]} 
-              onPress={() => setRoleLocal("admin")}
-            >
-              <Shield color={role === "admin" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
-              <Text style={[styles.roleButtonText, role === "admin" && styles.roleButtonTextActive]}>
-                Admin
-              </Text>
+              {isUploading ? (
+                <ActivityIndicator size="small" color={Colors.light.text} />
+              ) : (
+                <>
+                  <Upload color={Colors.light.text} size={20} strokeWidth={2.5} />
+                  <Text style={styles.uploadButtonText}>Media Uploaden</Text>
+                </>
+              )}
             </Pressable>
           </View>
-        </View>
+        )}
 
-        <Pressable
-          style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
-          disabled={!username}
-          onPress={async () => {
-            const { user, password } = await addUser(username.trim(), role);
-            Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
-            setUsername("");
-          }}
-          testID="create-user"
-        >
-          <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
-          <Text style={styles.createButtonText}>Account Aanmaken</Text>
-        </Pressable>
+        <View style={styles.createSection}>
+          <View style={styles.sectionHeader}>
+            <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            <Text style={styles.sectionTitle}>Nieuwe Gebruiker Aanmaken</Text>
+          </View>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Voer gebruikersnaam in"
+            placeholderTextColor={Colors.light.muted}
+            value={username}
+            onChangeText={setUsername}
+            testID="new-username"
+          />
+          
+          <View style={styles.roleSelector}>
+            <Text style={styles.roleLabel}>Rol:</Text>
+            <View style={styles.roleButtons}>
+              <Pressable 
+                style={[styles.roleButton, role === "member" && styles.roleButtonActive]} 
+                onPress={() => setRoleLocal("member")}
+              >
+                <User color={role === "member" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
+                <Text style={[styles.roleButtonText, role === "member" && styles.roleButtonTextActive]}>
+                  Lid
+                </Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.roleButton, role === "admin" && styles.roleButtonActive]} 
+                onPress={() => setRoleLocal("admin")}
+              >
+                <Shield color={role === "admin" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
+                <Text style={[styles.roleButtonText, role === "admin" && styles.roleButtonTextActive]}>
+                  Admin
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable
+            style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
+            disabled={!username}
+            onPress={async () => {
+              const { user, password } = await addUser(username.trim(), role);
+              Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
+              setUsername("");
+            }}
+            testID="create-user"
+          >
+            <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
+            <Text style={styles.createButtonText}>Account Aanmaken</Text>
+          </Pressable>
         </View>
 
         <View style={styles.usersSection}>
-        <Text style={styles.usersSectionTitle}>
-          Alle Gebruikers ({users.length})
-        </Text>
-        
-        <FlatList
-          data={users}
-          keyExtractor={(u) => u.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={styles.userCard}>
-              <View style={styles.userCardLeft}>
-                <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
-                  {item.role === "admin" ? (
-                    <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
-                  ) : (
-                    <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
-                  )}
+          <Text style={styles.usersSectionTitle}>
+            Alle Gebruikers ({users.length})
+          </Text>
+          
+          <FlatList
+            data={users}
+            keyExtractor={(u) => u.id}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <View style={styles.userCard}>
+                <View style={styles.userCardLeft}>
+                  <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
+                    {item.role === "admin" ? (
+                      <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
+                    ) : (
+                      <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
+                    )}
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>{item.username}</Text>
+                    <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
+                    <Text style={styles.userPassword}>
+                      {item.passwordChangedByUser ? "••••••••" : item.password}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{item.username}</Text>
-                  <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
-                  <Text style={styles.userPassword}>
-                    {item.passwordChangedByUser ? "••••••••" : item.password}
-                  </Text>
+                
+                <View style={styles.userActions}>
+                  <Pressable
+                    style={styles.resetButton}
+                    onPress={() => handleResetPassword(item.id, item.username)}
+                    testID={`reset-password-${item.id}`}
+                  >
+                    <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                  </Pressable>
+                  <Pressable 
+                    style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
+                    onPress={() => setRole(item.id, "member")} 
+                    testID={`make-member-${item.id}`}
+                  >
+                    <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
+                      Lid
+                    </Text>
+                  </Pressable>
+                  <Pressable 
+                    style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
+                    onPress={() => setRole(item.id, "admin")} 
+                    testID={`make-admin-${item.id}`}
+                  >
+                    <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
+                      Admin
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
-              
-              <View style={styles.userActions}>
-                <Pressable
-                  style={styles.resetButton}
-                  onPress={() => handleResetPassword(item.id, item.username)}
-                  testID={`reset-password-${item.id}`}
-                >
-                  <RotateCcw color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                </Pressable>
-                <Pressable 
-                  style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                  onPress={() => setRole(item.id, "member")} 
-                  testID={`make-member-${item.id}`}
-                >
-                  <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
-                    Lid
-                  </Text>
-                </Pressable>
-                <Pressable 
-                  style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                  onPress={() => setRole(item.id, "admin")} 
-                  testID={`make-admin-${item.id}`}
-                >
-                  <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
-                    Admin
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        />
+            )}
+          />
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showUploadModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUploadModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Media Uploaden</Text>
+              <Pressable onPress={() => setShowUploadModal(false)}>
+                <X color={Colors.light.muted} size={24} />
+              </Pressable>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Map (optioneel)</Text>
+              <TextInput
+                style={styles.input}
+                value={folderPath}
+                onChangeText={setFolderPath}
+                placeholder="bijv. trainings/2025"
+                placeholderTextColor={Colors.light.muted}
+              />
+              <Text style={styles.inputHint}>
+                Laat leeg voor de hoofdmap. Gebruik / voor submappen.
+              </Text>
+            </View>
+
+            <Pressable
+              style={styles.selectMediaButton}
+              onPress={handleUploadMedia}
+            >
+              <LinearGradient
+                colors={[Colors.light.primary, Colors.light.primaryDark]}
+                style={styles.selectMediaGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Upload color={Colors.light.text} size={20} strokeWidth={2.5} />
+                <Text style={styles.selectMediaButtonText}>Selecteer Bestand</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -205,8 +372,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500" as const,
   },
+  storageSection: {
+    marginBottom: 24,
+  },
+  storageCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    marginBottom: 12,
+  },
+  storageMeter: {
+    gap: 8,
+  },
+  storageBar: {
+    height: 8,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  storageBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  storageText: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  warningText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700' as const,
+    marginTop: 4,
+  },
+  uploadButton: {
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 15,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  uploadButtonText: {
+    color: Colors.light.text,
+    fontWeight: "700" as const,
+    fontSize: 16,
+  },
   createSection: {
-    marginHorizontal: 20,
     backgroundColor: Colors.light.surface,
     borderRadius: 20,
     padding: 20,
@@ -390,5 +609,62 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.surfaceLight,
     justifyContent: "center",
     alignItems: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    color: Colors.light.text,
+    fontSize: 24,
+    fontWeight: '800' as const,
+  },
+  inputContainer: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '600' as const,
+    marginBottom: 10,
+  },
+  inputHint: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    marginTop: 8,
+  },
+  selectMediaButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  selectMediaGradient: {
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  selectMediaButtonText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });

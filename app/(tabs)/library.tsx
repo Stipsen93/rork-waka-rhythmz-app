@@ -1,70 +1,121 @@
-import React, { useMemo, useState } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, Alert, TouchableOpacity, Platform } from "react-native";
-import * as ImagePicker from 'expo-image-picker';
+import React, { useState, useMemo } from "react";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
-import { CategoryNode, MediaItem, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, Plus, X, Trash2, CheckCircle2 } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
+import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
+import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import { Image } from 'expo-image';
 
-const countAllItems = (node: CategoryNode): number => {
-  let count = node.media?.length ?? 0;
-  if (node.children) {
-    for (const child of node.children) {
-      count += countAllItems(child);
-    }
-  }
-  return count;
+type MediaItem = {
+  id: string;
+  name: string;
+  path: string;
+  folder_path: string;
+  file_type: string;
+  file_size: number;
+  mime_type: string;
+  storage_path: string;
+  created_at: string;
+};
+
+type FolderItem = {
+  name: string;
+  path: string;
+  itemCount: number;
 };
 
 export default function LibraryScreen() {
-  const { library, addFolder, deleteFolders, currentUser } = useAppState();
   const insets = useSafeAreaInsets();
-  const [path, setPath] = useState<string[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [currentPath, setCurrentPath] = useState<string>("");
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderName, setFolderName] = useState("");
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteInfo, setDeleteInfo] = useState({ totalItems: 0, folderCount: 0 });
-  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
 
-  const current = useMemo<{ children?: CategoryNode[]; media?: MediaItem[] }>(() => {
-    let nodes: CategoryNode[] = library;
-    let node: CategoryNode | null = null;
-    for (const id of path) {
-      node = (nodes ?? []).find((n) => n.id === id) ?? null;
-      nodes = node?.children ?? [];
-    }
-    return (node as CategoryNode) ?? { children: library };
-  }, [library, path]);
+  const mediaQuery = trpc.media.getMediaList.useQuery({ folderPath: currentPath });
+  const foldersQuery = trpc.media.getFolders.useQuery();
+  const storageQuery = trpc.media.getStorageUsage.useQuery();
+
+  const folders = useMemo<FolderItem[]>(() => {
+    if (!foldersQuery.data) return [];
+    
+    const folderMap = new Map<string, number>();
+    
+    foldersQuery.data.forEach((folderPath) => {
+      if (currentPath && !folderPath.startsWith(currentPath + '/')) {
+        return;
+      }
+      
+      if (currentPath === '' && folderPath.includes('/')) {
+        const firstFolder = folderPath.split('/')[0];
+        folderMap.set(firstFolder, (folderMap.get(firstFolder) || 0) + 1);
+      } else if (currentPath && folderPath.startsWith(currentPath + '/')) {
+        const remaining = folderPath.substring(currentPath.length + 1);
+        if (remaining.includes('/')) {
+          const nextFolder = remaining.split('/')[0];
+          const fullPath = currentPath + '/' + nextFolder;
+          folderMap.set(fullPath, (folderMap.get(fullPath) || 0) + 1);
+        }
+      } else if (currentPath === '' && !folderPath.includes('/')) {
+        folderMap.set(folderPath, 0);
+      }
+    });
+    
+    const mediaData = mediaQuery.data as MediaItem[] | undefined;
+    
+    mediaData?.forEach((item) => {
+      if (item.folder_path.startsWith(currentPath)) {
+        const remaining = item.folder_path.substring(currentPath ? currentPath.length + 1 : 0);
+        const parts = remaining.split('/').filter(Boolean);
+        
+        if (parts.length > 0) {
+          const nextFolder = currentPath ? currentPath + '/' + parts[0] : parts[0];
+          folderMap.set(nextFolder, (folderMap.get(nextFolder) || 0) + 1);
+        }
+      }
+    });
+    
+    return Array.from(folderMap.entries()).map(([path, count]) => ({
+      name: path.split('/').pop() || path,
+      path,
+      itemCount: count,
+    }));
+  }, [foldersQuery.data, mediaQuery.data, currentPath]);
+
+  const mediaItems = useMemo<MediaItem[]>(() => {
+    const mediaData = mediaQuery.data as MediaItem[] | undefined;
+    return mediaData?.filter((item) => item.folder_path === currentPath) || [];
+  }, [mediaQuery.data, currentPath]);
 
   const breadcrumbText = useMemo(() => {
-    if (path.length === 0) return '';
-    
-    const names: string[] = [];
-    let nodes: CategoryNode[] = library;
-    
-    for (const id of path) {
-      const node = nodes.find((n) => n.id === id);
-      if (node) {
-        names.push(node.name);
-        nodes = node.children ?? [];
-      }
-    }
-    
-    return names.join(' > ');
-  }, [library, path]);
+    if (!currentPath) return '';
+    return currentPath.split('/').join(' > ');
+  }, [currentPath]);
 
-  type Item = { kind: "folder"; node: CategoryNode } | { kind: "media"; media: MediaItem };
+  const handleBack = () => {
+    const parts = currentPath.split('/');
+    parts.pop();
+    setCurrentPath(parts.join('/'));
+  };
+
+  const handleOpenMedia = (media: MediaItem) => {
+    setSelectedMedia(media);
+    setShowVideoPlayer(true);
+  };
+
+  type Item = { kind: "folder"; folder: FolderItem } | { kind: "media"; media: MediaItem };
   const items: Item[] = [
-    ...(current.children ?? []).map((c: CategoryNode) => ({ kind: "folder" as const, node: c })),
-    ...(current.media ?? []).map((m: MediaItem) => ({ kind: "media" as const, media: m })),
+    ...folders.map((f) => ({ kind: "folder" as const, folder: f })),
+    ...mediaItems.map((m) => ({ kind: "media" as const, media: m })),
   ];
+
+  const isLoading = mediaQuery.isLoading || foldersQuery.isLoading;
 
   return (
     <>
@@ -83,443 +134,268 @@ export default function LibraryScreen() {
         }} 
       />
       <View style={styles.container} testID="library-screen">
-      <LinearGradient 
-        colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
-        style={styles.headerBg} 
-        locations={[0, 0.3, 1]}
-      />
-      
-      <View style={styles.header}>
-        <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-        <Text style={styles.title}>Bibliotheek</Text>
-        {path.length > 0 && breadcrumbText && (
-          <Text style={styles.breadcrumb}>
-            {breadcrumbText}
-          </Text>
+        <LinearGradient 
+          colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
+          style={styles.headerBg} 
+          locations={[0, 0.3, 1]}
+        />
+        
+        <View style={styles.header}>
+          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+          <Text style={styles.title}>Bibliotheek</Text>
+          {breadcrumbText && (
+            <Text style={styles.breadcrumb}>{breadcrumbText}</Text>
+          )}
+        </View>
+
+        {storageQuery.data && (
+          <View style={styles.storageCard}>
+            <View style={styles.storageHeader}>
+              <HardDrive color={Colors.light.primary} size={20} strokeWidth={2.5} />
+              <Text style={styles.storageTitle}>Opslag</Text>
+            </View>
+            <View style={styles.storageMeter}>
+              <View style={styles.storageBar}>
+                <LinearGradient
+                  colors={
+                    storageQuery.data.percentage > 90
+                      ? ['#DC2626', '#991B1B']
+                      : storageQuery.data.percentage > 75
+                      ? ['#F59E0B', '#D97706']
+                      : [Colors.light.primary, Colors.light.primaryDark]
+                  }
+                  style={[styles.storageBarFill, { width: `${Math.min(storageQuery.data.percentage, 100)}%` }]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
+              </View>
+              <Text style={styles.storageText}>
+                {storageQuery.data.usageGB} GB / {storageQuery.data.maxGB} GB ({storageQuery.data.percentage}%)
+              </Text>
+            </View>
+          </View>
         )}
-      </View>
 
-      {path.length > 0 && (
-        <Pressable 
-          onPress={() => setPath((p) => p.slice(0, -1))} 
-          style={styles.backButton} 
-          testID="breadcrumb-back"
-        >
-          <ArrowLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
-          <Text style={styles.backText}>Terug</Text>
-        </Pressable>
-      )}
-
-      <FlatList
-        data={items}
-        keyExtractor={(item) => (item.kind === "folder" ? item.node.id : item.media.id)}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-        renderItem={({ item }) => {
-          if (item.kind === "folder") {
-            const itemCount = (item.node.media?.length ?? 0) + (item.node.children?.length ?? 0);
-            const isSelected = selectedIds.has(item.node.id);
-            
-            return (
-              <TouchableOpacity 
-                style={[styles.card, isSelected && styles.cardSelected]} 
-                onPress={() => {
-                  if (selectionMode) {
-                    setSelectedIds((prev) => {
-                      const newSet = new Set(prev);
-                      if (newSet.has(item.node.id)) {
-                        newSet.delete(item.node.id);
-                      } else {
-                        newSet.add(item.node.id);
-                      }
-                      return newSet;
-                    });
-                  } else {
-                    setPath((p) => [...p, item.node.id]);
-                  }
-                }}
-                onLongPress={() => {
-                  if (!selectionMode) {
-                    setSelectionMode(true);
-                    setSelectedIds(new Set([item.node.id]));
-                  }
-                }}
-                testID={`folder-${item.node.id}`}
-              >
-                {selectionMode && (
-                  <View style={styles.checkboxContainer}>
-                    {isSelected ? (
-                      <CheckCircle2 color={Colors.light.primary} size={24} strokeWidth={2.5} />
-                    ) : (
-                      <View style={styles.checkboxEmpty} />
-                    )}
-                  </View>
-                )}
-                <View style={styles.iconContainer}>
-                  <Folder color={Colors.light.primary} size={28} strokeWidth={2} />
-                </View>
-                <View style={styles.cardContent}>
-                  <Text style={styles.cardTitle}>{item.node.name}</Text>
-                  <Text style={styles.cardMeta}>{itemCount} items</Text>
-                </View>
-                {!selectionMode && <ChevronRight color={Colors.light.muted} size={20} />}
-              </TouchableOpacity>
-            );
-          }
-          
-          const Icon = item.media.type === 'video' ? Video : ImageIcon;
-          return (
-            <Pressable style={styles.card} onPress={() => {}} testID={`media-${item.media.id}`}>
-              <View style={[styles.iconContainer, styles.mediaIcon]}>
-                <Icon color={Colors.light.text} size={24} strokeWidth={2} />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.media.title}</Text>
-                <Text style={styles.cardMeta}>{item.media.type.toUpperCase()}</Text>
-              </View>
-              <View style={styles.playBadge}>
-                <Text style={styles.playBadgeText}>▶</Text>
-              </View>
-            </Pressable>
-          );
-        }}
-      />
-
-      {selectionMode ? (
-        <View style={[styles.selectionBar, { bottom: insets.bottom + 20 }]}>
-          <TouchableOpacity
-            style={styles.selectionButton}
-            onPress={() => {
-              setSelectionMode(false);
-              setSelectedIds(new Set());
-            }}
-            testID="cancel-selection"
+        {currentPath && (
+          <Pressable 
+            onPress={handleBack} 
+            style={styles.backButton} 
+            testID="breadcrumb-back"
           >
-            <Text style={styles.selectionButtonText}>Annuleren</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.deleteButton, selectedIds.size === 0 && styles.disabledDeleteButton]}
-            onPress={() => {
-              console.log('Delete button clicked, selectedIds:', selectedIds.size);
-              if (selectedIds.size === 0) return;
-              
-              let totalItems = 0;
-              const selectedNodes = (current.children ?? []).filter(node => selectedIds.has(node.id));
-              for (const node of selectedNodes) {
-                totalItems += countAllItems(node);
-              }
-              
-              console.log('Showing confirmation, totalItems:', totalItems);
-              
-              if (Platform.OS === 'web') {
-                setDeleteInfo({ totalItems, folderCount: selectedIds.size });
-                setShowDeleteConfirm(true);
-              } else {
-                Alert.alert(
-                  'Items in mappen',
-                  `Er zijn in totaal ${totalItems} item${totalItems !== 1 ? 's' : ''} in ${selectedIds.size > 1 ? 'deze mappen' : 'deze map'}.`,
-                  [
-                    { text: 'Annuleren', style: 'cancel' },
-                    {
-                      text: 'Doorgaan',
-                      style: 'default',
-                      onPress: () => {
-                        Alert.alert(
-                          'Bevestigen',
-                          'Weet je het zeker om te verwijderen?',
-                          [
-                            { text: 'Annuleren', style: 'cancel' },
-                            {
-                              text: 'Verwijderen',
-                              style: 'destructive',
-                              onPress: () => {
-                                console.log('Delete confirmed');
-                                deleteFolders(Array.from(selectedIds), path);
-                                setSelectionMode(false);
-                                setSelectedIds(new Set());
-                              }
-                            }
-                          ]
-                        );
-                      }
-                    }
-                  ]
+            <ArrowLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
+            <Text style={styles.backText}>Terug</Text>
+          </Pressable>
+        )}
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.light.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={items}
+            keyExtractor={(item, index) => 
+              item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.id}`
+            }
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+            renderItem={({ item }) => {
+              if (item.kind === "folder") {
+                return (
+                  <TouchableOpacity 
+                    style={styles.card} 
+                    onPress={() => setCurrentPath(item.folder.path)}
+                    testID={`folder-${item.folder.path}`}
+                  >
+                    <View style={styles.iconContainer}>
+                      <Folder color={Colors.light.primary} size={28} strokeWidth={2} />
+                    </View>
+                    <View style={styles.cardContent}>
+                      <Text style={styles.cardTitle}>{item.folder.name}</Text>
+                      <Text style={styles.cardMeta}>{item.folder.itemCount} items</Text>
+                    </View>
+                    <ChevronRight color={Colors.light.muted} size={20} />
+                  </TouchableOpacity>
                 );
               }
+              
+              const Icon = item.media.file_type === 'video' ? Video : ImageIcon;
+              return (
+                <Pressable 
+                  style={styles.card} 
+                  onPress={() => handleOpenMedia(item.media)} 
+                  testID={`media-${item.media.id}`}
+                >
+                  <View style={[styles.iconContainer, styles.mediaIcon]}>
+                    <Icon color={Colors.light.text} size={24} strokeWidth={2} />
+                  </View>
+                  <View style={styles.cardContent}>
+                    <Text style={styles.cardTitle}>{item.media.name}</Text>
+                    <Text style={styles.cardMeta}>
+                      {item.media.file_type.toUpperCase()} • {(item.media.file_size / (1024 * 1024)).toFixed(1)} MB
+                    </Text>
+                  </View>
+                  <View style={styles.playBadge}>
+                    <Text style={styles.playBadgeText}>▶</Text>
+                  </View>
+                </Pressable>
+              );
             }}
-            disabled={selectedIds.size === 0}
-            testID="delete-button"
-          >
-            <Trash2 color={selectedIds.size > 0 ? Colors.light.text : Colors.light.muted} size={20} strokeWidth={2.5} />
-            <Text style={[styles.deleteButtonText, selectedIds.size === 0 && styles.disabledDeleteText]}>
-              Verwijderen ({selectedIds.size})
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        currentUser?.role === "admin" && (
-          <Pressable 
-            style={[styles.fab, { bottom: insets.bottom + 20 }]} 
-            onPress={() => setShowAddModal(true)}
-            testID="add-fab"
-          >
-            <LinearGradient
-              colors={[Colors.light.primary, '#B91C1C']}
-              style={styles.fabGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Plus color={Colors.light.text} size={28} strokeWidth={3} />
-            </LinearGradient>
-          </Pressable>
-        )
-      )}
+          />
+        )}
 
-      <Modal
-        visible={showAddModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Toevoegen aan Bibliotheek</Text>
-              <Pressable onPress={() => setShowAddModal(false)} testID="close-modal">
-                <X color={Colors.light.muted} size={24} />
-              </Pressable>
-            </View>
-
-            <Pressable 
-              style={styles.optionCard} 
-              onPress={() => {
-                setShowAddModal(false);
-                setShowFolderModal(true);
-              }}
-              testID="add-folder-option"
-            >
-              <View style={styles.optionIcon}>
-                <Folder color={Colors.light.primary} size={32} strokeWidth={2} />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Map Toevoegen</Text>
-                <Text style={styles.optionDesc}>Maak een nieuwe categorie of submap</Text>
-              </View>
-              <ChevronRight color={Colors.light.muted} size={20} />
-            </Pressable>
-
-            <Pressable 
-              style={styles.optionCard} 
-              onPress={async () => {
-                setShowAddModal(false);
-                
-                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                if (status !== 'granted') {
-                  Alert.alert('Toestemming Vereist', 'We hebben toegang nodig tot je mediabibliotheek om bestanden te uploaden.');
-                  return;
-                }
-                
-                const result = await ImagePicker.launchImageLibraryAsync({
-                  mediaTypes: ['images', 'videos'],
-                  allowsEditing: false,
-                  quality: 1,
-                });
-                
-                if (!result.canceled && result.assets && result.assets.length > 0) {
-                  const asset = result.assets[0];
-                  console.log('Selected media:', {
-                    uri: asset.uri,
-                    type: asset.type,
-                    fileName: asset.fileName,
-                  });
-                }
-              }}
-              testID="add-media-option"
-            >
-              <View style={[styles.optionIcon, styles.mediaOptionIcon]}>
-                <Video color={Colors.light.text} size={32} strokeWidth={2} />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Media Toevoegen</Text>
-                <Text style={styles.optionDesc}>Upload video of foto</Text>
-              </View>
-              <ChevronRight color={Colors.light.muted} size={20} />
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showFolderModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowFolderModal(false);
-          setFolderName("");
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nieuwe Map</Text>
-              <Pressable onPress={() => {
-                setShowFolderModal(false);
-                setFolderName("");
-              }} testID="close-folder-modal">
-                <X color={Colors.light.muted} size={24} />
-              </Pressable>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Mapnaam</Text>
-              <TextInput
-                style={styles.input}
-                value={folderName}
-                onChangeText={setFolderName}
-                placeholder="Voer mapnaam in"
-                placeholderTextColor={Colors.light.muted}
-                autoFocus
-                testID="folder-name-input"
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => {
+        <Modal
+          visible={showFolderModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowFolderModal(false);
+            setFolderName("");
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nieuwe Map</Text>
+                <Pressable onPress={() => {
                   setShowFolderModal(false);
                   setFolderName("");
-                }}
-                testID="cancel-folder-button"
-              >
-                <Text style={styles.cancelButtonText}>Annuleren</Text>
-              </Pressable>
-              
-              <Pressable
-                style={[styles.actionButton, styles.createButton, !folderName.trim() && styles.disabledButton]}
-                onPress={() => {
-                  if (folderName.trim()) {
-                    addFolder(folderName.trim(), path);
+                }} testID="close-folder-modal">
+                  <X color={Colors.light.muted} size={24} />
+                </Pressable>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Mapnaam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={folderName}
+                  onChangeText={setFolderName}
+                  placeholder="Voer mapnaam in"
+                  placeholderTextColor={Colors.light.muted}
+                  autoFocus
+                  testID="folder-name-input"
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
                     setShowFolderModal(false);
                     setFolderName("");
-                  }
-                }}
-                disabled={!folderName.trim()}
-                testID="create-folder-button"
-              >
-                <LinearGradient
-                  colors={folderName.trim() ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
-                  style={styles.createButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                  }}
+                  testID="cancel-folder-button"
                 >
-                  <Text style={[styles.createButtonText, !folderName.trim() && styles.disabledButtonText]}>Aanmaken</Text>
-                </LinearGradient>
-              </Pressable>
+                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={[styles.actionButton, styles.createButton, !folderName.trim() && styles.disabledButton]}
+                  onPress={() => {
+                    if (folderName.trim()) {
+                      setShowFolderModal(false);
+                      setFolderName("");
+                    }
+                  }}
+                  disabled={!folderName.trim()}
+                  testID="create-folder-button"
+                >
+                  <LinearGradient
+                    colors={folderName.trim() ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
+                    style={styles.createButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={[styles.createButtonText, !folderName.trim() && styles.disabledButtonText]}>Aanmaken</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      <Modal
-        visible={showDeleteConfirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDeleteConfirm(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Items in mappen</Text>
-            </View>
-            
-            <Text style={styles.confirmText}>
-              Er zijn in totaal {deleteInfo.totalItems} item{deleteInfo.totalItems !== 1 ? 's' : ''} in {deleteInfo.folderCount > 1 ? 'deze mappen' : 'deze map'}.
-            </Text>
+        {showVideoPlayer && selectedMedia && (
+          <MediaPlayerModal
+            media={selectedMedia}
+            visible={showVideoPlayer}
+            onClose={() => {
+              setShowVideoPlayer(false);
+              setSelectedMedia(null);
+            }}
+          />
+        )}
 
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => setShowDeleteConfirm(false)}
-              >
-                <Text style={styles.cancelButtonText}>Annuleren</Text>
-              </Pressable>
-              
-              <Pressable
-                style={[styles.actionButton]}
-                onPress={() => {
-                  setShowDeleteConfirm(false);
-                  setShowFinalConfirm(true);
-                }}
-              >
-                <LinearGradient
-                  colors={[Colors.light.primary, Colors.light.primaryDark]}
-                  style={styles.createButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Text style={styles.createButtonText}>Doorgaan</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showFinalConfirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFinalConfirm(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bevestigen</Text>
-            </View>
-            
-            <Text style={styles.confirmText}>
-              Weet je het zeker om te verwijderen?
-            </Text>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => setShowFinalConfirm(false)}
-              >
-                <Text style={styles.cancelButtonText}>Annuleren</Text>
-              </Pressable>
-              
-              <Pressable
-                style={[styles.actionButton]}
-                onPress={() => {
-                  console.log('Delete confirmed');
-                  deleteFolders(Array.from(selectedIds), path);
-                  setSelectionMode(false);
-                  setSelectedIds(new Set());
-                  setShowFinalConfirm(false);
-                }}
-              >
-                <LinearGradient
-                  colors={['#DC2626', '#991B1B']}
-                  style={styles.createButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Text style={styles.createButtonText}>Verwijderen</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <MenuModal 
-        visible={showMenuModal} 
-        onClose={() => setShowMenuModal(false)}
-      />
+        <MenuModal 
+          visible={showMenuModal} 
+          onClose={() => setShowMenuModal(false)}
+        />
       </View>
     </>
+  );
+}
+
+function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visible: boolean; onClose: () => void }) {
+  const [mediaUrl, setMediaUrl] = useState<string>('');
+  const [isLoadingUrl, setIsLoadingUrl] = useState(true);
+
+  React.useEffect(() => {
+    const getUrl = async () => {
+      setIsLoadingUrl(true);
+      const { data } = supabase.storage
+        .from('media-library')
+        .getPublicUrl(media.storage_path);
+      
+      setMediaUrl(data.publicUrl);
+      setIsLoadingUrl(false);
+    };
+    
+    if (visible) {
+      getUrl();
+    }
+  }, [visible, media.storage_path]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.playerModalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{media.name}</Text>
+            <Pressable onPress={onClose} testID="close-player-modal">
+              <X color={Colors.light.muted} size={24} />
+            </Pressable>
+          </View>
+
+          {isLoadingUrl ? (
+            <View style={styles.playerLoading}>
+              <ActivityIndicator size="large" color={Colors.light.primary} />
+            </View>
+          ) : (
+            <View style={styles.playerContainer}>
+              {media.file_type === 'video' ? (
+                <ExpoVideo
+                  source={{ uri: mediaUrl }}
+                  style={styles.video}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay
+                />
+              ) : (
+                <Image
+                  source={{ uri: mediaUrl }}
+                  style={styles.image}
+                  contentFit="contain"
+                />
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -539,7 +415,7 @@ const styles = StyleSheet.create({
   header: { 
     paddingTop: 32, 
     paddingHorizontal: 20, 
-    paddingBottom: 24 
+    paddingBottom: 16
   },
   appName: { 
     color: Colors.light.primary, 
@@ -560,6 +436,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500" as const,
   },
+  storageCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  storageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  storageTitle: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  storageMeter: {
+    gap: 8,
+  },
+  storageBar: {
+    height: 8,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  storageBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  storageText: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
   backButton: { 
     marginHorizontal: 20, 
     marginBottom: 16,
@@ -572,6 +486,11 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     fontSize: 16,
     fontWeight: "700" as const,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   list: { 
     padding: 20, 
@@ -630,25 +549,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 2,
   },
-  fab: {
-    position: "absolute",
-    right: 20,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -665,6 +565,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
   },
+  playerModalContent: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 600,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -675,42 +584,8 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 24,
     fontWeight: '800' as const,
-  },
-  optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-  },
-  optionIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    backgroundColor: Colors.light.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  mediaOptionIcon: {
-    backgroundColor: Colors.light.primary,
-  },
-  optionContent: {
     flex: 1,
-  },
-  optionTitle: {
-    color: Colors.light.text,
-    fontSize: 18,
-    fontWeight: '700' as const,
-    marginBottom: 4,
-  },
-  optionDesc: {
-    color: Colors.light.muted,
-    fontSize: 14,
-    fontWeight: '500' as const,
+    marginRight: 16,
   },
   inputContainer: {
     marginBottom: 24,
@@ -771,79 +646,40 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: Colors.light.muted,
   },
-  cardSelected: {
-    borderColor: Colors.light.primary,
-    borderWidth: 2,
-    shadowColor: Colors.light.primary,
-    shadowOpacity: 0.3,
-  },
-  checkboxContainer: {
-    marginRight: 12,
-  },
-  checkboxEmpty: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.light.muted,
-  },
-  selectionBar: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    backgroundColor: Colors.light.surface,
+  playerContainer: {
+    backgroundColor: Colors.light.darkGray,
     borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  selectionButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-  },
-  selectionButtonText: {
-    color: Colors.light.text,
-    fontSize: 15,
-    fontWeight: '700' as const,
-  },
-  deleteButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 24,
+    minHeight: 200,
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: Colors.light.primary,
-    borderRadius: 12,
+    alignItems: 'center',
   },
-  disabledDeleteButton: {
+  playerLoading: {
+    minHeight: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playerPlaceholder: {
+    color: Colors.light.text,
+    fontSize: 18,
+    fontWeight: '700' as const,
+    marginBottom: 12,
+  },
+  playerUrl: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  video: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
     backgroundColor: Colors.light.darkGray,
   },
-  deleteButtonText: {
-    color: Colors.light.text,
-    fontSize: 15,
-    fontWeight: '700' as const,
-  },
-  disabledDeleteText: {
-    color: Colors.light.muted,
-  },
-  confirmText: {
-    color: Colors.light.text,
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 24,
+  image: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
+    backgroundColor: Colors.light.darkGray,
   },
 });

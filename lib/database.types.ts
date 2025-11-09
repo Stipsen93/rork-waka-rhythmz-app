@@ -250,9 +250,55 @@ export type Database = {
           created_at?: string
         }
       }
+      media_library: {
+        Row: {
+          id: string
+          name: string
+          path: string
+          folder_path: string
+          file_type: string
+          file_size: number
+          mime_type: string
+          storage_path: string
+          uploaded_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          path: string
+          folder_path?: string
+          file_type: string
+          file_size: number
+          mime_type: string
+          storage_path: string
+          uploaded_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          path?: string
+          folder_path?: string
+          file_type?: string
+          file_size?: number
+          mime_type?: string
+          storage_path?: string
+          uploaded_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      get_storage_usage: {
+        Args: Record<string, never>
+        Returns: number
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
