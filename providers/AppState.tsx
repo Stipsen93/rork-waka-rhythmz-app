@@ -160,6 +160,7 @@ export interface AppStateValue {
   setRole: (userId: string, role: Role) => void;
   resetPassword: (userId: string) => Promise<string>;
   changePassword: (userId: string, newPassword: string) => void;
+  updateUserProfile: (userId: string, profile: { username?: string; email?: string; phone?: string; age?: string; address?: string }) => Promise<void>;
   permissions: Record<Role, PermissionMatrix>;
   setPermissions: (role: Role, perms: PermissionMatrix) => void;
   library: CategoryNode[];
@@ -784,6 +785,19 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     await supabase.from('users').update(updateData).eq('id', userId);
     console.log('✅ Password changed');
   }, []);
+
+  const updateUserProfile = useCallback(async (userId: string, profile: { username?: string; email?: string; phone?: string; age?: string; address?: string }) => {
+    console.log('💾 Updating user profile in Supabase...');
+    setUsers((prev) => prev.map((u) => 
+      u.id === userId ? { ...u, ...profile } : u
+    ));
+    const updateData: Database['public']['Tables']['users']['Update'] = profile as any;
+    await supabase.from('users').update(updateData).eq('id', userId);
+    if (currentUser?.id === userId) {
+      setCurrentUser((prev) => prev ? { ...prev, ...profile } : prev);
+    }
+    console.log('✅ User profile updated');
+  }, [currentUser]);
 
   const setPermissions = useCallback((role: Role, perms: PermissionMatrix) => {
     setPermissionsState((prev) => ({ ...prev, [role]: perms }));
@@ -1512,6 +1526,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     setRole,
     resetPassword,
     changePassword,
+    updateUserProfile,
     permissions,
     setPermissions,
     library,

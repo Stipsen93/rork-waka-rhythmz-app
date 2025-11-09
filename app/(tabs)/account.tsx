@@ -9,7 +9,7 @@ import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser, logout, changePassword } = useAppState();
+  const { currentUser, logout, changePassword, updateUserProfile } = useAppState();
   const router = useRouter();
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
@@ -43,9 +43,19 @@ export default function AccountScreen() {
     }
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (isEditingProfile) {
-      Alert.alert("Gelukt", "Profiel opgeslagen");
+      if (currentUser) {
+        try {
+          await updateUserProfile(currentUser.id, {
+            username: name,
+          });
+          Alert.alert("Gelukt", "Profiel opgeslagen");
+        } catch (error) {
+          console.error('Profile save error:', error);
+          Alert.alert("Fout", "Kon profiel niet opslaan");
+        }
+      }
       setIsEditingProfile(false);
     } else {
       setIsEditingProfile(true);
