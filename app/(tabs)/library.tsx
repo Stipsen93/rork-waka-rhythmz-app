@@ -188,37 +188,76 @@ export default function LibraryScreen() {
       setIsUploading(true);
 
       console.log('[CLIENT] Reading file data...');
+      console.log('[CLIENT] File URI:', file.uri);
+      console.log('[CLIENT] File type:', file.mimeType);
+      console.log('[CLIENT] File size:', file.size);
+      
       let base64Data = '';
       try {
+        console.log('[CLIENT] Fetching file from URI...');
         const response = await fetch(file.uri);
-        if (!response.ok) {
-          throw new Error(`Fetch failed: ${response.status}`);
-        }
-        const blob = await response.blob();
+        console.log('[CLIENT] Fetch response status:', response.status);
         
+        if (!response.ok) {
+          throw new Error(`Fetch mislukt met status: ${response.status}`);
+        }
+        
+        console.log('[CLIENT] Converting to blob...');
+        const blob = await response.blob();
+        console.log('[CLIENT] Blob created, size:', blob.size, 'type:', blob.type);
+        
+        if (blob.size === 0) {
+          throw new Error('Bestand is leeg of kon niet worden gelezen');
+        }
+        
+        console.log('[CLIENT] Reading blob as base64...');
         base64Data = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
+          
           reader.onloadend = () => {
+            console.log('[CLIENT] FileReader loadend event fired');
+            if (!reader.result) {
+              reject(new Error('FileReader resultaat is leeg'));
+              return;
+            }
             const result = reader.result as string;
             const base64 = result.includes(',') ? result.split(',')[1] : result;
             console.log('[CLIENT] File read successfully, base64 length:', base64.length);
             resolve(base64);
           };
+          
           reader.onerror = () => {
             console.error('[CLIENT] FileReader error:', reader.error);
-            reject(new Error('FileReader error'));
+            reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
           };
+          
+          reader.onabort = () => {
+            console.error('[CLIENT] FileReader aborted');
+            reject(new Error('Bestand lezen geannuleerd'));
+          };
+          
+          console.log('[CLIENT] Starting FileReader.readAsDataURL...');
           reader.readAsDataURL(blob);
         });
-      } catch (error) {
+        
+        console.log('[CLIENT] File reading completed successfully');
+      } catch (error: any) {
         console.error('[CLIENT] Error reading file:', error);
+        console.error('[CLIENT] Error details:', {
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack,
+        });
+        
         setUploadingFiles((prev) => {
           const next = new Map(prev);
           next.delete(file.name);
           return next;
         });
         setIsUploading(false);
-        throw new Error('Kon bestand niet lezen. Controleer bestandsrechten.');
+        
+        const errorMsg = error?.message || 'Onbekende fout';
+        throw new Error(`Kon bestand niet lezen: ${errorMsg}`);
       }
 
       setUploadingFiles((prev) => {
