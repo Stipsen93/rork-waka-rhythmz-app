@@ -12,8 +12,24 @@ export const uploadMediaRoute = publicProcedure
     mimeType: z.string(),
     base64Data: z.string(),
   }))
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
     console.log('[Media] Uploading media:', input.name);
+    
+    const authHeader = ctx.req.headers.get('authorization');
+    if (!authHeader) {
+      throw new Error('Niet geautoriseerd. Log opnieuw in.');
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseClient = supabase;
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      console.error('[Media] Auth error:', authError);
+      throw new Error('Authenticatie mislukt. Log opnieuw in.');
+    }
+
+    console.log('[Media] Authenticated user:', user.id);
     
     try {
       const timestamp = Date.now();

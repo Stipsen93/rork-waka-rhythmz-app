@@ -298,7 +298,7 @@ export default function LibraryScreen() {
                 />
               </View>
               <Text style={styles.storageText}>
-                {storageQuery.data.usageGB || 0} GB / {storageQuery.data.maxGB || 100} GB ({storageQuery.data.percentage || 0}%)
+                {`${storageQuery.data.usageGB || 0} GB / ${storageQuery.data.maxGB || 100} GB (${storageQuery.data.percentage || 0}%)`}
               </Text>
             </View>
           </View>
@@ -386,7 +386,7 @@ export default function LibraryScreen() {
                     </Text>
                     {item.media.isUploading && item.media.uploadProgress !== undefined && (
                       <View style={styles.progressBar}>
-                        <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` }]} />
+                        <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` as any }]} />
                       </View>
                     )}
                   </View>
