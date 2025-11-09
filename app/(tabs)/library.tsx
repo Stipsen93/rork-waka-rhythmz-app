@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2 } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +47,9 @@ export default function LibraryScreen() {
   const [creatingFolders, setCreatingFolders] = useState<Map<string, FolderItem>>(new Map());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const folders = useMemo<FolderItem[]>(() => {
     const creatingFoldersList = Array.from(creatingFolders.values());
@@ -250,6 +253,91 @@ export default function LibraryScreen() {
     }
   };
 
+  const handleLongPress = (itemId: string) => {
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedItems(new Set([itemId]));
+    }
+  };
+
+  const handleItemPress = (itemId: string, isFolder: boolean, folderPath?: string) => {
+    if (selectionMode) {
+      const newSelected = new Set(selectedItems);
+      if (newSelected.has(itemId)) {
+        newSelected.delete(itemId);
+      } else {
+        newSelected.add(itemId);
+      }
+      setSelectedItems(newSelected);
+      
+      if (newSelected.size === 0) {
+        setSelectionMode(false);
+      }
+    } else {
+      if (isFolder && folderPath) {
+        setCurrentPath(folderPath);
+      }
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedItems(new Set());
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedItems.size === 0) return;
+    
+    Alert.alert(
+      'Items verwijderen',
+      `Weet je zeker dat je ${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'} wilt verwijderen?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        { 
+          text: 'Verwijderen', 
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const itemsToDelete = Array.from(selectedItems);
+              
+              const mediaToDelete = itemsToDelete.filter(id => id.startsWith('media-'));
+              const foldersToDelete = itemsToDelete.filter(id => id.startsWith('folder-'));
+              
+              for (const mediaId of mediaToDelete) {
+                const id = mediaId.replace('media-', '');
+                const item = mediaItems.find(m => m.id === id);
+                if (item) {
+                  await appState.deleteMedia(item.id);
+                }
+              }
+              
+              for (const folderId of foldersToDelete) {
+                const path = folderId.replace('folder-', '');
+                const folder = folders.find(f => f.path === path);
+                if (folder) {
+                  await appState.deleteFolder(folder.path);
+                }
+              }
+              
+              await appState.refreshStorageUsage();
+              
+              setSelectionMode(false);
+              setSelectedItems(new Set());
+            } catch (error: any) {
+              console.error('Delete error:', error);
+              const message = error?.message || 'Onbekende fout bij verwijderen';
+              setErrorMessage(`Verwijderen mislukt: ${message}`);
+              setTimeout(() => setErrorMessage(null), 5000);
+            } finally {
+              setIsDeleting(false);
+            }
+          }
+        },
+      ]
+    );
+  };
+
   const handleCreateFolder = async () => {
     if (!folderName.trim()) return;
     
@@ -395,13 +483,23 @@ export default function LibraryScreen() {
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
           renderItem={({ item }) => {
             if (item.kind === "folder") {
+              const itemId = `folder-${item.folder.path}`;
+              const isSelected = selectedItems.has(itemId);
+              
               return (
                 <TouchableOpacity 
-                  style={[styles.card, item.folder.isCreating && styles.cardCreating]} 
-                  onPress={() => !item.folder.isCreating && setCurrentPath(item.folder.path)}
+                  style={[styles.card, item.folder.isCreating && styles.cardCreating, isSelected && styles.cardSelected]} 
+                  onPress={() => !item.folder.isCreating && handleItemPress(itemId, true, item.folder.path)}
+                  onLongPress={() => !item.folder.isCreating && handleLongPress(itemId)}
                   disabled={item.folder.isCreating}
                   testID={`folder-${item.folder.path}`}
                 >
+                  {selectionMode && (
+                    <View style={styles.selectionIndicator}>
+                      {isSelected && <CheckCircle2 color={Colors.light.primary} size={24} strokeWidth={2.5} />}
+                      {!isSelected && <View style={styles.selectionCircle} />}
+                    </View>
+                  )}
                   <View style={styles.iconContainer}>
                     {item.folder.isCreating ? (
                       <ActivityIndicator size="small" color={Colors.light.primary} />
@@ -415,19 +513,37 @@ export default function LibraryScreen() {
                       {item.folder.isCreating ? 'Aanmaken...' : `${item.folder.itemCount} items`}
                     </Text>
                   </View>
-                  {!item.folder.isCreating && <ChevronRight color={Colors.light.muted} size={20} />}
+                  {!item.folder.isCreating && !selectionMode && <ChevronRight color={Colors.light.muted} size={20} />}
                 </TouchableOpacity>
               );
             }
             
             const Icon = item.media.file_type === 'video' ? Video : ImageIcon;
+            const itemId = `media-${item.media.id}`;
+            const isSelected = selectedItems.has(itemId);
+            
             return (
-              <Pressable 
-                style={[styles.card, item.media.isUploading && styles.cardUploading]} 
-                onPress={() => !item.media.isUploading && handleOpenMedia(item.media)}
+              <TouchableOpacity 
+                style={[styles.card, item.media.isUploading && styles.cardUploading, isSelected && styles.cardSelected]} 
+                onPress={() => {
+                  if (!item.media.isUploading) {
+                    if (selectionMode) {
+                      handleItemPress(itemId, false);
+                    } else {
+                      handleOpenMedia(item.media);
+                    }
+                  }
+                }}
+                onLongPress={() => !item.media.isUploading && handleLongPress(itemId)}
                 disabled={item.media.isUploading}
                 testID={`media-${item.media.id}`}
               >
+                {selectionMode && (
+                  <View style={styles.selectionIndicator}>
+                    {isSelected && <CheckCircle2 color={Colors.light.primary} size={24} strokeWidth={2.5} />}
+                    {!isSelected && <View style={styles.selectionCircle} />}
+                  </View>
+                )}
                 <View style={[styles.iconContainer, styles.mediaIcon]}>
                   {item.media.isUploading ? (
                     <ActivityIndicator size="small" color={Colors.light.text} />
@@ -448,12 +564,12 @@ export default function LibraryScreen() {
                     </View>
                   )}
                 </View>
-                {!item.media.isUploading && (
+                {!item.media.isUploading && !selectionMode && (
                   <View style={styles.playBadge}>
                     <Text style={styles.playBadgeText}>▶</Text>
                   </View>
                 )}
-              </Pressable>
+              </TouchableOpacity>
             );
           }}
         />
@@ -600,20 +716,55 @@ export default function LibraryScreen() {
           </Pressable>
         </Modal>
 
-        <Pressable 
-          style={[styles.fab, { bottom: insets.bottom + 20 }]} 
-          onPress={() => setShowActionSheet(true)}
-          testID="add-library-fab"
-        >
-          <LinearGradient
-            colors={[Colors.light.primary, '#B91C1C']}
-            style={styles.fabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        {selectionMode ? (
+          <View style={[styles.selectionToolbar, { bottom: insets.bottom + 20 }]}>
+            <Pressable 
+              style={styles.toolbarButton}
+              onPress={handleCancelSelection}
+              testID="cancel-selection-button"
+            >
+              <X color={Colors.light.text} size={20} strokeWidth={2.5} />
+              <Text style={styles.toolbarButtonText}>Annuleren</Text>
+            </Pressable>
+            
+            <View style={styles.toolbarCenter}>
+              <Text style={styles.toolbarText}>
+                {selectedItems.size} {selectedItems.size === 1 ? 'item' : 'items'} geselecteerd
+              </Text>
+            </View>
+            
+            <Pressable 
+              style={[styles.toolbarButton, isDeleting && styles.toolbarButtonDisabled]}
+              onPress={handleDeleteSelected}
+              disabled={isDeleting || selectedItems.size === 0}
+              testID="delete-selected-button"
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color={Colors.light.text} />
+              ) : (
+                <>
+                  <Trash2 color="#DC2626" size={20} strokeWidth={2.5} />
+                  <Text style={styles.toolbarButtonTextDelete}>Verwijder</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable 
+            style={[styles.fab, { bottom: insets.bottom + 20 }]} 
+            onPress={() => setShowActionSheet(true)}
+            testID="add-library-fab"
           >
-            <Plus color={Colors.light.text} size={28} strokeWidth={3} />
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={[Colors.light.primary, '#B91C1C']}
+              style={styles.fabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Plus color={Colors.light.text} size={28} strokeWidth={3} />
+            </LinearGradient>
+          </Pressable>
+        )}
       </View>
     </>
   );
@@ -1083,5 +1234,70 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.light.primary,
     borderRadius: 2,
+  },
+  cardSelected: {
+    borderColor: Colors.light.primary,
+    borderWidth: 2,
+    backgroundColor: `${Colors.light.primary}15`,
+  },
+  selectionIndicator: {
+    marginRight: 12,
+    width: 24,
+    height: 24,
+  },
+  selectionCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
+  },
+  selectionToolbar: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    height: 64,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  toolbarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  toolbarButtonDisabled: {
+    opacity: 0.5,
+  },
+  toolbarButtonText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  toolbarButtonTextDelete: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  toolbarCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  toolbarText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
   },
 });
