@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments } = useAppState();
+  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
@@ -180,7 +180,13 @@ export default function AssignmentsScreen() {
 
           <TouchableOpacity 
             style={[styles.widget, styles.widgetHalf]}
-            onPress={() => router.push("/all-assignments")}
+            onPress={() => {
+              if (currentUser?.role === 'admin') {
+                router.push("/all-assignments");
+              } else {
+                router.push("/huiswerk");
+              }
+            }}
             testID="huiswerk-widget"
           >
             <View style={styles.widgetHeader}>
