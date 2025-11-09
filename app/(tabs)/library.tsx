@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform, PanResponder, GestureResponderEvent } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform, PanResponder, GestureResponderEvent, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause, Download, Gauge } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause, Download, Gauge, Maximize } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -1019,6 +1019,7 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
   const [isSeeking, setIsSeeking] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<ExpoVideo>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const progressBarRef = useRef<View>(null);
@@ -1113,6 +1114,49 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
       console.error('Error downloading:', error);
     }
   };
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const videoElement = (videoRef.current as any)?._nativeRef?.current;
+        if (videoElement) {
+          if (!document.fullscreenElement) {
+            await videoElement.requestFullscreen();
+            setIsFullscreen(true);
+            if (screen.orientation && screen.orientation.lock) {
+              try {
+                await screen.orientation.lock('landscape');
+              } catch (e) {
+                console.log('Screen orientation lock not supported:', e);
+              }
+            }
+          } else {
+            await document.exitFullscreen();
+            setIsFullscreen(false);
+            if (screen.orientation && screen.orientation.unlock) {
+              screen.orientation.unlock();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleFullscreenChange = () => {
+        setIsFullscreen(!!document.fullscreenElement);
+      };
+      
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      
+      return () => {
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      };
+    }
+  }, []);
 
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
@@ -1345,6 +1389,17 @@ function MediaPlayerModal({ media, visible, onClose }: { media: MediaItem; visib
                   />
                   {showControls && (
                     <View style={styles.controlsOverlay}>
+                      <View style={styles.controlsTop}>
+                        <Pressable 
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleToggleFullscreen();
+                          }}
+                          style={styles.fullscreenButton}
+                        >
+                          <Maximize color={Colors.light.text} size={24} strokeWidth={2.5} />
+                        </Pressable>
+                      </View>
                       <View style={styles.controlsCenter}>
                         <View style={styles.centerButtonsRow}>
                           <Pressable 
@@ -1724,6 +1779,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'space-between',
+  },
+  controlsTop: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  fullscreenButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   controlsCenter: {
     flex: 1,
