@@ -126,7 +126,18 @@ export const uploadMediaRoute = publicProcedure
       const result = mediaData as unknown as MediaRow;
       console.log('[SUCCESS] Media uploaded with ID:', result.id);
       console.log('[SUCCESS] Returning data:', JSON.stringify(result));
-      return result;
+      
+      return {
+        id: result.id,
+        name: result.name,
+        path: result.path,
+        folder_path: result.folder_path,
+        file_type: result.file_type,
+        file_size: result.file_size,
+        mime_type: result.mime_type,
+        storage_path: result.storage_path,
+        created_at: result.created_at,
+      };
     } catch (error: any) {
       console.error('[UPLOAD EXCEPTION]:', error);
       if (error instanceof TRPCError) {

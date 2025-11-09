@@ -345,7 +345,7 @@ export default function LibraryScreen() {
                   }
                   style={[
                     styles.storageBarFill,
-                    { width: `${Math.min(storageQuery.data.percentage || 0, 100)}%` as any }
+                    { width: `${Math.min(storageQuery.data.percentage || 0, 100)}%` }
                   ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -449,7 +449,7 @@ export default function LibraryScreen() {
                     </Text>
                     {item.media.isUploading && item.media.uploadProgress !== undefined && (
                       <View style={styles.progressBar}>
-                        <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` as any }]} />
+                        <View style={[styles.progressBarFill, { width: `${item.media.uploadProgress}%` }]} />
                       </View>
                     )}
                   </View>
