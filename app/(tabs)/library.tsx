@@ -851,47 +851,49 @@ export default function LibraryScreen() {
 
         {selectionMode ? (
           <View style={[styles.selectionToolbar, { bottom: insets.bottom + 20 }]}>
-            <Pressable 
-              style={styles.toolbarButton}
-              onPress={handleCancelSelection}
-              testID="cancel-selection-button"
-            >
-              <X color={Colors.light.text} size={20} strokeWidth={2.5} />
-              <Text style={styles.toolbarButtonText}>Annuleren</Text>
-            </Pressable>
-            
-            <View style={styles.toolbarCenter}>
+            <View style={styles.toolbarTopRow}>
+              <Pressable 
+                style={styles.toolbarCancelButton}
+                onPress={handleCancelSelection}
+                testID="cancel-selection-button"
+              >
+                <X color={Colors.light.text} size={20} strokeWidth={2.5} />
+                <Text style={styles.toolbarButtonText}>Annuleren</Text>
+              </Pressable>
+              
               <Text style={styles.toolbarText}>
                 {selectedItems.size} {selectedItems.size === 1 ? 'item' : 'items'} geselecteerd
               </Text>
             </View>
             
-            {selectedItems.size === 1 && (
-              <Pressable 
-                style={styles.toolbarButton}
-                onPress={handleRenameSelected}
-                testID="rename-selected-button"
-              >
-                <Edit3 color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                <Text style={styles.toolbarButtonTextRename}>Hernoem</Text>
-              </Pressable>
-            )}
-            
-            <Pressable 
-              style={[styles.toolbarButton, isDeleting && styles.toolbarButtonDisabled]}
-              onPress={handleDeleteSelected}
-              disabled={isDeleting || selectedItems.size === 0}
-              testID="delete-selected-button"
-            >
-              {isDeleting ? (
-                <ActivityIndicator size="small" color={Colors.light.text} />
-              ) : (
-                <>
-                  <Trash2 color="#DC2626" size={20} strokeWidth={2.5} />
-                  <Text style={styles.toolbarButtonTextDelete}>Verwijder</Text>
-                </>
+            <View style={styles.toolbarBottomRow}>
+              {selectedItems.size === 1 && (
+                <Pressable 
+                  style={styles.toolbarActionButton}
+                  onPress={handleRenameSelected}
+                  testID="rename-selected-button"
+                >
+                  <Edit3 color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                  <Text style={styles.toolbarButtonTextRename}>Hernoem</Text>
+                </Pressable>
               )}
-            </Pressable>
+              
+              <Pressable 
+                style={[styles.toolbarActionButton, isDeleting && styles.toolbarButtonDisabled]}
+                onPress={handleDeleteSelected}
+                disabled={isDeleting || selectedItems.size === 0}
+                testID="delete-selected-button"
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={Colors.light.text} />
+                ) : (
+                  <>
+                    <Trash2 color="#DC2626" size={20} strokeWidth={2.5} />
+                    <Text style={styles.toolbarButtonTextDelete}>Verwijder</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           </View>
         ) : (
           <Pressable 
@@ -1400,13 +1402,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    height: 64,
     backgroundColor: Colors.light.surface,
-    borderRadius: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderRadius: 20,
     paddingHorizontal: 20,
+    paddingVertical: 16,
     shadowColor: Colors.light.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
@@ -1414,13 +1413,32 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
+    gap: 12,
   },
-  toolbarButton: {
+  toolbarTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toolbarBottomRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  toolbarCancelButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  },
+  toolbarActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.light.darkGray,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
   toolbarButtonDisabled: {
     opacity: 0.5,
@@ -1439,10 +1457,6 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     fontSize: 14,
     fontWeight: '600' as const,
-  },
-  toolbarCenter: {
-    flex: 1,
-    alignItems: 'center',
   },
   toolbarText: {
     color: Colors.light.text,
