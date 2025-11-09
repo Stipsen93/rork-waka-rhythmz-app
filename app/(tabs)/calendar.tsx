@@ -47,6 +47,9 @@ export default function CalendarScreen() {
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showHourPicker, setShowHourPicker] = useState<boolean>(false);
   const [showMinutePicker, setShowMinutePicker] = useState<boolean>(false);
+  const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
+  const [showEditDatePicker, setShowEditDatePicker] = useState<boolean>(false);
+  const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -273,6 +276,50 @@ export default function CalendarScreen() {
         },
       ]
     );
+  };
+
+  const today = formatDateToLocal(new Date());
+
+  const getDatePickerDays = (baseDate: Date) => {
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    
+    const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
+    
+    for (let i = 0; i < startDayOfWeek; i++) {
+      const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
+      days.push({
+        date: prevMonthDay.getDate(),
+        isCurrentMonth: false,
+        fullDate: formatDateToLocal(prevMonthDay),
+      });
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      const fullDate = new Date(year, month, i);
+      days.push({
+        date: i,
+        isCurrentMonth: true,
+        fullDate: formatDateToLocal(fullDate),
+      });
+    }
+    
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      const nextMonthDay = new Date(year, month + 1, i);
+      days.push({
+        date: i,
+        isCurrentMonth: false,
+        fullDate: formatDateToLocal(nextMonthDay),
+      });
+    }
+    
+    return days;
   };
 
   const today = formatDateToLocal(new Date());
@@ -517,6 +564,9 @@ export default function CalendarScreen() {
                     setShowDatePicker(!showDatePicker);
                     setShowHourPicker(false);
                     setShowMinutePicker(false);
+                    if (!showDatePicker) {
+                      setPickerMonth(parseDateString(formData.date));
+                    }
                   }}
                   testID="date-picker-button"
                 >
@@ -530,135 +580,159 @@ export default function CalendarScreen() {
                   <CalendarIcon color={Colors.light.muted} size={20} />
                 </Pressable>
                 {showDatePicker && (
-                  <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                    <View style={styles.dropdownMenu}>
-                      {Array.from({ length: 365 }, (_, i) => {
-                        const date = new Date();
-                        date.setDate(date.getDate() + i);
-                        const dateStr = formatDateToLocal(date);
-                        return (
-                          <TouchableOpacity
-                            key={dateStr}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setFormData({ ...formData, date: dateStr });
-                              setShowDatePicker(false);
-                            }}
-                          >
-                            <Text style={[
-                              styles.dropdownItemText,
-                              formData.date === dateStr && styles.dropdownItemTextActive
-                            ]}>
-                              {date.toLocaleDateString('nl-NL', { 
-                                weekday: 'short',
-                                day: '2-digit', 
-                                month: 'long', 
-                                year: 'numeric' 
-                              })}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                  <View style={styles.calendarPickerContainer}>
+                    <View style={styles.calendarPickerHeader}>
+                      <TouchableOpacity 
+                        onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
+                        style={styles.calendarPickerButton}
+                      >
+                        <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                      <Text style={styles.calendarPickerMonth}>
+                        {MONTHS[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
+                      </Text>
+                      <TouchableOpacity 
+                        onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))}
+                        style={styles.calendarPickerButton}
+                      >
+                        <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
+                      </TouchableOpacity>
                     </View>
-                  </ScrollView>
+                    <View style={styles.calendarPickerWeekDays}>
+                      {DAYS.map((day) => (
+                        <Text key={day} style={styles.calendarPickerWeekDay}>{day}</Text>
+                      ))}
+                    </View>
+                    <View style={styles.calendarPickerGrid}>
+                      {getDatePickerDays(pickerMonth).map((day, index) => (
+                        <TouchableOpacity
+                          key={`${day.fullDate}-${index}`}
+                          style={styles.calendarPickerDay}
+                          onPress={() => {
+                            if (day.isCurrentMonth) {
+                              setFormData({ ...formData, date: day.fullDate });
+                              setShowDatePicker(false);
+                            }
+                          }}
+                          disabled={!day.isCurrentMonth}
+                        >
+                          <View style={[
+                            styles.calendarPickerDayCircle,
+                            !day.isCurrentMonth && styles.calendarPickerDayInactive,
+                            formData.date === day.fullDate && styles.calendarPickerDaySelected,
+                          ]}>
+                            <Text style={[
+                              styles.calendarPickerDayText,
+                              !day.isCurrentMonth && styles.calendarPickerDayTextInactive,
+                              formData.date === day.fullDate && styles.calendarPickerDayTextSelected,
+                            ]}>
+                              {day.date}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
                 )}
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Tijd</Text>
-                <View style={styles.timePickerRow}>
-                  <View style={{ flex: 1 }}>
-                    <Pressable
-                      style={styles.dropdownButton}
-                      onPress={() => {
-                        setShowHourPicker(!showHourPicker);
-                        setShowMinutePicker(false);
-                        setShowDatePicker(false);
-                      }}
-                      testID="hour-picker-button"
-                    >
-                      <Text style={styles.dropdownText}>{formData.time.split(':')[0]}</Text>
-                      <ChevronRight 
-                        color={Colors.light.muted} 
-                        size={20} 
-                        style={{ transform: [{ rotate: showHourPicker ? '90deg' : '0deg' }] }}
-                      />
-                    </Pressable>
-                    {showHourPicker && (
-                      <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                        <View style={styles.dropdownMenu}>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => {
+                    setShowHourPicker(!showHourPicker);
+                    setShowMinutePicker(false);
+                    setShowDatePicker(false);
+                  }}
+                  testID="time-picker-button"
+                >
+                  <Text style={styles.dropdownText}>{formData.time}</Text>
+                  <ChevronRight 
+                    color={Colors.light.muted} 
+                    size={20} 
+                    style={{ transform: [{ rotate: showHourPicker ? '90deg' : '0deg' }] }}
+                  />
+                </Pressable>
+                {showHourPicker && (
+                  <View style={styles.timePickerContainer}>
+                    <View style={styles.timePickerContent}>
+                      <View style={styles.timePickerColumn}>
+                        <Text style={styles.timePickerColumnLabel}>Uur</Text>
+                        <ScrollView 
+                          style={styles.timePickerScroll}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled
+                        >
                           {Array.from({ length: 24 }, (_, i) => {
                             const hour = String(i).padStart(2, '0');
+                            const isSelected = formData.time.split(':')[0] === hour;
                             return (
                               <TouchableOpacity
                                 key={hour}
-                                style={styles.dropdownItem}
+                                style={[
+                                  styles.timePickerItem,
+                                  isSelected && styles.timePickerItemSelected
+                                ]}
                                 onPress={() => {
                                   const currentMinute = formData.time.split(':')[1];
                                   setFormData({ ...formData, time: `${hour}:${currentMinute}` });
-                                  setShowHourPicker(false);
                                 }}
                               >
                                 <Text style={[
-                                  styles.dropdownItemText,
-                                  formData.time.split(':')[0] === hour && styles.dropdownItemTextActive
+                                  styles.timePickerItemText,
+                                  isSelected && styles.timePickerItemTextSelected
                                 ]}>
                                   {hour}
                                 </Text>
                               </TouchableOpacity>
                             );
                           })}
-                        </View>
-                      </ScrollView>
-                    )}
-                  </View>
-                  <Text style={styles.timeColon}>:</Text>
-                  <View style={{ flex: 1 }}>
-                    <Pressable
-                      style={styles.dropdownButton}
-                      onPress={() => {
-                        setShowMinutePicker(!showMinutePicker);
-                        setShowHourPicker(false);
-                        setShowDatePicker(false);
-                      }}
-                      testID="minute-picker-button"
-                    >
-                      <Text style={styles.dropdownText}>{formData.time.split(':')[1]}</Text>
-                      <ChevronRight 
-                        color={Colors.light.muted} 
-                        size={20} 
-                        style={{ transform: [{ rotate: showMinutePicker ? '90deg' : '0deg' }] }}
-                      />
-                    </Pressable>
-                    {showMinutePicker && (
-                      <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                        <View style={styles.dropdownMenu}>
-                          {Array.from({ length: 60 }, (_, i) => {
-                            const minute = String(i).padStart(2, '0');
+                        </ScrollView>
+                      </View>
+                      <Text style={styles.timePickerColon}>:</Text>
+                      <View style={styles.timePickerColumn}>
+                        <Text style={styles.timePickerColumnLabel}>Min</Text>
+                        <ScrollView 
+                          style={styles.timePickerScroll}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled
+                        >
+                          {Array.from({ length: 12 }, (_, i) => {
+                            const minute = String(i * 5).padStart(2, '0');
+                            const isSelected = formData.time.split(':')[1] === minute;
                             return (
                               <TouchableOpacity
                                 key={minute}
-                                style={styles.dropdownItem}
+                                style={[
+                                  styles.timePickerItem,
+                                  isSelected && styles.timePickerItemSelected
+                                ]}
                                 onPress={() => {
                                   const currentHour = formData.time.split(':')[0];
                                   setFormData({ ...formData, time: `${currentHour}:${minute}` });
-                                  setShowMinutePicker(false);
                                 }}
                               >
                                 <Text style={[
-                                  styles.dropdownItemText,
-                                  formData.time.split(':')[1] === minute && styles.dropdownItemTextActive
+                                  styles.timePickerItemText,
+                                  isSelected && styles.timePickerItemTextSelected
                                 ]}>
                                   {minute}
                                 </Text>
                               </TouchableOpacity>
                             );
                           })}
-                        </View>
-                      </ScrollView>
-                    )}
+                        </ScrollView>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.timePickerDoneButton}
+                      onPress={() => setShowHourPicker(false)}
+                    >
+                      <Text style={styles.timePickerDoneButtonText}>Klaar</Text>
+                    </TouchableOpacity>
                   </View>
-                </View>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -797,9 +871,12 @@ export default function CalendarScreen() {
                 <Pressable
                   style={styles.dropdownButton}
                   onPress={() => {
-                    setShowDatePicker(!showDatePicker);
+                    setShowEditDatePicker(!showEditDatePicker);
                     setShowHourPicker(false);
                     setShowMinutePicker(false);
+                    if (!showEditDatePicker) {
+                      setEditPickerMonth(parseDateString(editFormData.date));
+                    }
                   }}
                 >
                   <Text style={styles.dropdownText}>
@@ -811,134 +888,159 @@ export default function CalendarScreen() {
                   </Text>
                   <CalendarIcon color={Colors.light.muted} size={20} />
                 </Pressable>
-                {showDatePicker && (
-                  <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                    <View style={styles.dropdownMenu}>
-                      {Array.from({ length: 365 }, (_, i) => {
-                        const date = new Date();
-                        date.setDate(date.getDate() + i);
-                        const dateStr = formatDateToLocal(date);
-                        return (
-                          <TouchableOpacity
-                            key={dateStr}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setEditFormData({ ...editFormData, date: dateStr });
-                              setShowDatePicker(false);
-                            }}
-                          >
-                            <Text style={[
-                              styles.dropdownItemText,
-                              editFormData.date === dateStr && styles.dropdownItemTextActive
-                            ]}>
-                              {date.toLocaleDateString('nl-NL', { 
-                                weekday: 'short',
-                                day: '2-digit', 
-                                month: 'long', 
-                                year: 'numeric' 
-                              })}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                {showEditDatePicker && (
+                  <View style={styles.calendarPickerContainer}>
+                    <View style={styles.calendarPickerHeader}>
+                      <TouchableOpacity 
+                        onPress={() => setEditPickerMonth(new Date(editPickerMonth.getFullYear(), editPickerMonth.getMonth() - 1, 1))}
+                        style={styles.calendarPickerButton}
+                      >
+                        <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                      <Text style={styles.calendarPickerMonth}>
+                        {MONTHS[editPickerMonth.getMonth()]} {editPickerMonth.getFullYear()}
+                      </Text>
+                      <TouchableOpacity 
+                        onPress={() => setEditPickerMonth(new Date(editPickerMonth.getFullYear(), editPickerMonth.getMonth() + 1, 1))}
+                        style={styles.calendarPickerButton}
+                      >
+                        <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
+                      </TouchableOpacity>
                     </View>
-                  </ScrollView>
+                    <View style={styles.calendarPickerWeekDays}>
+                      {DAYS.map((day) => (
+                        <Text key={day} style={styles.calendarPickerWeekDay}>{day}</Text>
+                      ))}
+                    </View>
+                    <View style={styles.calendarPickerGrid}>
+                      {getDatePickerDays(editPickerMonth).map((day, index) => (
+                        <TouchableOpacity
+                          key={`${day.fullDate}-${index}`}
+                          style={styles.calendarPickerDay}
+                          onPress={() => {
+                            if (day.isCurrentMonth) {
+                              setEditFormData({ ...editFormData, date: day.fullDate });
+                              setShowEditDatePicker(false);
+                            }
+                          }}
+                          disabled={!day.isCurrentMonth}
+                        >
+                          <View style={[
+                            styles.calendarPickerDayCircle,
+                            !day.isCurrentMonth && styles.calendarPickerDayInactive,
+                            editFormData.date === day.fullDate && styles.calendarPickerDaySelected,
+                          ]}>
+                            <Text style={[
+                              styles.calendarPickerDayText,
+                              !day.isCurrentMonth && styles.calendarPickerDayTextInactive,
+                              editFormData.date === day.fullDate && styles.calendarPickerDayTextSelected,
+                            ]}>
+                              {day.date}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
                 )}
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Tijd</Text>
-                <View style={styles.timePickerRow}>
-                  <View style={{ flex: 1 }}>
-                    <Pressable
-                      style={styles.dropdownButton}
-                      onPress={() => {
-                        setShowHourPicker(!showHourPicker);
-                        setShowMinutePicker(false);
-                        setShowDatePicker(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownText}>{editFormData.time.split(':')[0]}</Text>
-                      <ChevronRight 
-                        color={Colors.light.muted} 
-                        size={20} 
-                        style={{ transform: [{ rotate: showHourPicker ? '90deg' : '0deg' }] }}
-                      />
-                    </Pressable>
-                    {showHourPicker && (
-                      <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                        <View style={styles.dropdownMenu}>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => {
+                    setShowMinutePicker(!showMinutePicker);
+                    setShowHourPicker(false);
+                    setShowEditDatePicker(false);
+                  }}
+                >
+                  <Text style={styles.dropdownText}>{editFormData.time}</Text>
+                  <ChevronRight 
+                    color={Colors.light.muted} 
+                    size={20} 
+                    style={{ transform: [{ rotate: showMinutePicker ? '90deg' : '0deg' }] }}
+                  />
+                </Pressable>
+                {showMinutePicker && (
+                  <View style={styles.timePickerContainer}>
+                    <View style={styles.timePickerContent}>
+                      <View style={styles.timePickerColumn}>
+                        <Text style={styles.timePickerColumnLabel}>Uur</Text>
+                        <ScrollView 
+                          style={styles.timePickerScroll}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled
+                        >
                           {Array.from({ length: 24 }, (_, i) => {
                             const hour = String(i).padStart(2, '0');
+                            const isSelected = editFormData.time.split(':')[0] === hour;
                             return (
                               <TouchableOpacity
                                 key={hour}
-                                style={styles.dropdownItem}
+                                style={[
+                                  styles.timePickerItem,
+                                  isSelected && styles.timePickerItemSelected
+                                ]}
                                 onPress={() => {
                                   const currentMinute = editFormData.time.split(':')[1];
                                   setEditFormData({ ...editFormData, time: `${hour}:${currentMinute}` });
-                                  setShowHourPicker(false);
                                 }}
                               >
                                 <Text style={[
-                                  styles.dropdownItemText,
-                                  editFormData.time.split(':')[0] === hour && styles.dropdownItemTextActive
+                                  styles.timePickerItemText,
+                                  isSelected && styles.timePickerItemTextSelected
                                 ]}>
                                   {hour}
                                 </Text>
                               </TouchableOpacity>
                             );
                           })}
-                        </View>
-                      </ScrollView>
-                    )}
-                  </View>
-                  <Text style={styles.timeColon}>:</Text>
-                  <View style={{ flex: 1 }}>
-                    <Pressable
-                      style={styles.dropdownButton}
-                      onPress={() => {
-                        setShowMinutePicker(!showMinutePicker);
-                        setShowHourPicker(false);
-                        setShowDatePicker(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownText}>{editFormData.time.split(':')[1]}</Text>
-                      <ChevronRight 
-                        color={Colors.light.muted} 
-                        size={20} 
-                        style={{ transform: [{ rotate: showMinutePicker ? '90deg' : '0deg' }] }}
-                      />
-                    </Pressable>
-                    {showMinutePicker && (
-                      <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                        <View style={styles.dropdownMenu}>
-                          {Array.from({ length: 60 }, (_, i) => {
-                            const minute = String(i).padStart(2, '0');
+                        </ScrollView>
+                      </View>
+                      <Text style={styles.timePickerColon}>:</Text>
+                      <View style={styles.timePickerColumn}>
+                        <Text style={styles.timePickerColumnLabel}>Min</Text>
+                        <ScrollView 
+                          style={styles.timePickerScroll}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled
+                        >
+                          {Array.from({ length: 12 }, (_, i) => {
+                            const minute = String(i * 5).padStart(2, '0');
+                            const isSelected = editFormData.time.split(':')[1] === minute;
                             return (
                               <TouchableOpacity
                                 key={minute}
-                                style={styles.dropdownItem}
+                                style={[
+                                  styles.timePickerItem,
+                                  isSelected && styles.timePickerItemSelected
+                                ]}
                                 onPress={() => {
                                   const currentHour = editFormData.time.split(':')[0];
                                   setEditFormData({ ...editFormData, time: `${currentHour}:${minute}` });
-                                  setShowMinutePicker(false);
                                 }}
                               >
                                 <Text style={[
-                                  styles.dropdownItemText,
-                                  editFormData.time.split(':')[1] === minute && styles.dropdownItemTextActive
+                                  styles.timePickerItemText,
+                                  isSelected && styles.timePickerItemTextSelected
                                 ]}>
                                   {minute}
                                 </Text>
                               </TouchableOpacity>
                             );
                           })}
-                        </View>
-                      </ScrollView>
-                    )}
+                        </ScrollView>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.timePickerDoneButton}
+                      onPress={() => setShowMinutePicker(false)}
+                    >
+                      <Text style={styles.timePickerDoneButtonText}>Klaar</Text>
+                    </TouchableOpacity>
                   </View>
-                </View>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -1398,14 +1500,137 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: Colors.light.muted,
   },
-  timePickerRow: {
+  calendarPickerContainer: {
+    marginTop: 8,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    padding: 12,
+  },
+  calendarPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  calendarPickerButton: {
+    padding: 4,
+  },
+  calendarPickerMonth: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  calendarPickerWeekDays: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calendarPickerWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
+  calendarPickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarPickerDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    padding: 2,
+  },
+  calendarPickerDayCircle: {
+    flex: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarPickerDayInactive: {
+    opacity: 0.3,
+  },
+  calendarPickerDaySelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  calendarPickerDayText: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  calendarPickerDayTextInactive: {
+    color: Colors.light.muted,
+  },
+  calendarPickerDayTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
+  },
+  timePickerContainer: {
+    marginTop: 8,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    padding: 12,
+  },
+  timePickerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 12,
   },
-  timeColon: {
+  timePickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timePickerColumnLabel: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  timePickerScroll: {
+    maxHeight: 180,
+    width: '100%',
+  },
+  timePickerItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  timePickerItemSelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  timePickerItemText: {
     color: Colors.light.text,
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: '600' as const,
+  },
+  timePickerItemTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
+  },
+  timePickerColon: {
+    color: Colors.light.text,
+    fontSize: 24,
+    fontWeight: '700' as const,
+    marginBottom: 32,
+  },
+  timePickerDoneButton: {
+    marginTop: 12,
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  timePickerDoneButtonText: {
+    color: Colors.light.text,
+    fontSize: 15,
     fontWeight: '700' as const,
   },
   creatorText: {
