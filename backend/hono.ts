@@ -29,13 +29,6 @@ app.use(
       console.error('[TRPC ERROR] Message:', error.message);
       console.error('[TRPC ERROR] Stack:', error.stack);
     },
-    responseMeta() {
-      return {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      };
-    },
   })
 );
 
