@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
+import * as DocumentPicker from 'expo-document-picker';
 
 type MediaItem = {
   id: string;
@@ -37,10 +38,19 @@ export default function LibraryScreen() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const mediaQuery = trpc.media.getMediaList.useQuery({ folderPath: currentPath });
   const foldersQuery = trpc.media.getFolders.useQuery();
   const storageQuery = trpc.media.getStorageUsage.useQuery();
+  const uploadMutation = trpc.media.uploadMedia.useMutation({
+    onSuccess: () => {
+      mediaQuery.refetch();
+      foldersQuery.refetch();
+      storageQuery.refetch();
+    },
+  });
 
   const folders = useMemo<FolderItem[]>(() => {
     if (!foldersQuery.data) return [];
@@ -107,6 +117,72 @@ export default function LibraryScreen() {
   const handleOpenMedia = (media: MediaItem) => {
     setSelectedMedia(media);
     setShowVideoPlayer(true);
+  };
+
+  const handleUploadMedia = async () => {
+    setShowActionSheet(false);
+    
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['video/*', 'image/*', 'audio/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const file = result.assets[0];
+      setIsUploading(true);
+
+      let fileType = 'other';
+      if (file.mimeType?.startsWith('video/')) fileType = 'video';
+      else if (file.mimeType?.startsWith('image/')) fileType = 'image';
+      else if (file.mimeType?.startsWith('audio/')) fileType = 'audio';
+
+      let base64Data = '';
+      if (Platform.OS === 'web') {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        base64Data = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        base64Data = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      await uploadMutation.mutateAsync({
+        name: file.name,
+        folderPath: currentPath,
+        fileType,
+        fileSize: file.size || 0,
+        mimeType: file.mimeType || 'application/octet-stream',
+        base64Data,
+      });
+
+      Alert.alert('Succes', 'Media succesvol geüpload');
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Fout', 'Er is een fout opgetreden bij het uploaden van de media');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   type Item = { kind: "folder"; folder: FolderItem } | { kind: "media"; media: MediaItem };
@@ -333,9 +409,69 @@ export default function LibraryScreen() {
           onClose={() => setShowMenuModal(false)}
         />
 
+        <Modal
+          visible={showActionSheet}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowActionSheet(false)}
+        >
+          <Pressable 
+            style={styles.actionSheetOverlay} 
+            onPress={() => setShowActionSheet(false)}
+          >
+            <View style={[styles.actionSheet, { paddingBottom: insets.bottom + 20 }]}>
+              <View style={styles.actionSheetHandle} />
+              
+              <TouchableOpacity
+                style={styles.actionSheetOption}
+                onPress={() => {
+                  setShowActionSheet(false);
+                  setShowFolderModal(true);
+                }}
+                testID="create-folder-option"
+              >
+                <View style={styles.actionSheetIconContainer}>
+                  <Folder color={Colors.light.primary} size={24} strokeWidth={2.5} />
+                </View>
+                <View style={styles.actionSheetTextContainer}>
+                  <Text style={styles.actionSheetTitle}>Nieuwe Map</Text>
+                  <Text style={styles.actionSheetSubtitle}>Maak een nieuwe map aan</Text>
+                </View>
+                <ChevronRight color={Colors.light.muted} size={20} />
+              </TouchableOpacity>
+
+              <View style={styles.actionSheetDivider} />
+
+              <TouchableOpacity
+                style={styles.actionSheetOption}
+                onPress={handleUploadMedia}
+                disabled={isUploading}
+                testID="upload-media-option"
+              >
+                <View style={styles.actionSheetIconContainer}>
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color={Colors.light.primary} />
+                  ) : (
+                    <Upload color={Colors.light.primary} size={24} strokeWidth={2.5} />
+                  )}
+                </View>
+                <View style={styles.actionSheetTextContainer}>
+                  <Text style={styles.actionSheetTitle}>
+                    {isUploading ? 'Uploaden...' : 'Media Uploaden'}
+                  </Text>
+                  <Text style={styles.actionSheetSubtitle}>
+                    Video, foto of audio uploaden
+                  </Text>
+                </View>
+                <ChevronRight color={Colors.light.muted} size={20} />
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
+
         <Pressable 
           style={[styles.fab, { bottom: insets.bottom + 20 }]} 
-          onPress={() => setShowFolderModal(true)}
+          onPress={() => setShowActionSheet(true)}
           testID="add-library-fab"
         >
           <LinearGradient
@@ -718,5 +854,62 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
+  },
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  actionSheet: {
+    backgroundColor: Colors.light.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  actionSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  actionSheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  actionSheetIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.light.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionSheetTextContainer: {
+    flex: 1,
+  },
+  actionSheetTitle: {
+    color: Colors.light.text,
+    fontSize: 17,
+    fontWeight: '700' as const,
+    marginBottom: 2,
+  },
+  actionSheetSubtitle: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: '500' as const,
+  },
+  actionSheetDivider: {
+    height: 1,
+    backgroundColor: Colors.light.surfaceLight,
+    marginVertical: 4,
   },
 });
