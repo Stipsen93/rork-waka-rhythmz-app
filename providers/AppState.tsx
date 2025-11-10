@@ -54,6 +54,8 @@ export interface Assignment {
   dueDate?: string;
   mediaUri?: string;
   mediaType?: 'video' | 'image' | 'audio';
+  requireMedia: boolean;
+  completedBy: { userId: string; completedAt: string; mediaUri?: string }[];
   createdAt: string;
   submissions: { userId: string; videoUri: string; createdAt: string }[];
 }
@@ -167,9 +169,10 @@ export interface AppStateValue {
   addFolder: (name: string, path: string[]) => void;
   deleteFolders: (folderIds: string[], path: string[]) => void;
   assignments: Assignment[];
-  addAssignment: (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => void;
-  updateAssignment: (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => void;
+  addAssignment: (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>) => void;
+  updateAssignment: (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>>) => void;
   deleteAssignments: (ids: string[]) => void;
+  completeAssignment: (assignmentId: string, userId: string, mediaUri?: string) => Promise<void>;
   events: CalendarEvent[];
   performances: Performance[];
   addPerformance: (perf: Omit<Performance, 'id'>) => void;
@@ -362,6 +365,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             dueDate: a.due_date ?? undefined,
             mediaUri: a.media_uri ?? undefined,
             mediaType: a.media_type ?? undefined,
+            requireMedia: a.require_media ?? false,
+            completedBy: (a.completed_by as any) ?? [],
             createdAt: a.created_at,
             submissions: (a.submissions as any) ?? [],
           })));
@@ -554,6 +559,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               dueDate: a.due_date ?? undefined,
               mediaUri: a.media_uri ?? undefined,
               mediaType: a.media_type ?? undefined,
+              requireMedia: a.require_media ?? false,
+              completedBy: (a.completed_by as any) ?? [],
               createdAt: a.created_at,
               submissions: (a.submissions as any) ?? [],
             })));
@@ -925,12 +932,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return allMedia.slice(0, 5);
   }, [library]);
 
-  const addAssignment = useCallback(async (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions'>) => {
+  const addAssignment = useCallback(async (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>) => {
     console.log('💾 Adding assignment to Supabase...');
     const newAssignment: Assignment = {
       ...assignment,
       id: genId("a"),
       createdAt: new Date().toISOString(),
+      completedBy: [],
       submissions: [],
     };
     const insertData: Database['public']['Tables']['assignments']['Insert'] = {
@@ -941,6 +949,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       due_date: newAssignment.dueDate ?? null,
       media_uri: newAssignment.mediaUri ?? null,
       media_type: newAssignment.mediaType ?? null,
+      require_media: newAssignment.requireMedia,
+      completed_by: newAssignment.completedBy as any,
       submissions: newAssignment.submissions as any,
     };
     await supabase.from('assignments').insert(insertData);
@@ -948,7 +958,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Assignment added');
   }, []);
 
-  const updateAssignment = useCallback(async (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions'>>) => {
+  const updateAssignment = useCallback(async (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>>) => {
     console.log('💾 Updating assignment in Supabase...');
     setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, ...assignment } : a)));
     const updateData: Database['public']['Tables']['assignments']['Update'] = {};
@@ -958,6 +968,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (assignment.dueDate !== undefined) updateData.due_date = assignment.dueDate;
     if (assignment.mediaUri !== undefined) updateData.media_uri = assignment.mediaUri;
     if (assignment.mediaType !== undefined) updateData.media_type = assignment.mediaType;
+    if (assignment.requireMedia !== undefined) updateData.require_media = assignment.requireMedia;
     await supabase.from('assignments').update(updateData).eq('id', id);
     console.log('✅ Assignment updated');
   }, []);
@@ -1516,6 +1527,33 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Folder created');
   }, [currentUser]);
 
+  const completeAssignment = useCallback(async (assignmentId: string, userId: string, mediaUri?: string) => {
+    console.log('💾 Completing assignment in Supabase...');
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) {
+      throw new Error('Assignment not found');
+    }
+    
+    const completion = {
+      userId,
+      completedAt: new Date().toISOString(),
+      ...(mediaUri && { mediaUri }),
+    };
+    
+    const updatedCompletedBy = [...assignment.completedBy, completion];
+    
+    setAssignments((prev) => prev.map((a) => 
+      a.id === assignmentId ? { ...a, completedBy: updatedCompletedBy } : a
+    ));
+    
+    const updateData: Database['public']['Tables']['assignments']['Update'] = {
+      completed_by: updatedCompletedBy as any,
+    };
+    
+    await supabase.from('assignments').update(updateData).eq('id', assignmentId);
+    console.log('✅ Assignment completed');
+  }, [assignments]);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -1536,6 +1574,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     addAssignment,
     updateAssignment,
     deleteAssignments,
+    completeAssignment,
     events,
     performances,
     addPerformance,

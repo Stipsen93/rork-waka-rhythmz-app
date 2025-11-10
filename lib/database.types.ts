@@ -76,6 +76,8 @@ export type Database = {
           due_date: string | null
           media_uri: string | null
           media_type: 'video' | 'image' | 'audio' | null
+          require_media: boolean
+          completed_by: Json | null
           submissions: Json | null
           created_at: string
         }
@@ -87,6 +89,8 @@ export type Database = {
           due_date?: string | null
           media_uri?: string | null
           media_type?: 'video' | 'image' | 'audio' | null
+          require_media?: boolean
+          completed_by?: Json | null
           submissions?: Json | null
           created_at?: string
         }
@@ -98,6 +102,8 @@ export type Database = {
           due_date?: string | null
           media_uri?: string | null
           media_type?: 'video' | 'image' | 'audio' | null
+          require_media?: boolean
+          completed_by?: Json | null
           submissions?: Json | null
           created_at?: string
         }

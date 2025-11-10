@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity, ActivityIndicator, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity, ActivityIndicator, FlatList, Image } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react-native";
+import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight, ChevronLeft, Check } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 import * as DocumentPicker from 'expo-document-picker';
@@ -36,6 +36,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
   const [isUploading, setIsUploading] = useState(false);
   const [showMediaExplorer, setShowMediaExplorer] = useState(false);
   const [explorerPath, setExplorerPath] = useState<string>("");
+  const [requireMedia, setRequireMedia] = useState<boolean>(editingAssignment?.requireMedia ?? false);
 
   useEffect(() => {
     if (editingAssignment) {
@@ -45,6 +46,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       setDueDate(editingAssignment.dueDate ? new Date(editingAssignment.dueDate) : new Date());
       setMediaUri(editingAssignment.mediaUri ?? "");
       setMediaType(editingAssignment.mediaType);
+      setRequireMedia(editingAssignment.requireMedia);
     } else {
       resetForm();
     }
@@ -57,6 +59,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
     setDueDate(new Date());
     setMediaUri("");
     setMediaType(undefined);
+    setRequireMedia(false);
     setIsUploading(false);
     setShowMediaExplorer(false);
     setExplorerPath("");
@@ -154,6 +157,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
         dueDate: dueDate.toISOString(),
         mediaUri: mediaUri.trim() || undefined,
         mediaType,
+        requireMedia,
       });
       Alert.alert("Succes", "Huiswerk opdracht is bijgewerkt!");
     } else {
@@ -164,6 +168,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
         dueDate: dueDate.toISOString(),
         mediaUri: mediaUri.trim() || undefined,
         mediaType,
+        requireMedia,
       });
       Alert.alert("Succes", "Huiswerk opdracht is toegevoegd!");
     }

@@ -20,6 +20,9 @@ DROP POLICY IF EXISTS "Anyone can view media files" ON storage.objects;
 DROP POLICY IF EXISTS "Anyone can upload media" ON storage.objects;
 DROP POLICY IF EXISTS "Anyone can update files" ON storage.objects;
 DROP POLICY IF EXISTS "Anyone can delete files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view assignment submissions" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can upload assignment submissions" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can delete assignment submissions" ON storage.objects;
 
 -- Drop triggers
 DROP TRIGGER IF EXISTS update_media_library_updated_at ON public.media_library;
@@ -64,6 +67,8 @@ CREATE TABLE IF NOT EXISTS public.assignments (
   due_date TIMESTAMPTZ,
   media_uri TEXT,
   media_type TEXT CHECK (media_type IN ('video', 'image', 'audio')),
+  require_media BOOLEAN DEFAULT FALSE,
+  completed_by JSONB DEFAULT '[]'::JSONB,
   submissions JSONB DEFAULT '[]'::JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -226,12 +231,19 @@ CREATE POLICY "Anyone can delete media"
 -- STORAGE BUCKET
 -- =====================================================
 
--- Maak bucket aan of update bestaande
+-- Maak buckets aan of update bestaande
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('media-library', 'media-library', true, 104857600, NULL)
 ON CONFLICT (id) DO UPDATE 
 SET public = true, 
     file_size_limit = 104857600;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('assignment-submissions', 'assignment-submissions', true, 104857600, ARRAY['image/*', 'video/*', 'audio/*'])
+ON CONFLICT (id) DO UPDATE 
+SET public = true, 
+    file_size_limit = 104857600,
+    allowed_mime_types = ARRAY['image/*', 'video/*', 'audio/*'];
 
 -- =====================================================
 -- STORAGE POLICIES - PUBLIC ACCESS
@@ -252,6 +264,19 @@ CREATE POLICY "Anyone can update files"
 CREATE POLICY "Anyone can delete files"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'media-library');
+
+-- Assignment submissions storage policies
+CREATE POLICY "Anyone can view assignment submissions"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'assignment-submissions');
+
+CREATE POLICY "Anyone can upload assignment submissions"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'assignment-submissions');
+
+CREATE POLICY "Anyone can delete assignment submissions"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'assignment-submissions');
 
 -- =====================================================
 -- FUNCTIES
@@ -343,5 +368,6 @@ GRANT ALL ON public.media_library TO service_role;
 -- Database is klaar voor gebruik!
 -- Media library gebruikt nu TEXT ids voor compatibility
 -- Alle tabellen hebben publieke toegang
--- Storage bucket 'media-library' is aangemaakt
+-- Storage buckets 'media-library' en 'assignment-submissions' zijn aangemaakt
+-- Assignments tabel heeft require_media en completed_by velden
 -- =====================================================
