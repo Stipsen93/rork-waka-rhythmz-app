@@ -988,7 +988,7 @@ export default function LibraryScreen() {
               </Pressable>
             </View>
           </View>
-        ) : (
+        ) : appState.currentUser?.role === 'admin' ? (
           <Pressable 
             style={[styles.fab, { bottom: insets.bottom + 20 }]} 
             onPress={() => setShowActionSheet(true)}
@@ -1003,7 +1003,7 @@ export default function LibraryScreen() {
               <Plus color={Colors.light.text} size={28} strokeWidth={3} />
             </LinearGradient>
           </Pressable>
-        )}
+        ) : null}
       </View>
     </>
   );

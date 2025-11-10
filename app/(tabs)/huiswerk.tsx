@@ -553,6 +553,16 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             )}
 
             <Pressable
+              style={localStyles.checkboxRow}
+              onPress={() => setRequireMedia(!requireMedia)}
+            >
+              <View style={[localStyles.checkbox, requireMedia && localStyles.checkboxChecked]}>
+                {requireMedia && <Check color={Colors.light.text} size={16} strokeWidth={3} />}
+              </View>
+              <Text style={localStyles.checkboxLabel}>Media vereist</Text>
+            </Pressable>
+
+            <Pressable
               style={[localStyles.submitButton, { opacity: title ? 1 : 0.5 }]}
               disabled={!title}
               onPress={handleSubmit}
@@ -868,16 +878,27 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
 
 function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: { visible: boolean; assignment: Assignment; onClose: () => void; currentUserId: string }) {
   const insets = useSafeAreaInsets();
-  const { completeAssignment, users } = useAppState();
+  const { completeAssignment, users, uploadMedia } = useAppState();
   const [isCompleting, setIsCompleting] = useState(false);
+  const [uploadedMediaUri, setUploadedMediaUri] = useState<string>("");
+  const [uploadedMediaType, setUploadedMediaType] = useState<'video' | 'image' | 'audio' | undefined>(undefined);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [showMediaExplorer, setShowMediaExplorer] = useState(false);
+  const [explorerPath, setExplorerPath] = useState<string>("");
 
   const isCompleted = assignment.completedBy.some(c => c.userId === currentUserId);
-  const canComplete = !isCompleted && (!assignment.requireMedia || false);
+  const hasUploadedMedia = !!uploadedMediaUri;
+  const canComplete = !isCompleted && (!assignment.requireMedia || hasUploadedMedia);
 
   const handleComplete = async () => {
+    if (assignment.requireMedia && !uploadedMediaUri) {
+      Alert.alert("Media vereist", "Upload eerst media voordat je de opdracht voltooit");
+      return;
+    }
+
     try {
       setIsCompleting(true);
-      await completeAssignment(assignment.id, currentUserId);
+      await completeAssignment(assignment.id, currentUserId, uploadedMediaUri || undefined);
       Alert.alert("Succes", "Huiswerk opdracht is voltooid!");
       onClose();
     } catch (error) {
@@ -885,6 +906,94 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
       Alert.alert("Fout", "Er is een fout opgetreden bij het voltooien van de opdracht");
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleSelectMediaFromLibrary = (media: any) => {
+    const { data } = supabase.storage
+      .from('media-library')
+      .getPublicUrl(media.storage_path);
+    
+    setUploadedMediaUri(data.publicUrl);
+    
+    if (media.mime_type?.startsWith('video/')) {
+      setUploadedMediaType('video');
+    } else if (media.mime_type?.startsWith('image/')) {
+      setUploadedMediaType('image');
+    } else if (media.mime_type?.startsWith('audio/')) {
+      setUploadedMediaType('audio');
+    }
+    
+    setShowMediaExplorer(false);
+    setExplorerPath("");
+  };
+
+  const handleUploadNewMedia = async () => {
+    try {
+      setIsUploadingMedia(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'video/*', 'audio/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setIsUploadingMedia(false);
+        return;
+      }
+
+      const file = result.assets[0];
+      
+      let fileType = 'other';
+      if (file.mimeType?.startsWith('video/')) fileType = 'video';
+      else if (file.mimeType?.startsWith('image/')) fileType = 'image';
+      else if (file.mimeType?.startsWith('audio/')) fileType = 'audio';
+
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!reader.result) {
+            reject(new Error('FileReader resultaat is leeg'));
+            return;
+          }
+          const result = reader.result as string;
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
+        reader.readAsDataURL(blob);
+      });
+
+      const uploadedMedia = await uploadMedia({
+        name: file.name,
+        folderPath: 'huiswerk-uploads',
+        fileType,
+        fileSize: file.size || 0,
+        mimeType: file.mimeType || 'application/octet-stream',
+        base64Data,
+      });
+
+      const { data } = supabase.storage
+        .from('media-library')
+        .getPublicUrl(uploadedMedia.storage_path);
+
+      setUploadedMediaUri(data.publicUrl);
+
+      if (file.mimeType?.startsWith('video/')) {
+        setUploadedMediaType('video');
+      } else if (file.mimeType?.startsWith('image/')) {
+        setUploadedMediaType('image');
+      } else if (file.mimeType?.startsWith('audio/')) {
+        setUploadedMediaType('audio');
+      }
+
+      Alert.alert("Succes", "Media is succesvol geüpload!");
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert("Fout", "Er is een fout opgetreden bij het uploaden van media");
+    } finally {
+      setIsUploadingMedia(false);
     }
   };
 
@@ -973,7 +1082,7 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
 
             {assignment.mediaUri && assignment.mediaType && (
               <View style={detailStyles.section}>
-                <Text style={detailStyles.label}>Media</Text>
+                <Text style={detailStyles.label}>Referentie Media</Text>
                 <TouchableOpacity 
                   style={detailStyles.mediaButton}
                   onPress={openMedia}
@@ -991,6 +1100,60 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
                   </View>
                   <Play color={Colors.light.primary} size={20} strokeWidth={2.5} />
                 </TouchableOpacity>
+              </View>
+            )}
+
+            {assignment.requireMedia && !isCompleted && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.label}>Jouw Media Upload</Text>
+                {!uploadedMediaUri ? (
+                  <View style={detailStyles.uploadOptionsContainer}>
+                    <TouchableOpacity
+                      style={detailStyles.uploadOptionButton}
+                      onPress={() => setShowMediaExplorer(true)}
+                      disabled={isUploadingMedia}
+                    >
+                      <Folder color={Colors.light.primary} size={24} strokeWidth={2.5} />
+                      <Text style={detailStyles.uploadOptionText}>Kies uit Bibliotheek</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={detailStyles.uploadOptionButton}
+                      onPress={handleUploadNewMedia}
+                      disabled={isUploadingMedia}
+                    >
+                      {isUploadingMedia ? (
+                        <ActivityIndicator size="small" color={Colors.light.primary} />
+                      ) : (
+                        <Upload color={Colors.light.primary} size={24} strokeWidth={2.5} />
+                      )}
+                      <Text style={detailStyles.uploadOptionText}>
+                        {isUploadingMedia ? 'Uploaden...' : 'Upload Nieuw'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={detailStyles.uploadedMediaContainer}>
+                    <View style={detailStyles.uploadedMediaInfo}>
+                      {uploadedMediaType === 'video' && <Video color={Colors.light.primary} size={24} />}
+                      {uploadedMediaType === 'image' && <ImageIcon color={Colors.light.primary} size={24} />}
+                      {uploadedMediaType === 'audio' && <Music color={Colors.light.primary} size={24} />}
+                      <View style={detailStyles.uploadedTextContainer}>
+                        <Text style={detailStyles.uploadedMediaTitle}>
+                          {uploadedMediaType === 'video' ? 'Video' : uploadedMediaType === 'image' ? 'Foto' : 'Audio'} geüpload
+                        </Text>
+                        <Text style={detailStyles.uploadedMediaSubtitle}>Klaar voor indiening</Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        setUploadedMediaUri("");
+                        setUploadedMediaType(undefined);
+                      }}
+                    >
+                      <X color={Colors.light.muted} size={24} />
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -1020,6 +1183,17 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
           )}
         </View>
       </View>
+
+      <MediaExplorerModal
+        visible={showMediaExplorer}
+        currentPath={explorerPath}
+        onClose={() => {
+          setShowMediaExplorer(false);
+          setExplorerPath("");
+        }}
+        onNavigate={setExplorerPath}
+        onSelectMedia={handleSelectMediaFromLibrary}
+      />
     </Modal>
   );
 }
@@ -1651,6 +1825,30 @@ const localStyles = StyleSheet.create({
     color: Colors.light.text,
     flex: 1,
   },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    borderColor: Colors.light.primary,
+    backgroundColor: Colors.light.primary,
+  },
+  checkboxLabel: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
   submitButton: {
     backgroundColor: Colors.light.primary,
     paddingVertical: 16,
@@ -2021,5 +2219,57 @@ const detailStyles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 18,
     fontWeight: '700' as const,
+  },
+  uploadOptionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  uploadOptionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.light.surface,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  uploadOptionText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  uploadedMediaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.light.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+  },
+  uploadedMediaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  uploadedTextContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  uploadedMediaTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  uploadedMediaSubtitle: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: Colors.light.muted,
   },
 });
