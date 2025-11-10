@@ -182,7 +182,7 @@ export default function AdminScreen() {
               <View style={styles.memberSelector}>
                 <Text style={styles.roleLabel}>Leden selecteren:</Text>
                 <View style={styles.membersList}>
-                  {users.filter(u => u.role === 'member').map(user => (
+                  {users.map(user => (
                     <Pressable
                       key={user.id}
                       style={[styles.memberChip, selectedMemberIds.includes(user.id) && styles.memberChipSelected]}
