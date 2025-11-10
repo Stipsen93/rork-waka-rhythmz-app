@@ -14,6 +14,10 @@ export default function AccountScreen() {
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
   const [name, setName] = useState<string>(currentUser?.username || "");
+  const [birthDate, setBirthDate] = useState<string>(currentUser?.age || "");
+  const [address, setAddress] = useState<string>(currentUser?.address || "");
+  const [phone, setPhone] = useState<string>(currentUser?.phone || "");
+  const [email, setEmail] = useState<string>(currentUser?.email || "");
   const [currentPassword, setCurrentPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -45,6 +49,10 @@ export default function AccountScreen() {
         try {
           await updateUserProfile(currentUser.id, {
             username: name,
+            age: birthDate || null,
+            address: address || null,
+            phone: phone || null,
+            email: email || null,
           });
           Alert.alert("Gelukt", "Profiel opgeslagen");
         } catch (error) {
@@ -117,7 +125,76 @@ export default function AccountScreen() {
               </View>
             </View>
 
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
+                <User size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Geboortedatum</Text>
+                <TextInput
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
+                  value={birthDate}
+                  onChangeText={setBirthDate}
+                  placeholder=""
+                  placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
+                />
+              </View>
+            </View>
 
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
+                <User size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Adres</Text>
+                <TextInput
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder=""
+                  placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
+                <User size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Nummer</Text>
+                <TextInput
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder=""
+                  placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+
+            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
+                <User size={20} color={Colors.light.muted} />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>E-mail</Text>
+                <TextInput
+                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder=""
+                  placeholderTextColor={Colors.light.mutedLight}
+                  editable={isEditingProfile}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
               <Text style={styles.saveButtonText}>
