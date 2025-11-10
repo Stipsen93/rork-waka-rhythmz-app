@@ -77,11 +77,218 @@ const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }
 
 CreateUserSection.displayName = 'CreateUserSection';
 
-export default function AdminScreen() {
-  const { users, setRole, resetPassword, currentUser, groups, addGroup, updateGroup, deleteGroups } = useAppState();
+const CreateGroupSection = memo(() => {
+  const { users, groups, addGroup, updateGroup, deleteGroups } = useAppState();
   const [groupName, setGroupName] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+
+  const handleCreateOrUpdateGroup = useCallback(async () => {
+    if (editingGroup) {
+      await updateGroup(editingGroup.id, groupName.trim(), selectedMemberIds);
+      Alert.alert('Groep Bijgewerkt', `Groep "${groupName}" is succesvol bijgewerkt.`);
+    } else {
+      await addGroup(groupName.trim(), selectedMemberIds);
+      Alert.alert('Groep Aangemaakt', `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`);
+    }
+    setGroupName('');
+    setSelectedMemberIds([]);
+    setEditingGroup(null);
+  }, [editingGroup, groupName, selectedMemberIds, addGroup, updateGroup]);
+
+  const handleEditGroup = useCallback((group: Group) => {
+    setGroupName(group.name);
+    setSelectedMemberIds(group.memberIds);
+    setEditingGroup(group);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setGroupName('');
+    setSelectedMemberIds([]);
+    setEditingGroup(null);
+  }, []);
+
+  const handleDeleteEditingGroup = useCallback(async () => {
+    if (!editingGroup) return;
+    Alert.alert(
+      'Groep Verwijderen',
+      `Weet je zeker dat je de groep "${editingGroup.name}" wilt verwijderen?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteGroups([editingGroup.id]);
+            setEditingGroup(null);
+            setGroupName('');
+            setSelectedMemberIds([]);
+          },
+        },
+      ]
+    );
+  }, [editingGroup, deleteGroups]);
+
+  const handleDeleteGroup = useCallback(async (group: Group) => {
+    Alert.alert(
+      'Groep Verwijderen',
+      `Weet je zeker dat je de groep "${group.name}" wilt verwijderen?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteGroups([group.id]);
+            if (editingGroup?.id === group.id) {
+              setEditingGroup(null);
+              setGroupName('');
+              setSelectedMemberIds([]);
+            }
+          },
+        },
+      ]
+    );
+  }, [deleteGroups, editingGroup]);
+
+  const toggleMemberSelection = useCallback((userId: string) => {
+    setSelectedMemberIds(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  }, []);
+
+  return (
+    <View style={styles.scrollContent}>
+      <View style={styles.groupsSection}>
+        <View style={styles.sectionHeader}>
+          <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
+          <Text style={styles.sectionTitle}>
+            {editingGroup ? 'Groep Bewerken' : 'Nieuwe Groep Aanmaken'}
+          </Text>
+        </View>
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Voer groepnaam in"
+          placeholderTextColor={Colors.light.muted}
+          value={groupName}
+          onChangeText={setGroupName}
+          testID="group-name"
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="done"
+        />
+        
+        <View style={styles.memberSelector}>
+          <Text style={styles.roleLabel}>Leden selecteren:</Text>
+          <View style={styles.membersList}>
+            {users.map(user => (
+              <Pressable
+                key={user.id}
+                style={[styles.memberChip, selectedMemberIds.includes(user.id) && styles.memberChipSelected]}
+                onPress={() => toggleMemberSelection(user.id)}
+                testID={`select-member-${user.id}`}
+              >
+                <User
+                  color={selectedMemberIds.includes(user.id) ? Colors.light.text : Colors.light.muted}
+                  size={14}
+                  strokeWidth={2}
+                />
+                <Text
+                  style={[
+                    styles.memberChipText,
+                    selectedMemberIds.includes(user.id) && styles.memberChipTextSelected,
+                  ]}
+                >
+                  {user.username}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <Pressable
+          style={[styles.createButton, { opacity: groupName ? 1 : 0.5 }]}
+          disabled={!groupName}
+          onPress={handleCreateOrUpdateGroup}
+          testID="create-group"
+        >
+          <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
+          <Text style={styles.createButtonText}>
+            {editingGroup ? 'Groep Bijwerken' : 'Groep Aanmaken'}
+          </Text>
+        </Pressable>
+
+        {editingGroup && (
+          <View style={styles.groupButtonsRow}>
+            <Pressable
+              style={[styles.deleteButton]}
+              onPress={handleDeleteEditingGroup}
+              testID="delete-editing-group"
+            >
+              <Text style={styles.deleteButtonText}>Groep Verwijderen</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.cancelButton]}
+              onPress={handleCancelEdit}
+              testID="cancel-edit-group"
+            >
+              <Text style={styles.cancelButtonText}>Annuleren</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.groupsListSection}>
+        <Text style={styles.usersSectionTitle}>
+          Alle Groepen ({groups.length})
+        </Text>
+        {groups.map(group => (
+          <View key={group.id} style={styles.groupCard}>
+            <View style={styles.groupCardLeft}>
+              <View style={styles.groupAvatar}>
+                <UserPlus color={Colors.light.primary} size={20} strokeWidth={2.5} />
+              </View>
+              <View style={styles.groupInfo}>
+                <Text style={styles.groupName}>{group.name}</Text>
+                <Text style={styles.groupMembers}>
+                  {group.memberIds.length} lid(en)
+                </Text>
+                <Text style={styles.groupMemberNames}>
+                  {group.memberIds.map(id => users.find(u => u.id === id)?.username).filter(Boolean).join(', ')}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.groupActions}>
+              <Pressable
+                style={styles.iconButton}
+                onPress={() => handleEditGroup(group)}
+                testID={`edit-group-${group.id}`}
+              >
+                <User color={Colors.light.primary} size={16} strokeWidth={2.5} />
+              </Pressable>
+              <Pressable
+                style={styles.iconButton}
+                onPress={() => handleDeleteGroup(group)}
+                testID={`delete-group-${group.id}`}
+              >
+                <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
+              </Pressable>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+});
+
+CreateGroupSection.displayName = 'CreateGroupSection';
+
+export default function AdminScreen() {
+  const { users, setRole, resetPassword } = useAppState();
   const insets = useSafeAreaInsets();
 
   const handleUserCreated = useCallback(() => {
@@ -113,10 +320,6 @@ export default function AdminScreen() {
       ]
     );
   };
-
-
-
-  const isAdmin = currentUser?.role === 'admin';
 
   const renderHeader = useCallback(() => (
     <>
@@ -154,196 +357,8 @@ export default function AdminScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         removeClippedSubviews={false}
-        ListFooterComponent={() => (
-          <View style={styles.scrollContent}>
-            <View style={styles.groupsSection}>
-              <View style={styles.sectionHeader}>
-                <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.sectionTitle}>
-                  {editingGroup ? 'Groep Bewerken' : 'Nieuwe Groep Aanmaken'}
-                </Text>
-              </View>
-              
-              <TextInput
-                style={styles.input}
-                placeholder="Voer groepnaam in"
-                placeholderTextColor={Colors.light.muted}
-                value={groupName}
-                onChangeText={(text) => {
-                  setGroupName(text);
-                }}
-                testID="group-name"
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="done"
-                blurOnSubmit={false}
-              />
-              
-              <View style={styles.memberSelector}>
-                <Text style={styles.roleLabel}>Leden selecteren:</Text>
-                <View style={styles.membersList}>
-                  {users.map(user => (
-                    <Pressable
-                      key={user.id}
-                      style={[styles.memberChip, selectedMemberIds.includes(user.id) && styles.memberChipSelected]}
-                      onPress={() => {
-                        setSelectedMemberIds(prev =>
-                          prev.includes(user.id)
-                            ? prev.filter(id => id !== user.id)
-                            : [...prev, user.id]
-                        );
-                      }}
-                      testID={`select-member-${user.id}`}
-                    >
-                      <User
-                        color={selectedMemberIds.includes(user.id) ? Colors.light.text : Colors.light.muted}
-                        size={14}
-                        strokeWidth={2}
-                      />
-                      <Text
-                        style={[
-                          styles.memberChipText,
-                          selectedMemberIds.includes(user.id) && styles.memberChipTextSelected,
-                        ]}
-                      >
-                        {user.username}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-
-              <Pressable
-                style={[styles.createButton, { opacity: groupName ? 1 : 0.5 }]}
-                disabled={!groupName}
-                onPress={async () => {
-                  if (editingGroup) {
-                    await updateGroup(editingGroup.id, groupName.trim(), selectedMemberIds);
-                    Alert.alert('Groep Bijgewerkt', `Groep "${groupName}" is succesvol bijgewerkt.`);
-                  } else {
-                    await addGroup(groupName.trim(), selectedMemberIds);
-                    Alert.alert('Groep Aangemaakt', `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`);
-                  }
-                  setGroupName('');
-                  setSelectedMemberIds([]);
-                  setEditingGroup(null);
-                }}
-                testID="create-group"
-              >
-                <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
-                <Text style={styles.createButtonText}>
-                  {editingGroup ? 'Groep Bijwerken' : 'Groep Aanmaken'}
-                </Text>
-              </Pressable>
-
-              {editingGroup && (
-                <View style={styles.groupButtonsRow}>
-                  <Pressable
-                    style={[styles.deleteButton]}
-                    onPress={() => {
-                      Alert.alert(
-                        'Groep Verwijderen',
-                        `Weet je zeker dat je de groep "${editingGroup.name}" wilt verwijderen?`,
-                        [
-                          { text: 'Annuleren', style: 'cancel' },
-                          {
-                            text: 'Verwijderen',
-                            style: 'destructive',
-                            onPress: async () => {
-                              await deleteGroups([editingGroup.id]);
-                              setEditingGroup(null);
-                              setGroupName('');
-                              setSelectedMemberIds([]);
-                            },
-                          },
-                        ]
-                      );
-                    }}
-                    testID="delete-editing-group"
-                  >
-                    <Text style={styles.deleteButtonText}>Groep Verwijderen</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.cancelButton]}
-                    onPress={() => {
-                      setGroupName('');
-                      setSelectedMemberIds([]);
-                      setEditingGroup(null);
-                    }}
-                    testID="cancel-edit-group"
-                  >
-                    <Text style={styles.cancelButtonText}>Annuleren</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.groupsListSection}>
-              <Text style={styles.usersSectionTitle}>
-                Alle Groepen ({groups.length})
-              </Text>
-              {groups.map(group => (
-                <View key={group.id} style={styles.groupCard}>
-                  <View style={styles.groupCardLeft}>
-                    <View style={styles.groupAvatar}>
-                      <UserPlus color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                    </View>
-                    <View style={styles.groupInfo}>
-                      <Text style={styles.groupName}>{group.name}</Text>
-                      <Text style={styles.groupMembers}>
-                        {group.memberIds.length} lid(en)
-                      </Text>
-                      <Text style={styles.groupMemberNames}>
-                        {group.memberIds.map(id => users.find(u => u.id === id)?.username).filter(Boolean).join(', ')}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.groupActions}>
-                    <Pressable
-                      style={styles.iconButton}
-                      onPress={() => {
-                        setGroupName(group.name);
-                        setSelectedMemberIds(group.memberIds);
-                        setEditingGroup(group);
-                      }}
-                      testID={`edit-group-${group.id}`}
-                    >
-                      <User color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                    </Pressable>
-                    <Pressable
-                      style={styles.iconButton}
-                      onPress={() => {
-                        Alert.alert(
-                          'Groep Verwijderen',
-                          `Weet je zeker dat je de groep "${group.name}" wilt verwijderen?`,
-                          [
-                            { text: 'Annuleren', style: 'cancel' },
-                            {
-                              text: 'Verwijderen',
-                              style: 'destructive',
-                              onPress: async () => {
-                                await deleteGroups([group.id]);
-                                if (editingGroup?.id === group.id) {
-                                  setEditingGroup(null);
-                                  setGroupName('');
-                                  setSelectedMemberIds([]);
-                                }
-                              },
-                            },
-                          ]
-                        );
-                      }}
-                      testID={`delete-group-${group.id}`}
-                    >
-                      <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                    </Pressable>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        automaticallyAdjustKeyboardInsets
+        ListFooterComponent={CreateGroupSection}
         renderItem={({ item }) => (
           <View style={styles.userCard}>
             <View style={styles.userCardLeft}>
