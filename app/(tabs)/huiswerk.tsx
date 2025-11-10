@@ -22,11 +22,12 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
-  const { addAssignment, updateAssignment, users } = useAppState();
+  const { addAssignment, updateAssignment, users, groups } = useAppState();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState<string>(editingAssignment?.title ?? "");
   const [description, setDescription] = useState<string>(editingAssignment?.description ?? "");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(editingAssignment?.assignedUserIds ?? []);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date>(editingAssignment?.dueDate ? new Date(editingAssignment.dueDate) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showHourPicker, setShowHourPicker] = useState(false);
@@ -56,6 +57,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
     setTitle("");
     setDescription("");
     setSelectedUserIds([]);
+    setSelectedGroupIds([]);
     setDueDate(new Date());
     setMediaUri("");
     setMediaType(undefined);
@@ -149,11 +151,23 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       return;
     }
 
+    const allSelectedUserIds = [...selectedUserIds];
+    selectedGroupIds.forEach(groupId => {
+      const group = groups.find(g => g.id === groupId);
+      if (group) {
+        group.memberIds.forEach(userId => {
+          if (!allSelectedUserIds.includes(userId)) {
+            allSelectedUserIds.push(userId);
+          }
+        });
+      }
+    });
+
     if (editingAssignment) {
       updateAssignment(editingAssignment.id, {
         title: title.trim(),
         description: description.trim(),
-        assignedUserIds: selectedUserIds,
+        assignedUserIds: allSelectedUserIds,
         dueDate: dueDate.toISOString(),
         mediaUri: mediaUri.trim() || undefined,
         mediaType,
@@ -164,7 +178,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       addAssignment({
         title: title.trim(),
         description: description.trim(),
-        assignedUserIds: selectedUserIds,
+        assignedUserIds: allSelectedUserIds,
         dueDate: dueDate.toISOString(),
         mediaUri: mediaUri.trim() || undefined,
         mediaType,
@@ -190,6 +204,22 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       setSelectedUserIds([]);
     } else {
       setSelectedUserIds(users.map(u => u.id));
+    }
+  };
+
+  const toggleGroup = (groupId: string) => {
+    if (selectedGroupIds.includes(groupId)) {
+      setSelectedGroupIds(selectedGroupIds.filter(id => id !== groupId));
+    } else {
+      setSelectedGroupIds([...selectedGroupIds, groupId]);
+    }
+  };
+
+  const selectAllGroups = () => {
+    if (selectedGroupIds.length === groups.length) {
+      setSelectedGroupIds([]);
+    } else {
+      setSelectedGroupIds(groups.map(g => g.id));
     }
   };
 
@@ -229,6 +259,30 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
               multiline
               numberOfLines={4}
             />
+
+            <View style={localStyles.membersSection}>
+              <View style={localStyles.membersSectionHeader}>
+                <Text style={localStyles.label}>Selecteer Groepen</Text>
+                <Pressable onPress={selectAllGroups} style={localStyles.selectAllButton}>
+                  <Text style={localStyles.selectAllText}>
+                    {selectedGroupIds.length === groups.length ? "Deselecteer Alles" : "Selecteer Alles"}
+                  </Text>
+                </Pressable>
+              </View>
+              <View style={localStyles.membersList}>
+                {groups.map(group => (
+                  <Pressable
+                    key={group.id}
+                    style={[localStyles.memberChip, selectedGroupIds.includes(group.id) && localStyles.memberChipSelected]}
+                    onPress={() => toggleGroup(group.id)}
+                  >
+                    <Text style={[localStyles.memberChipText, selectedGroupIds.includes(group.id) && localStyles.memberChipTextSelected]}>
+                      {group.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
 
             <View style={localStyles.membersSection}>
               <View style={localStyles.membersSectionHeader}>
