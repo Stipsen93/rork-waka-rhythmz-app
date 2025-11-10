@@ -111,7 +111,12 @@ export default function AssignmentsScreen() {
       />
       
       <View style={styles.header}>
-        <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+          {currentUser && (
+            <Text style={styles.userName}>{currentUser.username}</Text>
+          )}
+        </View>
         <Text style={styles.title}>Dashboard</Text>
         <Text style={styles.subtitle}>Overzicht van recente activiteit</Text>
       </View>
@@ -369,12 +374,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, 
     paddingBottom: 20 
   },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   appName: { 
     color: Colors.light.primary, 
     fontSize: 13, 
     fontWeight: "900" as const,
     letterSpacing: 2,
-    marginBottom: 8,
+  },
+  userName: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: "700" as const,
   },
   title: { 
     color: Colors.light.text, 
