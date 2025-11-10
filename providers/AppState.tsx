@@ -236,7 +236,22 @@ function genPassword(): string {
   return `${base}${suffix}`;
 }
 
+function buildCategoryTree(allNodes: any[]): (node: any) => CategoryNode {
+  return (node: any): CategoryNode => {
+    const children = allNodes.filter(n => n.parent_id === node.id).map(buildCategoryTree(allNodes));
+    return {
+      id: node.id,
+      name: node.name,
+      children: children.length > 0 ? children : undefined,
+      media: (node.media as any) ?? undefined,
+      description: node.description ?? undefined,
+      taggedUserIds: node.tagged_user_ids ?? undefined,
+    };
+  };
+}
+
 export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(() => {
+  console.log('🎯 [AppState] Initializing context hook...');
   const [isInitialized, setIsInitialized] = useState(false);
   const mockMedia: MediaItem[] = [
     {
@@ -980,18 +995,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       groupMembersSubscription.unsubscribe();
     };
   }, []);
-
-  const buildCategoryTree = (allNodes: any[]) => (node: any): CategoryNode => {
-    const children = allNodes.filter(n => n.parent_id === node.id).map(buildCategoryTree(allNodes));
-    return {
-      id: node.id,
-      name: node.name,
-      children: children.length > 0 ? children : undefined,
-      media: (node.media as any) ?? undefined,
-      description: node.description ?? undefined,
-      taggedUserIds: node.tagged_user_ids ?? undefined,
-    };
-  };
 
   const setRole = useCallback(async (userId: string, role: Role) => {
     console.log('💾 Updating user role in Supabase...');
