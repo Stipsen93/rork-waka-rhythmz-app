@@ -627,13 +627,15 @@ export default function RepetitieScreen() {
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: "WAKA RHYTHMZ",
+          headerTitle: currentUser?.username || '',
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,
             letterSpacing: 1,
           },
-          headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
+          headerTitleAlign: 'center',
+          headerLeft: () => null,
+          headerRight: () => null,
           headerStyle: { backgroundColor: Colors.light.background },
           headerShadowVisible: false,
         }} 
