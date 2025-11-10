@@ -968,6 +968,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.border,
     overflow: "visible" as const,
+    zIndex: 1,
   },
   trainingHeader: {
     flexDirection: "row",
@@ -1419,7 +1420,7 @@ const styles = StyleSheet.create({
   repeatModeContainer: {
     marginTop: 12,
     position: "relative" as const,
-    zIndex: 100,
+    zIndex: 1000,
   },
   repeatModeDropdown: {
     backgroundColor: Colors.light.surfaceLight,
@@ -1447,8 +1448,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
     borderRadius: 12,
     overflow: "hidden",
-    zIndex: 10000,
-    elevation: 10,
+    zIndex: 99999,
+    elevation: 99999,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
