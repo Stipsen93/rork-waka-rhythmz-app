@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, Platform } from "react-native";
 import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
@@ -8,14 +8,86 @@ import { UserPlus, Shield, User, RotateCcw, Copy } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 
-export default function AdminScreen() {
-  const { users, addUser, setRole, resetPassword, currentUser, groups, addGroup, updateGroup, deleteGroups } = useAppState();
+const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }) => {
+  const { addUser } = useAppState();
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
+
+  const handleCreateUser = useCallback(async () => {
+    const { user, password } = await addUser(username.trim(), role);
+    Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
+    setUsername("");
+    onUserCreated();
+  }, [username, role, addUser, onUserCreated]);
+
+  return (
+    <View style={styles.createSection}>
+      <View style={styles.sectionHeader}>
+        <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
+        <Text style={styles.sectionTitle}>Nieuwe Gebruiker Aanmaken</Text>
+      </View>
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Voer gebruikersnaam in"
+        placeholderTextColor={Colors.light.muted}
+        value={username}
+        onChangeText={setUsername}
+        testID="new-username"
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
+      
+      <View style={styles.roleSelector}>
+        <Text style={styles.roleLabel}>Rol:</Text>
+        <View style={styles.roleButtons}>
+          <Pressable 
+            style={[styles.roleButton, role === "member" && styles.roleButtonActive]} 
+            onPress={() => setRoleLocal("member")}
+          >
+            <User color={role === "member" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
+            <Text style={[styles.roleButtonText, role === "member" && styles.roleButtonTextActive]}>
+              Lid
+            </Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.roleButton, role === "admin" && styles.roleButtonActive]} 
+            onPress={() => setRoleLocal("admin")}
+          >
+            <Shield color={role === "admin" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
+            <Text style={[styles.roleButtonText, role === "admin" && styles.roleButtonTextActive]}>
+              Admin
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <Pressable
+        style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
+        disabled={!username}
+        onPress={handleCreateUser}
+        testID="create-user"
+      >
+        <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
+        <Text style={styles.createButtonText}>Account Aanmaken</Text>
+      </Pressable>
+    </View>
+  );
+});
+
+CreateUserSection.displayName = 'CreateUserSection';
+
+export default function AdminScreen() {
+  const { users, setRole, resetPassword, currentUser, groups, addGroup, updateGroup, deleteGroups } = useAppState();
   const [groupName, setGroupName] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
   const insets = useSafeAreaInsets();
+
+  const handleUserCreated = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   const handleCopyPassword = async (password: string, userName: string) => {
     await Clipboard.setStringAsync(password);
@@ -47,7 +119,7 @@ export default function AdminScreen() {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  const renderHeader = () => (
+  const renderHeader = useCallback(() => (
     <>
       <LinearGradient 
         colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
@@ -62,59 +134,7 @@ export default function AdminScreen() {
       </View>
 
       <View style={styles.scrollContent}>
-        <View style={styles.createSection}>
-          <View style={styles.sectionHeader}>
-            <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            <Text style={styles.sectionTitle}>Nieuwe Gebruiker Aanmaken</Text>
-          </View>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Voer gebruikersnaam in"
-            placeholderTextColor={Colors.light.muted}
-            value={username}
-            onChangeText={setUsername}
-            testID="new-username"
-          />
-          
-          <View style={styles.roleSelector}>
-            <Text style={styles.roleLabel}>Rol:</Text>
-            <View style={styles.roleButtons}>
-              <Pressable 
-                style={[styles.roleButton, role === "member" && styles.roleButtonActive]} 
-                onPress={() => setRoleLocal("member")}
-              >
-                <User color={role === "member" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
-                <Text style={[styles.roleButtonText, role === "member" && styles.roleButtonTextActive]}>
-                  Lid
-                </Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.roleButton, role === "admin" && styles.roleButtonActive]} 
-                onPress={() => setRoleLocal("admin")}
-              >
-                <Shield color={role === "admin" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
-                <Text style={[styles.roleButtonText, role === "admin" && styles.roleButtonTextActive]}>
-                  Admin
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <Pressable
-            style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
-            disabled={!username}
-            onPress={async () => {
-              const { user, password } = await addUser(username.trim(), role);
-              Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
-              setUsername("");
-            }}
-            testID="create-user"
-          >
-            <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
-            <Text style={styles.createButtonText}>Account Aanmaken</Text>
-          </Pressable>
-        </View>
+        <CreateUserSection onUserCreated={handleUserCreated} />
 
         <View style={styles.usersSection}>
           <Text style={styles.usersSectionTitle}>
@@ -123,7 +143,7 @@ export default function AdminScreen() {
         </View>
       </View>
     </>
-  );
+  ), [users.length, handleUserCreated]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
@@ -134,6 +154,8 @@ export default function AdminScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        removeClippedSubviews={false}
+        extraData={refreshKey}
         ListFooterComponent={() => (
           <View style={styles.scrollContent}>
             <View style={styles.groupsSection}>
