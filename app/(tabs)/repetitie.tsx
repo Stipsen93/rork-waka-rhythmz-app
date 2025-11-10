@@ -4,13 +4,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight, Square, CheckSquare } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
 
 type CancelOption = "next1" | "next2" | "next3" | "custom";
+type RepeatMode = 'none' | '1x' | '2x' | 'custom';
 
 function genId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
@@ -56,12 +57,29 @@ export default function RepetitieScreen() {
   const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
   const [lockedTrainings, setLockedTrainings] = useState<Set<string>>(new Set());
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [repeatDropdownOpen, setRepeatDropdownOpen] = useState<string | null>(null);
+  const [customDatePickerOpen, setCustomDatePickerOpen] = useState<string | null>(null);
+  const [customDateMonth, setCustomDateMonth] = useState(new Date());
 
   const isAdmin = currentUser?.role === "admin";
 
   const updateTraining = (trainingId: string, updates: Partial<Training>) => {
     if (!isAdmin) return;
     setTrainings(prev => prev.map(t => t.id === trainingId ? { ...t, ...updates } : t));
+  };
+
+  const getRepeatModeLabel = (training: Training): string => {
+    if (!training.repeatMode || training.repeatMode === 'none') return '-';
+    if (training.repeatMode === '1x') return '1x';
+    if (training.repeatMode === '2x') return '2x';
+    if (training.repeatMode === 'custom') {
+      if (training.customDate) {
+        const date = new Date(training.customDate);
+        return `${date.getDate()} ${date.toLocaleDateString('nl-NL', { month: 'short' })}`;
+      }
+      return 'Aangepast';
+    }
+    return '-';
   };
 
   const toggleDay = (trainingId: string, day: number) => {
@@ -81,6 +99,7 @@ export default function RepetitieScreen() {
       time: "19:00",
       location: "Zaal 3",
       isOneTime: false,
+      repeatMode: 'none',
     };
     setTrainings(prev => [...prev, newTraining]);
   };
@@ -393,6 +412,119 @@ export default function RepetitieScreen() {
     setEditingTrainingId(null);
   };
 
+  const renderCustomDatePicker = (trainingId: string) => {
+    const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(customDateMonth);
+    const monthName = customDateMonth.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
+
+    const calendarDays: (number | null)[] = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      calendarDays.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      calendarDays.push(i);
+    }
+
+    const training = trainings.find(t => t.id === trainingId);
+    const selectedDate = training?.customDate;
+
+    return (
+      <Modal
+        visible={customDatePickerOpen === trainingId}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setCustomDatePickerOpen(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarModal}>
+            <View style={styles.calendarTitleContainer}>
+              <TouchableOpacity
+                onPress={() => {
+                  const newDate = new Date(customDateMonth);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setCustomDateMonth(newDate);
+                }}
+                style={styles.calendarNavButton}
+              >
+                <ChevronLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={styles.calendarTitle}>{monthName}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const newDate = new Date(customDateMonth);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setCustomDateMonth(newDate);
+                }}
+                style={styles.calendarNavButton}
+              >
+                <ChevronRight color={Colors.light.primary} size={24} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.calendarHeader}>
+              {WEEKDAYS.map(day => (
+                <Text key={day} style={styles.calendarHeaderDay}>{day}</Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, index) => {
+                if (day === null) {
+                  return <View key={`empty-${index}`} style={styles.calendarDayCell} />;
+                }
+
+                const date = new Date(year, month, day);
+                const dateStr = date.toISOString().split('T')[0];
+                const isSelected = selectedDate === dateStr;
+                const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
+
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    style={styles.calendarDayCell}
+                    onPress={() => {
+                      if (!isPast) {
+                        updateTraining(trainingId, { customDate: dateStr });
+                      }
+                    }}
+                    disabled={isPast}
+                  >
+                    <View style={[
+                      styles.calendarDay,
+                      isSelected && styles.calendarDayScheduled,
+                    ]}>
+                      <Text style={[
+                        styles.calendarDayText,
+                        isSelected && styles.calendarDayTextScheduled,
+                        isPast && styles.calendarDayTextDisabled,
+                      ]}>{day}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.calendarActions}>
+              <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setCustomDatePickerOpen(null)}
+              >
+                <Text style={styles.calendarButtonText}>Annuleren</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.calendarButton, styles.calendarButtonPrimary]}
+                onPress={() => {
+                  setCustomDatePickerOpen(null);
+                }}
+              >
+                <Text style={[styles.calendarButtonText, styles.calendarButtonTextPrimary]}>Selecteer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderCircularTimePicker = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const minutes = [0, 15, 30, 45];
@@ -606,18 +738,58 @@ export default function RepetitieScreen() {
                   />
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.oneTimeCheckbox, !isEditable && styles.checkboxDisabled]}
-                  onPress={() => updateTraining(training.id, { isOneTime: !training.isOneTime })}
-                  disabled={!isEditable}
-                >
-                  {training.isOneTime ? (
-                    <CheckSquare color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                  ) : (
-                    <Square color={Colors.light.muted} size={20} strokeWidth={2} />
+                <View style={styles.repeatModeContainer}>
+                  <TouchableOpacity
+                    style={[styles.repeatModeDropdown, !isEditable && styles.inputDisabled]}
+                    onPress={() => setRepeatDropdownOpen(repeatDropdownOpen === training.id ? null : training.id)}
+                    disabled={!isEditable}
+                  >
+                    <Text style={styles.repeatModeText}>{getRepeatModeLabel(training)}</Text>
+                    <ChevronDown color={Colors.light.text} size={18} />
+                  </TouchableOpacity>
+
+                  {repeatDropdownOpen === training.id && (
+                    <View style={styles.repeatDropdownMenu}>
+                      <TouchableOpacity
+                        style={styles.repeatDropdownItem}
+                        onPress={() => {
+                          updateTraining(training.id, { repeatMode: 'none', isOneTime: false, customDate: undefined });
+                          setRepeatDropdownOpen(null);
+                        }}
+                      >
+                        <Text style={styles.repeatDropdownItemText}>-</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.repeatDropdownItem}
+                        onPress={() => {
+                          updateTraining(training.id, { repeatMode: '1x', isOneTime: true, customDate: undefined });
+                          setRepeatDropdownOpen(null);
+                        }}
+                      >
+                        <Text style={styles.repeatDropdownItemText}>1x</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.repeatDropdownItem}
+                        onPress={() => {
+                          updateTraining(training.id, { repeatMode: '2x', isOneTime: false, customDate: undefined });
+                          setRepeatDropdownOpen(null);
+                        }}
+                      >
+                        <Text style={styles.repeatDropdownItemText}>2x</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.repeatDropdownItem}
+                        onPress={() => {
+                          updateTraining(training.id, { repeatMode: 'custom', isOneTime: true });
+                          setRepeatDropdownOpen(null);
+                          setCustomDatePickerOpen(training.id);
+                        }}
+                      >
+                        <Text style={styles.repeatDropdownItemText}>Aangepast</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
-                  <Text style={[styles.oneTimeLabel, training.isOneTime && styles.oneTimeLabelActive]}>1x</Text>
-                </TouchableOpacity>
+                </View>
               </View>
               );
             })}
@@ -743,6 +915,7 @@ export default function RepetitieScreen() {
       </View>
       {renderCalendarModal()}
       {renderCircularTimePicker()}
+      {trainings.map(training => renderCustomDatePicker(training.id))}
       <MenuModal 
         visible={showMenuModal} 
         onClose={() => setShowMenuModal(false)} 
@@ -1241,5 +1414,53 @@ const styles = StyleSheet.create({
   oneTimeLabelActive: {
     color: Colors.light.primary,
     fontWeight: "700" as const,
+  },
+  repeatModeContainer: {
+    marginTop: 12,
+    position: "relative" as const,
+  },
+  repeatModeDropdown: {
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  repeatModeText: {
+    fontSize: 15,
+    color: Colors.light.text,
+    fontWeight: "600" as const,
+  },
+  repeatDropdownMenu: {
+    position: "absolute" as const,
+    top: 48,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 10,
+    overflow: "hidden",
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  repeatDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  repeatDropdownItemText: {
+    fontSize: 15,
+    color: Colors.light.text,
+    fontWeight: "600" as const,
   },
 });

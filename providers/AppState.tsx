@@ -83,6 +83,8 @@ export interface Training {
   time: string;
   location: string;
   isOneTime?: boolean;
+  repeatMode?: 'none' | '1x' | '2x' | 'custom';
+  customDate?: string;
 }
 
 export interface PracticeDay {
@@ -403,6 +405,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               time: t.time,
               location: t.location,
               isOneTime: t.is_one_time ?? false,
+              repeatMode: (t.repeat_mode as any) ?? 'none',
+              customDate: t.custom_date ?? undefined,
             })),
           });
         } else if (!scheduleRes.data) {
