@@ -6,7 +6,7 @@ import { useAppState, Appointment } from "@/providers/AppState";
 import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
-const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
+const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag', 'Overig'];
 
@@ -75,7 +75,7 @@ export default function CalendarScreen() {
     
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startDayOfWeek = firstDay.getDay();
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
     const daysInMonth = lastDay.getDate();
     
     const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
@@ -319,7 +319,7 @@ export default function CalendarScreen() {
     
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startDayOfWeek = firstDay.getDay();
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
     const daysInMonth = lastDay.getDate();
     
     const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
