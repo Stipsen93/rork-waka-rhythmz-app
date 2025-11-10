@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
-import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight, Square, CheckSquare } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
@@ -20,7 +20,30 @@ export default function RepetitieScreen() {
   const insets = useSafeAreaInsets();
   const { practiceSchedule, updatePracticeSchedule, currentUser } = useAppState();
   
-  const [trainings, setTrainings] = useState<Training[]>(practiceSchedule.trainings || []);
+  const filterOneTimeTrainings = (trainings: Training[]): Training[] => {
+    const now = new Date();
+    const currentDayOfWeek = now.getDay();
+    now.setHours(0, 0, 0, 0);
+    
+    return trainings.filter(training => {
+      if (!training.isOneTime) return true;
+      
+      const trainingDayOfWeek = training.dayOfWeek;
+      
+      let nextTrainingDate = new Date(now);
+      const daysUntilTraining = (trainingDayOfWeek - currentDayOfWeek + 7) % 7;
+      
+      if (daysUntilTraining === 0) {
+        return true;
+      }
+      
+      nextTrainingDate.setDate(nextTrainingDate.getDate() + daysUntilTraining);
+      
+      return nextTrainingDate >= now;
+    });
+  };
+  
+  const [trainings, setTrainings] = useState<Training[]>(filterOneTimeTrainings(practiceSchedule.trainings || []));
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedCancelOption, setSelectedCancelOption] = useState<CancelOption | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
@@ -57,6 +80,7 @@ export default function RepetitieScreen() {
       dayOfWeek: 1,
       time: "19:00",
       location: "Zaal 3",
+      isOneTime: false,
     };
     setTrainings(prev => [...prev, newTraining]);
   };
@@ -199,6 +223,9 @@ export default function RepetitieScreen() {
       location: trainings[0]?.location || "Zaal 3",
       trainings: trainings,
     });
+    
+    const filtered = filterOneTimeTrainings(trainings);
+    setTrainings(filtered);
   };
 
   const handleSave = () => {
@@ -492,7 +519,7 @@ export default function RepetitieScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Trainingen</Text>
             
-            {trainings.map((training) => {
+            {filterOneTimeTrainings(trainings).map((training) => {
               const isLocked = lockedTrainings.has(training.id);
               const isEditable = isAdmin && !isLocked;
               
@@ -578,6 +605,19 @@ export default function RepetitieScreen() {
                     editable={isEditable}
                   />
                 </View>
+
+                <TouchableOpacity
+                  style={[styles.oneTimeCheckbox, !isEditable && styles.checkboxDisabled]}
+                  onPress={() => updateTraining(training.id, { isOneTime: !training.isOneTime })}
+                  disabled={!isEditable}
+                >
+                  {training.isOneTime ? (
+                    <CheckSquare color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                  ) : (
+                    <Square color={Colors.light.muted} size={20} strokeWidth={2} />
+                  )}
+                  <Text style={[styles.oneTimeLabel, training.isOneTime && styles.oneTimeLabelActive]}>1x</Text>
+                </TouchableOpacity>
               </View>
               );
             })}
@@ -1182,5 +1222,24 @@ const styles = StyleSheet.create({
   },
   timePickerButtonTextPrimary: {
     color: "#FFFFFF",
+  },
+  oneTimeCheckbox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  checkboxDisabled: {
+    opacity: 0.6,
+  },
+  oneTimeLabel: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.light.muted,
+  },
+  oneTimeLabelActive: {
+    color: Colors.light.primary,
+    fontWeight: "700" as const,
   },
 });

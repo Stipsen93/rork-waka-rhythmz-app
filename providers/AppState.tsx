@@ -82,6 +82,7 @@ export interface Training {
   dayOfWeek: number;
   time: string;
   location: string;
+  isOneTime?: boolean;
 }
 
 export interface PracticeDay {
@@ -400,6 +401,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               dayOfWeek: t.day_of_week,
               time: t.time,
               location: t.location,
+              isOneTime: t.is_one_time ?? false,
             })),
           });
         } else if (!scheduleRes.data) {
@@ -431,6 +433,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               dayOfWeek: t.day_of_week,
               time: t.time,
               location: t.location,
+              isOneTime: false,
             })),
           });
         }
@@ -660,6 +663,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
                 dayOfWeek: t.day_of_week,
                 time: t.time,
                 location: t.location,
+                isOneTime: t.is_one_time ?? false,
               })),
             });
           }
@@ -687,6 +691,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
                 dayOfWeek: t.day_of_week,
                 time: t.time,
                 location: t.location,
+                isOneTime: t.is_one_time ?? false,
               })),
             });
           }
@@ -990,6 +995,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         day_of_week: t.dayOfWeek,
         time: t.time,
         location: t.location,
+        is_one_time: t.isOneTime ?? false,
       }));
       await supabase.from('trainings').insert(trainingsInsert);
     }

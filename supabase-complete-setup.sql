@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS public.trainings (
   day_of_week INTEGER NOT NULL CHECK (day_of_week >= 0 AND day_of_week <= 6),
   time TEXT NOT NULL,
   location TEXT NOT NULL,
+  is_one_time BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
