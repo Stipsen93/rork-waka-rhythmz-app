@@ -770,11 +770,32 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
     });
   };
 
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("nl-NL", {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const assignedUsernames = assignment.assignedUserIds.length > 0
     ? users.filter(u => assignment.assignedUserIds.includes(u.id)).map(u => u.username).join(", ")
     : "Alle leden";
 
   const isCompleted = currentUserId ? assignment.completedBy.some(c => c.userId === currentUserId) : false;
+  
+  const completionInfo = isAdmin && assignment.completedBy.length > 0 
+    ? assignment.completedBy.map(c => {
+        const user = users.find(u => u.id === c.userId);
+        return {
+          username: user?.username || 'Onbekend',
+          completedAt: c.completedAt,
+        };
+      })
+    : [];
 
   return (
     <TouchableOpacity 
@@ -811,6 +832,19 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
       
       {assignment.description && (
         <Text style={styles.assignmentDescription}>{assignment.description}</Text>
+      )}
+      
+      {isAdmin && completionInfo.length > 0 && (
+        <View style={styles.completionInfoContainer}>
+          {completionInfo.map((info, idx) => (
+            <View key={idx} style={styles.completionInfoRow}>
+              <CheckCircle2 color={Colors.light.success} size={14} strokeWidth={2.5} />
+              <Text style={styles.completionInfoText}>
+                {info.username} - {formatDateTime(info.completedAt)}
+              </Text>
+            </View>
+          ))}
+        </View>
       )}
       
       <View style={styles.assignmentFooter}>
@@ -1279,6 +1313,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.muted,
     lineHeight: 20,
+  },
+  completionInfoContainer: {
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+  },
+  completionInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  completionInfoText: {
+    fontSize: 12,
+    color: Colors.light.text,
+    fontWeight: '600' as const,
+    flex: 1,
   },
   assignmentFooter: {
     gap: 8,
