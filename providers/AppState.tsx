@@ -11,6 +11,10 @@ export interface User {
   password: string;
   role: Role;
   passwordChangedByUser: boolean;
+  email?: string | null;
+  phone?: string | null;
+  age?: string | null;
+  address?: string | null;
 }
 
 export interface PermissionMatrix {
@@ -174,7 +178,7 @@ export interface AppStateValue {
   setRole: (userId: string, role: Role) => void;
   resetPassword: (userId: string) => Promise<string>;
   changePassword: (userId: string, newPassword: string) => void;
-  updateUserProfile: (userId: string, profile: { username?: string; email?: string; phone?: string; age?: string; address?: string }) => Promise<void>;
+  updateUserProfile: (userId: string, profile: { username?: string; email?: string | null; phone?: string | null; age?: string | null; address?: string | null }) => Promise<void>;
   permissions: Record<Role, PermissionMatrix>;
   setPermissions: (role: Role, perms: PermissionMatrix) => void;
   library: CategoryNode[];
@@ -357,6 +361,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             password: u.password,
             role: u.role as Role,
             passwordChangedByUser: u.password_changed_by_user,
+            email: u.email,
+            phone: u.phone,
+            age: u.age,
+            address: u.address,
           }));
           setUsers(mappedUsers);
           if (mappedUsers.length === 0) {
@@ -368,7 +376,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               password_changed_by_user: true,
             };
             await supabase.from('users').insert(newUser);
-            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true }]);
+            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null }]);
           }
         }
 
@@ -576,6 +584,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               password: u.password,
               role: u.role as Role,
               passwordChangedByUser: u.password_changed_by_user,
+              email: u.email,
+              phone: u.phone,
+              age: u.age,
+              address: u.address,
             }));
             setUsers(mappedUsers);
           }
@@ -885,7 +897,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Password changed');
   }, []);
 
-  const updateUserProfile = useCallback(async (userId: string, profile: { username?: string; email?: string; phone?: string; age?: string; address?: string }) => {
+  const updateUserProfile = useCallback(async (userId: string, profile: { username?: string; email?: string | null; phone?: string | null; age?: string | null; address?: string | null }) => {
     console.log('💾 Updating user profile in Supabase...');
     setUsers((prev) => prev.map((u) => 
       u.id === userId ? { ...u, ...profile } : u

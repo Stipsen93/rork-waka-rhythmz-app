@@ -16,6 +16,10 @@ export type Database = {
           password: string
           role: 'admin' | 'member'
           password_changed_by_user: boolean
+          email: string | null
+          phone: string | null
+          age: string | null
+          address: string | null
           created_at: string
         }
         Insert: {
@@ -24,6 +28,10 @@ export type Database = {
           password: string
           role: 'admin' | 'member'
           password_changed_by_user?: boolean
+          email?: string | null
+          phone?: string | null
+          age?: string | null
+          address?: string | null
           created_at?: string
         }
         Update: {
@@ -32,6 +40,10 @@ export type Database = {
           password?: string
           role?: 'admin' | 'member'
           password_changed_by_user?: boolean
+          email?: string | null
+          phone?: string | null
+          age?: string | null
+          address?: string | null
           created_at?: string
         }
       }

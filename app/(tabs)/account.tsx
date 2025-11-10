@@ -3,7 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
-import { User, Lock, Calendar, MapPin, Phone, Mail, LogOut } from "lucide-react-native";
+import { User, Lock, LogOut } from "lucide-react-native";
 import { useAppState } from "@/providers/AppState";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
@@ -17,10 +17,6 @@ export default function AccountScreen() {
   const [currentPassword, setCurrentPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
-  const [age, setAge] = useState<string>("25");
-  const [address, setAddress] = useState<string>("Hoofdstraat 123");
-  const [phone, setPhone] = useState<string>("+31 6 12345678");
-  const [email, setEmail] = useState<string>("jan@example.com");
   
   const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
@@ -121,77 +117,7 @@ export default function AccountScreen() {
               </View>
             </View>
 
-            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
-              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
-                <Calendar size={20} color={Colors.light.muted} />
-              </View>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Leeftijd</Text>
-                <TextInput
-                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
-                  value={age}
-                  onChangeText={setAge}
-                  placeholder="Voer je leeftijd in"
-                  keyboardType="number-pad"
-                  placeholderTextColor={Colors.light.mutedLight}
-                  editable={isEditingProfile}
-                />
-              </View>
-            </View>
 
-            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
-              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
-                <MapPin size={20} color={Colors.light.muted} />
-              </View>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Adres</Text>
-                <TextInput
-                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="Voer je adres in"
-                  placeholderTextColor={Colors.light.mutedLight}
-                  editable={isEditingProfile}
-                />
-              </View>
-            </View>
-
-            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
-              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
-                <Phone size={20} color={Colors.light.muted} />
-              </View>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Telefoonnummer</Text>
-                <TextInput
-                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Voer je telefoonnummer in"
-                  keyboardType="phone-pad"
-                  placeholderTextColor={Colors.light.mutedLight}
-                  editable={isEditingProfile}
-                />
-              </View>
-            </View>
-
-            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
-              <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
-                <Mail size={20} color={Colors.light.muted} />
-              </View>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Email</Text>
-                <TextInput
-                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Voer je email in"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  placeholderTextColor={Colors.light.mutedLight}
-                  editable={isEditingProfile}
-                />
-              </View>
-            </View>
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
               <Text style={styles.saveButtonText}>
