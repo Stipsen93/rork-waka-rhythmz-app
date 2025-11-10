@@ -1,5 +1,5 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import React, { useState, useCallback } from "react";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
@@ -8,10 +8,26 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser } = useAppState();
+  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser, syncAllData } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
+  
+  const [refreshing, setRefreshing] = useState(false);
+  
+  const onRefresh = useCallback(async () => {
+    console.log('🔄 [Manual Refresh] Starting manual sync...');
+    setRefreshing(true);
+    
+    try {
+      await syncAllData();
+      console.log('✅ [Manual Refresh] Manual sync completed');
+    } catch (error) {
+      console.error('❌ [Manual Refresh] Manual sync failed:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [syncAllData]);
   
   const myAssignments = React.useMemo(() => {
     return assignments.filter(a => 
@@ -100,7 +116,17 @@ export default function AssignmentsScreen() {
         <Text style={styles.subtitle}>Overzicht van recente activiteit</Text>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
+      <ScrollView 
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.light.primary}
+            colors={[Colors.light.primary]}
+          />
+        }
+      >
         <TouchableOpacity 
           style={styles.widget}
           onPress={() => router.push("/all-news")}

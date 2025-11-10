@@ -222,6 +222,7 @@ export interface AppStateValue {
   updateGroup: (id: string, name: string, memberIds: string[]) => Promise<void>;
   deleteGroups: (ids: string[]) => Promise<void>;
   getMembersByGroupId: (groupId: string) => string[];
+  syncAllData: () => Promise<void>;
 }
 
 function genId(prefix: string): string {
@@ -1978,6 +1979,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     updateGroup,
     deleteGroups,
     getMembersByGroupId,
+    syncAllData,
   };
 
   return value;
