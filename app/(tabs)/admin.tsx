@@ -132,6 +132,8 @@ export default function AdminScreen() {
         keyExtractor={(u) => u.id}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListFooterComponent={() => (
           <View style={styles.scrollContent}>
             <View style={styles.groupsSection}>
