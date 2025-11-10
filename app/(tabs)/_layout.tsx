@@ -385,6 +385,11 @@ export default function TabLayout() {
             fontWeight: "800" as const,
             letterSpacing: 1,
           },
+          headerRight: () => (
+            <View style={localStyles.userNameContainer}>
+              <Text style={localStyles.headerUserName}>{currentUser?.username || ''}</Text>
+            </View>
+          ),
         }}
       >
         <Tabs.Screen
@@ -435,6 +440,16 @@ const localStyles = StyleSheet.create({
   menuButton: {
     marginLeft: 16,
     padding: 8,
+  },
+  userNameContainer: {
+    marginRight: 16,
+    padding: 8,
+  },
+  headerUserName: {
+    fontSize: 16,
+    fontWeight: "800" as const,
+    letterSpacing: 1,
+    color: Colors.light.text,
   },
   settingsButton: {
     marginRight: 16,
