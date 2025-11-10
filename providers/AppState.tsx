@@ -1276,14 +1276,19 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       completed_by: newAssignment.completedBy as any,
       submissions: newAssignment.submissions as any,
     };
-    await supabase.from('assignments').insert(insertData);
+    
+    const { error } = await supabase.from('assignments').insert(insertData);
+    if (error) {
+      console.error('❌ Error adding assignment:', error);
+      throw error;
+    }
+    
     setAssignments((prev) => [newAssignment, ...prev]);
-    console.log('✅ Assignment added');
+    console.log('✅ Assignment added:', newAssignment.id, newAssignment.title);
   }, []);
 
   const updateAssignment = useCallback(async (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>>) => {
-    console.log('💾 Updating assignment in Supabase...');
-    setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, ...assignment } : a)));
+    console.log('💾 Updating assignment in Supabase...', id);
     const updateData: Database['public']['Tables']['assignments']['Update'] = {};
     if (assignment.title !== undefined) updateData.title = assignment.title;
     if (assignment.description !== undefined) updateData.description = assignment.description;
@@ -1292,20 +1297,33 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (assignment.mediaUri !== undefined) updateData.media_uri = assignment.mediaUri;
     if (assignment.mediaType !== undefined) updateData.media_type = assignment.mediaType;
     if (assignment.requireMedia !== undefined) updateData.require_media = assignment.requireMedia;
-    await supabase.from('assignments').update(updateData).eq('id', id);
-    console.log('✅ Assignment updated');
+    
+    const { error } = await supabase.from('assignments').update(updateData).eq('id', id);
+    if (error) {
+      console.error('❌ Error updating assignment:', error);
+      throw error;
+    }
+    
+    setAssignments((prev) => prev.map((a) => (a.id === id ? { ...a, ...assignment } : a)));
+    console.log('✅ Assignment updated:', id);
   }, []);
 
   const deleteAssignments = useCallback(async (ids: string[]) => {
-    console.log('💾 Deleting assignments from Supabase...');
+    console.log('💾 Deleting assignments from Supabase...', ids);
+    
+    const { error } = await supabase.from('assignments').delete().in('id', ids);
+    if (error) {
+      console.error('❌ Error deleting assignments:', error);
+      throw error;
+    }
+    
     const idSet = new Set(ids);
     setAssignments((prev) => prev.filter((a) => !idSet.has(a.id)));
-    await supabase.from('assignments').delete().in('id', ids);
-    console.log('✅ Assignments deleted');
+    console.log('✅ Assignments deleted:', ids.length);
   }, []);
 
   const completeAssignment = useCallback(async (assignmentId: string, userId: string, mediaUri?: string) => {
-    console.log('💾 Completing assignment in Supabase...');
+    console.log('💾 Completing assignment in Supabase...', assignmentId);
     
     const completion = {
       userId,
@@ -1313,23 +1331,33 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       ...(mediaUri && { mediaUri }),
     };
     
-    let updatedCompletedBy: any[] = [];
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) {
+      console.error('❌ Assignment not found:', assignmentId);
+      throw new Error('Assignment not found');
+    }
     
-    setAssignments((prev) => prev.map((a) => {
-      if (a.id === assignmentId) {
-        updatedCompletedBy = [...a.completedBy, completion];
-        return { ...a, completedBy: updatedCompletedBy };
-      }
-      return a;
-    }));
+    const updatedCompletedBy = [...assignment.completedBy, completion];
     
     const updateData: Database['public']['Tables']['assignments']['Update'] = {
       completed_by: updatedCompletedBy as any,
     };
     
-    await supabase.from('assignments').update(updateData).eq('id', assignmentId);
-    console.log('✅ Assignment completed');
-  }, []);
+    const { error } = await supabase.from('assignments').update(updateData).eq('id', assignmentId);
+    if (error) {
+      console.error('❌ Error completing assignment:', error);
+      throw error;
+    }
+    
+    setAssignments((prev) => prev.map((a) => {
+      if (a.id === assignmentId) {
+        return { ...a, completedBy: updatedCompletedBy };
+      }
+      return a;
+    }));
+    
+    console.log('✅ Assignment completed:', assignmentId);
+  }, [assignments]);
 
   const addAnnouncement = useCallback(async (announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
     console.log('💾 Adding announcement to Supabase...');
