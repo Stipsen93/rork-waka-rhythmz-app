@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity, ActivityIndicator, FlatList, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity, ActivityIndicator, FlatList, Image, Linking } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useAppState, Assignment } from "@/providers/AppState";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight, ChevronLeft, Check } from "lucide-react-native";
+import { Plus, X, Calendar, Users, Video, Image as ImageIcon, Music, FileText, Trash2, CheckCircle2, Folder, Upload, ArrowLeft, ChevronRight, ChevronLeft, Check, Play } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 import * as DocumentPicker from 'expo-document-picker';
@@ -743,7 +743,7 @@ function MediaExplorerModal({
   );
 }
 
-function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectionMode }: { assignment: Assignment; onPress: () => void; onLongPress: () => void; isSelected: boolean; selectionMode: boolean }) {
+function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectionMode, currentUserId, isAdmin }: { assignment: Assignment; onPress: () => void; onLongPress: () => void; isSelected: boolean; selectionMode: boolean; currentUserId?: string; isAdmin: boolean }) {
   const { users } = useAppState();
 
   const getMediaIcon = () => {
@@ -774,6 +774,8 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
     ? users.filter(u => assignment.assignedUserIds.includes(u.id)).map(u => u.username).join(", ")
     : "Alle leden";
 
+  const isCompleted = currentUserId ? assignment.completedBy.some(c => c.userId === currentUserId) : false;
+
   return (
     <TouchableOpacity 
       style={[styles.assignmentCard, isSelected && styles.cardSelected]} 
@@ -791,7 +793,15 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
         </View>
       )}
       <View style={[styles.assignmentHeader, !selectionMode && styles.assignmentFullWidth]}>
-        <Text style={styles.assignmentTitle}>{assignment.title}</Text>
+        <View style={styles.assignmentTitleRow}>
+          <Text style={styles.assignmentTitle}>{assignment.title}</Text>
+          {isCompleted && (
+            <View style={styles.completedBadge}>
+              <CheckCircle2 color={Colors.light.text} size={14} strokeWidth={2.5} />
+              <Text style={styles.completedBadgeText}>Voltooid</Text>
+            </View>
+          )}
+        </View>
         {assignment.mediaType && (
           <View style={styles.mediaIconContainer}>
             {getMediaIcon()}
@@ -822,6 +832,164 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
   );
 }
 
+function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: { visible: boolean; assignment: Assignment; onClose: () => void; currentUserId: string }) {
+  const insets = useSafeAreaInsets();
+  const { completeAssignment, users } = useAppState();
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const isCompleted = assignment.completedBy.some(c => c.userId === currentUserId);
+  const canComplete = !isCompleted && (!assignment.requireMedia || false);
+
+  const handleComplete = async () => {
+    try {
+      setIsCompleting(true);
+      await completeAssignment(assignment.id, currentUserId);
+      Alert.alert("Succes", "Huiswerk opdracht is voltooid!");
+      onClose();
+    } catch (error) {
+      console.error('Error completing assignment:', error);
+      Alert.alert("Fout", "Er is een fout opgetreden bij het voltooien van de opdracht");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("nl-NL", {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const openMedia = async () => {
+    if (!assignment.mediaUri) return;
+    
+    try {
+      const supported = await Linking.canOpenURL(assignment.mediaUri);
+      if (supported) {
+        await Linking.openURL(assignment.mediaUri);
+      } else {
+        Alert.alert("Fout", "Kan media niet openen");
+      }
+    } catch (error) {
+      console.error('Error opening media:', error);
+      Alert.alert("Fout", "Er is een fout opgetreden bij het openen van media");
+    }
+  };
+
+  const assignedUsernames = assignment.assignedUserIds.length > 0
+    ? users.filter(u => assignment.assignedUserIds.includes(u.id)).map(u => u.username).join(", ")
+    : "Alle leden";
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={detailStyles.modalOverlay}>
+        <View style={[detailStyles.modalContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+          <View style={detailStyles.modalHeader}>
+            <Text style={detailStyles.modalTitle}>Huiswerk Opdracht</Text>
+            <Pressable onPress={onClose}>
+              <X color={Colors.light.text} size={28} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={detailStyles.modalScroll} contentContainerStyle={detailStyles.scrollContent}>
+            <View style={detailStyles.section}>
+              <Text style={detailStyles.title}>{assignment.title}</Text>
+              {isCompleted && (
+                <View style={detailStyles.completedBadgeLarge}>
+                  <CheckCircle2 color={Colors.light.text} size={20} strokeWidth={2.5} />
+                  <Text style={detailStyles.completedBadgeText}>Voltooid</Text>
+                </View>
+              )}
+            </View>
+
+            {assignment.description && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.label}>Uitleg</Text>
+                <Text style={detailStyles.description}>{assignment.description}</Text>
+              </View>
+            )}
+
+            {assignment.dueDate && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.label}>Deadline</Text>
+                <View style={detailStyles.infoRow}>
+                  <Calendar color={Colors.light.primary} size={20} />
+                  <Text style={detailStyles.infoText}>{formatDate(assignment.dueDate)}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={detailStyles.section}>
+              <Text style={detailStyles.label}>Toegewezen aan</Text>
+              <View style={detailStyles.infoRow}>
+                <Users color={Colors.light.primary} size={20} />
+                <Text style={detailStyles.infoText}>{assignedUsernames}</Text>
+              </View>
+            </View>
+
+            {assignment.mediaUri && assignment.mediaType && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.label}>Media</Text>
+                <TouchableOpacity 
+                  style={detailStyles.mediaButton}
+                  onPress={openMedia}
+                >
+                  <View style={detailStyles.mediaIconBox}>
+                    {assignment.mediaType === 'video' && <Video color={Colors.light.text} size={24} />}
+                    {assignment.mediaType === 'image' && <ImageIcon color={Colors.light.text} size={24} />}
+                    {assignment.mediaType === 'audio' && <Music color={Colors.light.text} size={24} />}
+                  </View>
+                  <View style={detailStyles.mediaInfo}>
+                    <Text style={detailStyles.mediaTitle}>
+                      {assignment.mediaType === 'video' ? 'Video' : assignment.mediaType === 'image' ? 'Foto' : 'Audio'}
+                    </Text>
+                    <Text style={detailStyles.mediaSubtitle}>Klik om te openen</Text>
+                  </View>
+                  <Play color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+
+          {!isCompleted && (
+            <TouchableOpacity
+              style={[detailStyles.completeButton, (!canComplete || isCompleting) && detailStyles.completeButtonDisabled]}
+              onPress={handleComplete}
+              disabled={!canComplete || isCompleting}
+            >
+              <LinearGradient
+                colors={canComplete && !isCompleting ? [Colors.light.primary, '#B91C1C'] : [Colors.light.darkGray, Colors.light.darkGray]}
+                style={detailStyles.completeButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {isCompleting ? (
+                  <ActivityIndicator color={Colors.light.text} />
+                ) : (
+                  <>
+                    <CheckCircle2 color={Colors.light.text} size={24} strokeWidth={2.5} />
+                    <Text style={detailStyles.completeButtonText}>Voltooid</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function HuiswerkScreen() {
   const insets = useSafeAreaInsets();
   const { assignments, currentUser, deleteAssignments } = useAppState();
@@ -831,6 +999,7 @@ export default function HuiswerkScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [detailAssignment, setDetailAssignment] = useState<Assignment | undefined>(undefined);
 
   return (
     <>
@@ -868,6 +1037,8 @@ export default function HuiswerkScreen() {
                   assignment={assignment}
                   isSelected={isSelected}
                   selectionMode={selectionMode}
+                  currentUserId={currentUser?.id}
+                  isAdmin={currentUser?.role === "admin"}
                   onPress={() => {
                     if (selectionMode) {
                       setSelectedIds((prev) => {
@@ -879,9 +1050,11 @@ export default function HuiswerkScreen() {
                         }
                         return newSet;
                       });
-                    } else {
+                    } else if (currentUser?.role === "admin") {
                       setEditingAssignment(assignment);
                       setShowAddModal(true);
+                    } else {
+                      setDetailAssignment(assignment);
                     }
                   }}
                   onLongPress={() => {
@@ -1006,6 +1179,15 @@ export default function HuiswerkScreen() {
           />
         </>
       )}
+
+      {currentUser && detailAssignment && currentUser.role === "member" && (
+        <AssignmentDetailModal
+          visible={!!detailAssignment}
+          assignment={detailAssignment}
+          onClose={() => setDetailAssignment(undefined)}
+          currentUserId={currentUser.id}
+        />
+      )}
     </>
   );
 }
@@ -1058,13 +1240,31 @@ const styles = StyleSheet.create({
   assignmentFullWidth: {
     flex: 1,
   },
+  assignmentTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   assignmentTitle: {
     fontSize: 18,
     fontWeight: "700" as const,
     color: Colors.light.text,
+    flex: 1,
+  },
+  completedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 4,
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  completedBadgeText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
   },
   mediaIconContainer: {
     width: 36,
@@ -1635,5 +1835,140 @@ const explorerStyles = StyleSheet.create({
     color: Colors.light.muted,
     fontSize: 13,
     fontWeight: '500' as const,
+  },
+});
+
+const detailStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  modalTitle: {
+    color: Colors.light.text,
+    fontSize: 32,
+    fontWeight: '800' as const,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    gap: 24,
+  },
+  section: {
+    gap: 12,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: Colors.light.text,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.light.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: Colors.light.text,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.light.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  infoText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+    flex: 1,
+  },
+  mediaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.light.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  mediaIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.light.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mediaInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  mediaTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  mediaSubtitle: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: Colors.light.muted,
+  },
+  completedBadgeLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  completeButton: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  completeButtonDisabled: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  completeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 18,
+  },
+  completeButtonText: {
+    color: Colors.light.text,
+    fontSize: 18,
+    fontWeight: '700' as const,
   },
 });
