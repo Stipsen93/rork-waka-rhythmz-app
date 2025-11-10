@@ -336,6 +336,160 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     }
   }, [isInitialized, refreshStorageUsage]);
 
+  const syncAllData = useCallback(async () => {
+    try {
+      console.log('🔄 [AUTO-SYNC] Syncing all data from Supabase...');
+      const [usersRes, assignmentsRes, announcementsRes, appointmentsRes, trainingsRes, scheduleRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('assignments').select('*'),
+        supabase.from('announcements').select('*'),
+        supabase.from('appointments').select('*'),
+        supabase.from('trainings').select('*'),
+        supabase.from('practice_schedule').select('*').single(),
+        supabase.from('notification_settings').select('*').single(),
+        supabase.from('media_library').select('*'),
+        supabase.from('groups').select('*'),
+        supabase.from('group_members').select('*'),
+      ]);
+
+      if (usersRes.data) {
+        const mappedUsers = usersRes.data.map(u => ({
+          id: u.id,
+          username: u.username,
+          password: u.password,
+          role: u.role as Role,
+          passwordChangedByUser: u.password_changed_by_user,
+          email: u.email,
+          phone: u.phone,
+          age: u.age,
+          address: u.address,
+        }));
+        setUsers(mappedUsers);
+      }
+
+      if (assignmentsRes.data) {
+        setAssignments(assignmentsRes.data.map(a => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          assignedUserIds: a.assigned_user_ids ?? [],
+          dueDate: a.due_date ?? undefined,
+          mediaUri: a.media_uri ?? undefined,
+          mediaType: a.media_type ?? undefined,
+          requireMedia: a.require_media ?? false,
+          completedBy: (a.completed_by as any) ?? [],
+          createdAt: a.created_at,
+          submissions: (a.submissions as any) ?? [],
+        })));
+      }
+
+      if (announcementsRes.data) {
+        setAnnouncements(announcementsRes.data.map(a => ({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          date: a.date,
+          createdAt: a.created_at,
+        })));
+      }
+
+      if (appointmentsRes.data) {
+        setAppointments(appointmentsRes.data.map(a => ({
+          id: a.id,
+          name: a.name,
+          category: a.category,
+          date: a.date,
+          time: a.time,
+          location: a.location,
+          memberIds: a.member_ids ?? [],
+          createdAt: a.created_at,
+          createdBy: a.created_by,
+          status: a.status,
+        })));
+      }
+
+      if (trainingsRes.data && scheduleRes.data) {
+        setPracticeSchedule({
+          regularDays: (scheduleRes.data.regular_days as any) ?? [],
+          location: scheduleRes.data.location,
+          cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
+          isActive: scheduleRes.data.is_active,
+          trainings: trainingsRes.data.map(t => ({
+            id: t.id,
+            name: t.name,
+            dayOfWeek: t.day_of_week,
+            time: t.time,
+            location: t.location,
+            isOneTime: t.is_one_time ?? false,
+            repeatMode: (t.repeat_mode as any) ?? 'none',
+            customDate: t.custom_date ?? undefined,
+          })),
+        });
+      }
+
+      if (settingsRes.data) {
+        setNotificationSettings({
+          newsEnabled: settingsRes.data.news_enabled,
+          newsHoursAdvance: settingsRes.data.news_hours_advance,
+          assignmentsEnabled: settingsRes.data.assignments_enabled,
+          trainingCancellationEnabled: settingsRes.data.training_cancellation_enabled,
+          trainingHoursAdvance: settingsRes.data.training_hours_advance,
+          performancesEnabled: settingsRes.data.performances_enabled,
+          performancesHoursAdvance: settingsRes.data.performances_hours_advance,
+        });
+      }
+
+      if (mediaLibraryRes.data) {
+        setMediaLibrary(mediaLibraryRes.data.map(m => ({
+          id: m.id,
+          name: m.name,
+          path: m.path,
+          folder_path: m.folder_path,
+          file_type: m.file_type,
+          file_size: m.file_size,
+          mime_type: m.mime_type,
+          storage_path: m.storage_path,
+          uploaded_by: m.uploaded_by,
+          created_at: m.created_at,
+        })));
+      }
+
+      if (groupsRes.data && groupMembersRes.data) {
+        const groupsWithMembers = groupsRes.data.map(g => {
+          const members = groupMembersRes.data.filter(gm => gm.group_id === g.id);
+          return {
+            id: g.id,
+            name: g.name,
+            memberIds: members.map(m => m.user_id),
+            createdBy: g.created_by,
+            createdAt: g.created_at,
+          };
+        });
+        setGroups(groupsWithMembers);
+      }
+
+      await refreshStorageUsage();
+
+      console.log('✅ [AUTO-SYNC] All data synced successfully');
+    } catch (error) {
+      console.error('❌ [AUTO-SYNC] Error syncing data:', error);
+    }
+  }, [refreshStorageUsage]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    console.log('🔄 [AUTO-SYNC] Setting up auto-sync interval (10 minutes)');
+    const syncInterval = setInterval(() => {
+      syncAllData();
+    }, 10 * 60 * 1000);
+
+    return () => {
+      console.log('🔌 [AUTO-SYNC] Clearing auto-sync interval');
+      clearInterval(syncInterval);
+    };
+  }, [isInitialized, syncAllData]);
+
   useEffect(() => {
     const initializeData = async () => {
       try {
