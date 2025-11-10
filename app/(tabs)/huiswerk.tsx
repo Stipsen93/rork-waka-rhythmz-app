@@ -890,6 +890,13 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   const hasUploadedMedia = !!uploadedMediaUri;
   const canComplete = !isCompleted && (!assignment.requireMedia || hasUploadedMedia);
 
+  useEffect(() => {
+    if (!visible) {
+      setUploadedMediaUri("");
+      setUploadedMediaType(undefined);
+    }
+  }, [visible]);
+
   const handleComplete = async () => {
     if (assignment.requireMedia && !uploadedMediaUri) {
       Alert.alert("Media vereist", "Upload eerst media voordat je de opdracht voltooit");
