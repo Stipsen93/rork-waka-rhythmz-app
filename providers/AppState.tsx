@@ -1288,6 +1288,33 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Assignments deleted');
   }, []);
 
+  const completeAssignment = useCallback(async (assignmentId: string, userId: string, mediaUri?: string) => {
+    console.log('💾 Completing assignment in Supabase...');
+    
+    const completion = {
+      userId,
+      completedAt: new Date().toISOString(),
+      ...(mediaUri && { mediaUri }),
+    };
+    
+    let updatedCompletedBy: any[] = [];
+    
+    setAssignments((prev) => prev.map((a) => {
+      if (a.id === assignmentId) {
+        updatedCompletedBy = [...a.completedBy, completion];
+        return { ...a, completedBy: updatedCompletedBy };
+      }
+      return a;
+    }));
+    
+    const updateData: Database['public']['Tables']['assignments']['Update'] = {
+      completed_by: updatedCompletedBy as any,
+    };
+    
+    await supabase.from('assignments').update(updateData).eq('id', assignmentId);
+    console.log('✅ Assignment completed');
+  }, []);
+
   const addAnnouncement = useCallback(async (announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
     console.log('💾 Adding announcement to Supabase...');
     const newAnnouncement: Announcement = {
@@ -1833,33 +1860,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     }
     console.log('✅ Folder created');
   }, [currentUser]);
-
-  const completeAssignment = useCallback(async (assignmentId: string, userId: string, mediaUri?: string) => {
-    console.log('💾 Completing assignment in Supabase...');
-    
-    const completion = {
-      userId,
-      completedAt: new Date().toISOString(),
-      ...(mediaUri && { mediaUri }),
-    };
-    
-    let updatedCompletedBy: any[] = [];
-    
-    setAssignments((prev) => prev.map((a) => {
-      if (a.id === assignmentId) {
-        updatedCompletedBy = [...a.completedBy, completion];
-        return { ...a, completedBy: updatedCompletedBy };
-      }
-      return a;
-    }));
-    
-    const updateData: Database['public']['Tables']['assignments']['Update'] = {
-      completed_by: updatedCompletedBy as any,
-    };
-    
-    await supabase.from('assignments').update(updateData).eq('id', assignmentId);
-    console.log('✅ Assignment completed');
-  }, []);
 
   const addGroup = useCallback(async (name: string, memberIds: string[]) => {
     console.log('💾 Adding group to Supabase...');
