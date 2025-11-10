@@ -122,12 +122,16 @@ export default function CalendarScreen() {
     return map;
   }, [appointments]);
 
-  const trainingAndPerformanceDates = useMemo(() => {
+  const performanceDates = useMemo(() => {
     const dates = new Set<string>();
-    
     performances.forEach((perf) => {
       dates.add(perf.date);
     });
+    return dates;
+  }, [performances]);
+
+  const practiceDates = useMemo(() => {
+    const dates = new Set<string>();
     
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -151,7 +155,7 @@ export default function CalendarScreen() {
     });
     
     return dates;
-  }, [performances, practiceSchedule, currentDate]);
+  }, [practiceSchedule, currentDate]);
 
   const currentMonthAppointments = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -365,7 +369,8 @@ export default function CalendarScreen() {
             {calendarDays.map((day, index) => {
               const hasAppointments = appointmentsByDate[day.fullDate]?.length > 0;
               const isToday = day.fullDate === today;
-              const hasTrainingOrPerformance = trainingAndPerformanceDates.has(day.fullDate);
+              const hasPerformance = performanceDates.has(day.fullDate);
+              const hasPractice = practiceDates.has(day.fullDate);
               
               return (
                 <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
@@ -373,7 +378,7 @@ export default function CalendarScreen() {
                     styles.dayNumber,
                     !day.isCurrentMonth && styles.dayNumberInactive,
                     isToday && styles.dayNumberToday,
-                    hasTrainingOrPerformance && day.isCurrentMonth && styles.dayNumberCircled,
+                    hasPerformance && day.isCurrentMonth && styles.dayNumberPerformance,
                     hasAppointments && day.isCurrentMonth && styles.dayNumberAppointment,
                   ]}>
                     <Text style={[
@@ -383,6 +388,9 @@ export default function CalendarScreen() {
                     ]}>
                       {day.date}
                     </Text>
+                    {hasPractice && day.isCurrentMonth && !hasPerformance && !hasAppointments && (
+                      <View style={styles.practiceDot} />
+                    )}
                   </View>
                 </View>
               );
@@ -1203,9 +1211,17 @@ const styles = StyleSheet.create({
   dayNumberToday: {
     backgroundColor: Colors.light.primary,
   },
-  dayNumberCircled: {
+  dayNumberPerformance: {
     borderWidth: 2,
-    borderColor: Colors.light.primary,
+    borderColor: '#9333EA',
+  },
+  practiceDot: {
+    position: 'absolute',
+    bottom: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.light.primary,
   },
   dayNumberAppointment: {
     borderWidth: 2,
