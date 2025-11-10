@@ -171,6 +171,8 @@ export default function AdminScreen() {
                 value={groupName}
                 onChangeText={setGroupName}
                 testID="group-name"
+                autoCorrect={false}
+                autoCapitalize="none"
               />
               
               <View style={styles.memberSelector}>
