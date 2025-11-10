@@ -146,6 +146,25 @@ CREATE TABLE public.media_library (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Groups table
+CREATE TABLE IF NOT EXISTS public.groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Group members table
+CREATE TABLE IF NOT EXISTS public.group_members (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  group_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE(group_id, user_id)
+);
+
 -- =====================================================
 -- INDEXES
 -- =====================================================
@@ -159,6 +178,9 @@ CREATE INDEX IF NOT EXISTS idx_appointments_created_by ON appointments(created_b
 CREATE INDEX IF NOT EXISTS idx_media_library_folder_path ON media_library(folder_path);
 CREATE INDEX IF NOT EXISTS idx_media_library_created_at ON media_library(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_library_file_type ON media_library(file_type);
+CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups(created_by);
+CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
 
 -- =====================================================
 -- ENABLE RLS
@@ -173,6 +195,8 @@ ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.media_library ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 
 -- =====================================================
 -- RLS POLICIES - PUBLIC ACCESS (geen auth)
@@ -226,6 +250,14 @@ CREATE POLICY "Anyone can update media"
 CREATE POLICY "Anyone can delete media"
   ON public.media_library FOR DELETE
   USING (true);
+
+-- Groups policies
+DROP POLICY IF EXISTS "Allow all operations" ON groups;
+CREATE POLICY "Allow all operations" ON groups FOR ALL USING (true) WITH CHECK (true);
+
+-- Group members policies
+DROP POLICY IF EXISTS "Allow all operations" ON group_members;
+CREATE POLICY "Allow all operations" ON group_members FOR ALL USING (true) WITH CHECK (true);
 
 -- =====================================================
 -- STORAGE BUCKET
@@ -361,6 +393,14 @@ GRANT ALL ON public.notification_settings TO service_role;
 GRANT ALL ON public.media_library TO anon;
 GRANT ALL ON public.media_library TO authenticated;
 GRANT ALL ON public.media_library TO service_role;
+
+GRANT ALL ON public.groups TO anon;
+GRANT ALL ON public.groups TO authenticated;
+GRANT ALL ON public.groups TO service_role;
+
+GRANT ALL ON public.group_members TO anon;
+GRANT ALL ON public.group_members TO authenticated;
+GRANT ALL ON public.group_members TO service_role;
 
 -- =====================================================
 -- SETUP COMPLEET

@@ -152,6 +152,14 @@ export interface StorageUsage {
   percentage: number;
 }
 
+export interface Group {
+  id: string;
+  name: string;
+  memberIds: string[];
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
@@ -201,6 +209,11 @@ export interface AppStateValue {
   createFolder: (folderPath: string) => Promise<void>;
   storageUsage: StorageUsage | null;
   refreshStorageUsage: () => Promise<void>;
+  groups: Group[];
+  addGroup: (name: string, memberIds: string[]) => Promise<void>;
+  updateGroup: (id: string, name: string, memberIds: string[]) => Promise<void>;
+  deleteGroups: (ids: string[]) => Promise<void>;
+  getMembersByGroupId: (groupId: string) => string[];
 }
 
 function genId(prefix: string): string {
@@ -279,6 +292,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const [mediaLibrary, setMediaLibrary] = useState<MediaLibraryItem[]>([]);
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
 
   const refreshStorageUsage = useCallback(async () => {
     console.log('💾 Refreshing storage usage...');
@@ -318,7 +332,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     const initializeData = async () => {
       try {
         console.log('🔄 Loading data from Supabase...');
-        const [usersRes, libraryRes, assignmentsRes, trainingsRes, scheduleRes, announcementsRes, appointmentsRes, settingsRes, mediaLibraryRes] = await Promise.all([
+        const [usersRes, libraryRes, assignmentsRes, trainingsRes, scheduleRes, announcementsRes, appointmentsRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
           supabase.from('users').select('*'),
           supabase.from('library').select('*'),
           supabase.from('assignments').select('*'),
@@ -328,6 +342,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           supabase.from('appointments').select('*'),
           supabase.from('notification_settings').select('*').single(),
           supabase.from('media_library').select('*'),
+          supabase.from('groups').select('*'),
+          supabase.from('group_members').select('*'),
         ]);
 
         if (usersRes.data) {
@@ -482,6 +498,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             uploaded_by: m.uploaded_by,
             created_at: m.created_at,
           })));
+        }
+
+        if (groupsRes.data && groupMembersRes.data) {
+          const groupsWithMembers = groupsRes.data.map(g => {
+            const members = groupMembersRes.data.filter(gm => gm.group_id === g.id);
+            return {
+              id: g.id,
+              name: g.name,
+              memberIds: members.map(m => m.user_id),
+              createdBy: g.created_by,
+              createdAt: g.created_at,
+            };
+          });
+          setGroups(groupsWithMembers);
         }
 
         if (settingsRes.data) {
@@ -708,6 +738,56 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       })
       .subscribe();
 
+    const groupsSubscription = supabase
+      .channel('groups-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, () => {
+        console.log('🔄 Groups changed, reloading...');
+        Promise.all([
+          supabase.from('groups').select('*'),
+          supabase.from('group_members').select('*'),
+        ]).then(([groupsRes, groupMembersRes]) => {
+          if (groupsRes.data && groupMembersRes.data) {
+            const groupsWithMembers = groupsRes.data.map(g => {
+              const members = groupMembersRes.data.filter(gm => gm.group_id === g.id);
+              return {
+                id: g.id,
+                name: g.name,
+                memberIds: members.map(m => m.user_id),
+                createdBy: g.created_by,
+                createdAt: g.created_at,
+              };
+            });
+            setGroups(groupsWithMembers);
+          }
+        });
+      })
+      .subscribe();
+
+    const groupMembersSubscription = supabase
+      .channel('group-members-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members' }, () => {
+        console.log('🔄 Group members changed, reloading...');
+        Promise.all([
+          supabase.from('groups').select('*'),
+          supabase.from('group_members').select('*'),
+        ]).then(([groupsRes, groupMembersRes]) => {
+          if (groupsRes.data && groupMembersRes.data) {
+            const groupsWithMembers = groupsRes.data.map(g => {
+              const members = groupMembersRes.data.filter(gm => gm.group_id === g.id);
+              return {
+                id: g.id,
+                name: g.name,
+                memberIds: members.map(m => m.user_id),
+                createdBy: g.created_by,
+                createdAt: g.created_at,
+              };
+            });
+            setGroups(groupsWithMembers);
+          }
+        });
+      })
+      .subscribe();
+
     return () => {
       console.log('🔌 Unsubscribing from Supabase real-time...');
       usersSubscription.unsubscribe();
@@ -718,6 +798,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       scheduleSubscription.unsubscribe();
       settingsSubscription.unsubscribe();
       mediaLibrarySubscription.unsubscribe();
+      groupsSubscription.unsubscribe();
+      groupMembersSubscription.unsubscribe();
     };
   }, []);
 
@@ -1554,6 +1636,69 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Assignment completed');
   }, []);
 
+  const addGroup = useCallback(async (name: string, memberIds: string[]) => {
+    console.log('💾 Adding group to Supabase...');
+    const groupId = genId('g');
+    const newGroup: Group = {
+      id: groupId,
+      name,
+      memberIds,
+      createdBy: currentUser?.id ?? '',
+      createdAt: new Date().toISOString(),
+    };
+    
+    const insertData: Database['public']['Tables']['groups']['Insert'] = {
+      id: newGroup.id,
+      name: newGroup.name,
+      created_by: newGroup.createdBy,
+    };
+    await supabase.from('groups').insert(insertData);
+    
+    if (memberIds.length > 0) {
+      const membersData: Database['public']['Tables']['group_members']['Insert'][] = memberIds.map(userId => ({
+        group_id: groupId,
+        user_id: userId,
+      }));
+      await supabase.from('group_members').insert(membersData);
+    }
+    
+    setGroups((prev) => [...prev, newGroup]);
+    console.log('✅ Group added');
+  }, [currentUser]);
+
+  const updateGroup = useCallback(async (id: string, name: string, memberIds: string[]) => {
+    console.log('💾 Updating group in Supabase...');
+    
+    const updateData: Database['public']['Tables']['groups']['Update'] = { name };
+    await supabase.from('groups').update(updateData).eq('id', id);
+    
+    await supabase.from('group_members').delete().eq('group_id', id);
+    
+    if (memberIds.length > 0) {
+      const membersData: Database['public']['Tables']['group_members']['Insert'][] = memberIds.map(userId => ({
+        group_id: id,
+        user_id: userId,
+      }));
+      await supabase.from('group_members').insert(membersData);
+    }
+    
+    setGroups((prev) => prev.map(g => g.id === id ? { ...g, name, memberIds } : g));
+    console.log('✅ Group updated');
+  }, []);
+
+  const deleteGroups = useCallback(async (ids: string[]) => {
+    console.log('💾 Deleting groups from Supabase...');
+    const idSet = new Set(ids);
+    setGroups((prev) => prev.filter((g) => !idSet.has(g.id)));
+    await supabase.from('groups').delete().in('id', ids);
+    console.log('✅ Groups deleted');
+  }, []);
+
+  const getMembersByGroupId = useCallback((groupId: string): string[] => {
+    const group = groups.find(g => g.id === groupId);
+    return group ? group.memberIds : [];
+  }, [groups]);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -1603,6 +1748,11 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     createFolder,
     storageUsage,
     refreshStorageUsage,
+    groups,
+    addGroup,
+    updateGroup,
+    deleteGroups,
+    getMembersByGroupId,
   };
 
   return value;

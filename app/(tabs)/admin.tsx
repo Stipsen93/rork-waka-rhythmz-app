@@ -2,16 +2,19 @@ import React, { useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, Platform } from "react-native";
 import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
-import { Role, useAppState } from "@/providers/AppState";
+import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserPlus, Shield, User, RotateCcw, Copy } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 
 export default function AdminScreen() {
-  const { users, addUser, setRole, resetPassword, currentUser } = useAppState();
+  const { users, addUser, setRole, resetPassword, currentUser, groups, addGroup, updateGroup, deleteGroups } = useAppState();
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
+  const [groupName, setGroupName] = useState<string>("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const insets = useSafeAreaInsets();
 
   const handleCopyPassword = async (password: string, userName: string) => {
@@ -129,6 +132,164 @@ export default function AdminScreen() {
         keyExtractor={(u) => u.id}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        ListFooterComponent={() => (
+          <View style={styles.scrollContent}>
+            <View style={styles.groupsSection}>
+              <View style={styles.sectionHeader}>
+                <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
+                <Text style={styles.sectionTitle}>
+                  {editingGroup ? 'Groep Bewerken' : 'Nieuwe Groep Aanmaken'}
+                </Text>
+              </View>
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Voer groepnaam in"
+                placeholderTextColor={Colors.light.muted}
+                value={groupName}
+                onChangeText={setGroupName}
+                testID="group-name"
+              />
+              
+              <View style={styles.memberSelector}>
+                <Text style={styles.roleLabel}>Leden selecteren:</Text>
+                <View style={styles.membersList}>
+                  {users.filter(u => u.role === 'member').map(user => (
+                    <Pressable
+                      key={user.id}
+                      style={[styles.memberChip, selectedMemberIds.includes(user.id) && styles.memberChipSelected]}
+                      onPress={() => {
+                        setSelectedMemberIds(prev =>
+                          prev.includes(user.id)
+                            ? prev.filter(id => id !== user.id)
+                            : [...prev, user.id]
+                        );
+                      }}
+                      testID={`select-member-${user.id}`}
+                    >
+                      <User
+                        color={selectedMemberIds.includes(user.id) ? Colors.light.text : Colors.light.muted}
+                        size={14}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          styles.memberChipText,
+                          selectedMemberIds.includes(user.id) && styles.memberChipTextSelected,
+                        ]}
+                      >
+                        {user.username}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.groupButtonsRow}>
+                <Pressable
+                  style={[styles.createButton, { opacity: groupName ? 1 : 0.5, flex: editingGroup ? 1 : 0 }]}
+                  disabled={!groupName}
+                  onPress={async () => {
+                    if (editingGroup) {
+                      await updateGroup(editingGroup.id, groupName.trim(), selectedMemberIds);
+                      Alert.alert('Groep Bijgewerkt', `Groep "${groupName}" is succesvol bijgewerkt.`);
+                    } else {
+                      await addGroup(groupName.trim(), selectedMemberIds);
+                      Alert.alert('Groep Aangemaakt', `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`);
+                    }
+                    setGroupName('');
+                    setSelectedMemberIds([]);
+                    setEditingGroup(null);
+                  }}
+                  testID="create-group"
+                >
+                  <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
+                  <Text style={styles.createButtonText}>
+                    {editingGroup ? 'Groep Bijwerken' : 'Groep Aanmaken'}
+                  </Text>
+                </Pressable>
+                {editingGroup && (
+                  <Pressable
+                    style={[styles.createButton, { flex: 1, backgroundColor: Colors.light.muted, marginLeft: 10 }]}
+                    onPress={() => {
+                      setGroupName('');
+                      setSelectedMemberIds([]);
+                      setEditingGroup(null);
+                    }}
+                    testID="cancel-edit-group"
+                  >
+                    <Text style={styles.createButtonText}>Annuleren</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.groupsListSection}>
+              <Text style={styles.usersSectionTitle}>
+                Alle Groepen ({groups.length})
+              </Text>
+              {groups.map(group => (
+                <View key={group.id} style={styles.groupCard}>
+                  <View style={styles.groupCardLeft}>
+                    <View style={styles.groupAvatar}>
+                      <UserPlus color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    </View>
+                    <View style={styles.groupInfo}>
+                      <Text style={styles.groupName}>{group.name}</Text>
+                      <Text style={styles.groupMembers}>
+                        {group.memberIds.length} lid(en)
+                      </Text>
+                      <Text style={styles.groupMemberNames}>
+                        {group.memberIds.map(id => users.find(u => u.id === id)?.username).filter(Boolean).join(', ')}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.groupActions}>
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={() => {
+                        setGroupName(group.name);
+                        setSelectedMemberIds(group.memberIds);
+                        setEditingGroup(group);
+                      }}
+                      testID={`edit-group-${group.id}`}
+                    >
+                      <User color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                    </Pressable>
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={() => {
+                        Alert.alert(
+                          'Groep Verwijderen',
+                          `Weet je zeker dat je de groep "${group.name}" wilt verwijderen?`,
+                          [
+                            { text: 'Annuleren', style: 'cancel' },
+                            {
+                              text: 'Verwijderen',
+                              style: 'destructive',
+                              onPress: async () => {
+                                await deleteGroups([group.id]);
+                                if (editingGroup?.id === group.id) {
+                                  setEditingGroup(null);
+                                  setGroupName('');
+                                  setSelectedMemberIds([]);
+                                }
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                      testID={`delete-group-${group.id}`}
+                    >
+                      <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
         renderItem={({ item }) => (
           <View style={styles.userCard}>
             <View style={styles.userCardLeft}>
@@ -421,5 +582,100 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     marginTop: 4,
+  },
+  groupsSection: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    marginBottom: 24,
+  },
+  memberSelector: {
+    marginBottom: 16,
+  },
+  membersList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  memberChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.light.darkGray,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  memberChipSelected: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  memberChipText: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: "600" as const,
+  },
+  memberChipTextSelected: {
+    color: Colors.light.text,
+  },
+  groupButtonsRow: {
+    flexDirection: "row",
+  },
+  groupsListSection: {
+    marginBottom: 20,
+  },
+  groupCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  groupCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  groupAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: `${Colors.light.primary}15`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  groupInfo: {
+    flex: 1,
+  },
+  groupName: {
+    color: Colors.light.text,
+    fontSize: 17,
+    fontWeight: "700" as const,
+    marginBottom: 4,
+  },
+  groupMembers: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    fontWeight: "700" as const,
+    letterSpacing: 0.5,
+  },
+  groupMemberNames: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    fontWeight: "500" as const,
+    marginTop: 2,
+  },
+  groupActions: {
+    flexDirection: "row",
+    gap: 8,
   },
 });
