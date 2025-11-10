@@ -175,6 +175,7 @@ export interface AppStateValue {
   login: (username: string, password: string) => boolean;
   logout: () => void;
   addUser: (username: string, role: Role) => Promise<{ user: User; password: string }>;
+  deleteUsers: (userIds: string[]) => Promise<void>;
   setRole: (userId: string, role: Role) => void;
   resetPassword: (userId: string) => Promise<string>;
   changePassword: (userId: string, newPassword: string) => void;
@@ -1029,6 +1030,17 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ User added');
     return { user, password };
   }, []);
+
+  const deleteUsers = useCallback(async (userIds: string[]) => {
+    console.log('💾 Deleting users from Supabase...', userIds);
+    const idSet = new Set(userIds);
+    setUsers((prev) => prev.filter((u) => !idSet.has(u.id)));
+    await supabase.from('users').delete().in('id', userIds);
+    if (currentUser && idSet.has(currentUser.id)) {
+      setCurrentUser(null);
+    }
+    console.log('✅ Users deleted');
+  }, [currentUser]);
 
   const resetPassword = useCallback(async (userId: string): Promise<string> => {
     console.log('💾 Resetting password in Supabase...');
@@ -1932,6 +1944,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     login,
     logout,
     addUser,
+    deleteUsers,
     setRole,
     resetPassword,
     changePassword,

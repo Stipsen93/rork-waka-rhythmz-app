@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
 import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw, Copy } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 
@@ -288,8 +288,11 @@ const CreateGroupSection = memo(() => {
 CreateGroupSection.displayName = 'CreateGroupSection';
 
 export default function AdminScreen() {
-  const { users, setRole, resetPassword } = useAppState();
+  const { users, setRole, resetPassword, deleteUsers } = useAppState();
   const insets = useSafeAreaInsets();
+  const [selectionMode, setSelectionMode] = useState<boolean>(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   const handleUserCreated = useCallback(() => {
     // User list will update automatically via AppState
@@ -321,6 +324,64 @@ export default function AdminScreen() {
     );
   };
 
+  const handleLongPress = useCallback((userId: string) => {
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedUserIds([userId]);
+    }
+  }, [selectionMode]);
+
+  const handlePressIn = useCallback((userId: string) => {
+    if (!selectionMode) {
+      const timer = setTimeout(() => {
+        handleLongPress(userId);
+      }, 500);
+      setLongPressTimer(timer);
+    }
+  }, [selectionMode, handleLongPress]);
+
+  const handlePressOut = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  }, [longPressTimer]);
+
+  const toggleUserSelection = useCallback((userId: string) => {
+    if (selectionMode) {
+      setSelectedUserIds(prev =>
+        prev.includes(userId)
+          ? prev.filter(id => id !== userId)
+          : [...prev, userId]
+      );
+    }
+  }, [selectionMode]);
+
+  const handleCancelSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedUserIds([]);
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    const userNames = users.filter(u => selectedUserIds.includes(u.id)).map(u => u.username).join(', ');
+    Alert.alert(
+      'Leden Verwijderen',
+      `Weet je zeker dat je de volgende ${selectedUserIds.length} ${selectedUserIds.length === 1 ? 'lid' : 'leden'} wilt verwijderen?\n\n${userNames}`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteUsers(selectedUserIds);
+            setSelectionMode(false);
+            setSelectedUserIds([]);
+          },
+        },
+      ]
+    );
+  }, [selectedUserIds, users, deleteUsers]);
+
   const renderHeader = useCallback(() => (
     <>
       <LinearGradient 
@@ -339,13 +400,38 @@ export default function AdminScreen() {
         <CreateUserSection onUserCreated={handleUserCreated} />
 
         <View style={styles.usersSection}>
-          <Text style={styles.usersSectionTitle}>
-            Alle Gebruikers ({users.length})
-          </Text>
+          <View style={styles.usersSectionHeader}>
+            <Text style={styles.usersSectionTitle}>
+              Alle Gebruikers ({users.length})
+            </Text>
+            {selectionMode && (
+              <View style={styles.selectionActions}>
+                <Pressable
+                  style={styles.cancelSelectionButton}
+                  onPress={handleCancelSelection}
+                  testID="cancel-selection"
+                >
+                  <X color={Colors.light.text} size={20} strokeWidth={2.5} />
+                </Pressable>
+                {selectedUserIds.length > 0 && (
+                  <Pressable
+                    style={styles.deleteSelectionButton}
+                    onPress={handleDeleteSelected}
+                    testID="delete-selected"
+                  >
+                    <Trash2 color={Colors.light.text} size={20} strokeWidth={2.5} />
+                    <Text style={styles.deleteSelectionButtonText}>
+                      {selectedUserIds.length}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </>
-  ), [users.length, handleUserCreated]);
+  ), [users.length, handleUserCreated, selectionMode, selectedUserIds.length, handleCancelSelection, handleDeleteSelected]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
@@ -359,67 +445,87 @@ export default function AdminScreen() {
         removeClippedSubviews={false}
         automaticallyAdjustKeyboardInsets
         ListFooterComponent={CreateGroupSection}
-        renderItem={({ item }) => (
-          <View style={styles.userCard}>
-            <View style={styles.userCardLeft}>
-              <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
-                {item.role === "admin" ? (
-                  <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
-                ) : (
-                  <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
-                )}
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{item.username}</Text>
-                <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
-                <Text style={styles.userPassword}>
-                  {item.passwordChangedByUser ? "••••••••" : item.password}
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.userActions}>
-              <View style={styles.iconButtons}>
-                {!item.passwordChangedByUser && (
-                  <Pressable
-                    style={styles.iconButton}
-                    onPress={() => handleCopyPassword(item.password, item.username)}
-                    testID={`copy-password-${item.id}`}
-                  >
-                    <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                  </Pressable>
-                )}
-                <Pressable
-                  style={styles.iconButton}
-                  onPress={() => handleResetPassword(item.id, item.username)}
-                  testID={`reset-password-${item.id}`}
-                >
-                  <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                </Pressable>
-              </View>
-              <View style={styles.roleButtonsWrapper}>
-                <Pressable 
-                  style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                  onPress={() => setRole(item.id, "member")} 
-                  testID={`make-member-${item.id}`}
-                >
-                  <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
-                    Lid
+        renderItem={({ item }) => {
+          const isSelected = selectedUserIds.includes(item.id);
+          return (
+            <Pressable
+              style={[styles.userCard, isSelected && styles.userCardSelected]}
+              onPress={() => selectionMode ? toggleUserSelection(item.id) : undefined}
+              onPressIn={() => handlePressIn(item.id)}
+              onPressOut={handlePressOut}
+              testID={`user-card-${item.id}`}
+            >
+              {selectionMode && (
+                <View style={styles.selectionCheckbox}>
+                  <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                    {isSelected && (
+                      <View style={styles.checkboxInner} />
+                    )}
+                  </View>
+                </View>
+              )}
+              <View style={styles.userCardLeft}>
+                <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
+                  {item.role === "admin" ? (
+                    <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
+                  ) : (
+                    <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
+                  )}
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{item.username}</Text>
+                  <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
+                  <Text style={styles.userPassword}>
+                    {item.passwordChangedByUser ? "••••••••" : item.password}
                   </Text>
-                </Pressable>
-                <Pressable 
-                  style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                  onPress={() => setRole(item.id, "admin")} 
-                  testID={`make-admin-${item.id}`}
-                >
-                  <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
-                    Admin
-                  </Text>
-                </Pressable>
+                </View>
               </View>
-            </View>
-          </View>
-        )}
+              
+              {!selectionMode && (
+                <View style={styles.userActions}>
+                  <View style={styles.iconButtons}>
+                    {!item.passwordChangedByUser && (
+                      <Pressable
+                        style={styles.iconButton}
+                        onPress={() => handleCopyPassword(item.password, item.username)}
+                        testID={`copy-password-${item.id}`}
+                      >
+                        <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={() => handleResetPassword(item.id, item.username)}
+                      testID={`reset-password-${item.id}`}
+                    >
+                      <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.roleButtonsWrapper}>
+                    <Pressable 
+                      style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
+                      onPress={() => setRole(item.id, "member")} 
+                      testID={`make-member-${item.id}`}
+                    >
+                      <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
+                        Lid
+                      </Text>
+                    </Pressable>
+                    <Pressable 
+                      style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
+                      onPress={() => setRole(item.id, "admin")} 
+                      testID={`make-admin-${item.id}`}
+                    >
+                      <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
+                        Admin
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </Pressable>
+          );
+        }}
       />
     </View>
   );
@@ -556,11 +662,49 @@ const styles = StyleSheet.create({
   usersSection: {
     marginBottom: 16,
   },
+  usersSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   usersSectionTitle: {
     color: Colors.light.text,
     fontSize: 20,
     fontWeight: "700" as const,
-    marginBottom: 16,
+  },
+  selectionActions: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  cancelSelectionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.light.darkGray,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  deleteSelectionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  deleteSelectionButtonText: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: "700" as const,
   },
   userCard: {
     backgroundColor: Colors.light.surface,
@@ -573,6 +717,33 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginHorizontal: 20,
     marginBottom: 12,
+  },
+  userCardSelected: {
+    backgroundColor: `${Colors.light.primary}15`,
+    borderColor: Colors.light.primary,
+    borderWidth: 2,
+  },
+  selectionCheckbox: {
+    marginRight: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxSelected: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  checkboxInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 4,
+    backgroundColor: Colors.light.text,
   },
   userCardLeft: {
     flexDirection: "row",
