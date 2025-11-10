@@ -216,13 +216,28 @@ export default function LibraryScreen() {
           
           reader.onloadend = () => {
             console.log('[CLIENT] FileReader loadend event fired');
-            if (!reader.result) {
-              reject(new Error('FileReader resultaat is leeg'));
+            console.log('[CLIENT] FileReader result type:', typeof reader.result);
+            console.log('[CLIENT] FileReader result value:', reader.result ? 'has value' : 'empty');
+            
+            if (!reader.result || typeof reader.result !== 'string') {
+              reject(new Error('FileReader resultaat is leeg of ongeldig'));
               return;
             }
+            
             const result = reader.result as string;
+            if (result.length === 0) {
+              reject(new Error('FileReader resultaat string is leeg'));
+              return;
+            }
+            
             const base64 = result.includes(',') ? result.split(',')[1] : result;
             console.log('[CLIENT] File read successfully, base64 length:', base64.length);
+            
+            if (base64.length === 0) {
+              reject(new Error('Base64 conversie resulteerde in lege string'));
+              return;
+            }
+            
             resolve(base64);
           };
           
@@ -237,6 +252,14 @@ export default function LibraryScreen() {
           };
           
           console.log('[CLIENT] Starting FileReader.readAsDataURL...');
+          console.log('[CLIENT] Blob size before reading:', blob.size);
+          console.log('[CLIENT] Blob type before reading:', blob.type);
+          
+          if (blob.size === 0) {
+            reject(new Error('Blob is leeg (0 bytes)'));
+            return;
+          }
+          
           reader.readAsDataURL(blob);
         });
         
