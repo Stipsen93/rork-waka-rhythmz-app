@@ -1012,13 +1012,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         now.setHours(0, 0, 0, 0);
         
         let nextTrainingDate = new Date(now);
-        const daysUntilTraining = (training.dayOfWeek - currentDayOfWeek + 7) % 7;
+        let daysUntilTraining = (training.dayOfWeek - currentDayOfWeek + 7) % 7;
         
         if (daysUntilTraining === 0) {
-          nextTrainingDate = now;
-        } else {
-          nextTrainingDate.setDate(nextTrainingDate.getDate() + daysUntilTraining);
+          daysUntilTraining = 7;
         }
+        
+        nextTrainingDate.setDate(nextTrainingDate.getDate() + daysUntilTraining);
         
         const year = nextTrainingDate.getFullYear();
         const month = String(nextTrainingDate.getMonth() + 1).padStart(2, '0');
