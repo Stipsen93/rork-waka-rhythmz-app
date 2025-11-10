@@ -1255,9 +1255,6 @@ export default function HuiswerkScreen() {
                         }
                         return newSet;
                       });
-                    } else if (currentUser?.role === "admin") {
-                      setEditingAssignment(assignment);
-                      setShowAddModal(true);
                     } else {
                       setDetailAssignment(assignment);
                     }
@@ -1385,7 +1382,7 @@ export default function HuiswerkScreen() {
         </>
       )}
 
-      {currentUser && detailAssignment && currentUser.role === "member" && (
+      {currentUser && detailAssignment && (
         <AssignmentDetailModal
           visible={!!detailAssignment}
           assignment={detailAssignment}
