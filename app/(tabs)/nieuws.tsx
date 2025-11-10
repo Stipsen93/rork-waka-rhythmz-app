@@ -1,13 +1,27 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { useAppState } from "@/providers/AppState";
-import { Plus, X, Trash2, Calendar, Edit2 } from "lucide-react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { Plus, X, Trash2, Calendar, Edit2, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Announcement } from "@/providers/AppState";
+
+const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
+const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+
+const formatDateToLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateString = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
 
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
@@ -18,11 +32,55 @@ export default function NieuwsScreen() {
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(formatDateToLocal(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
+  const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
 
   const isAdmin = currentUser?.role === "admin";
+
+  const getDatePickerDays = (baseDate: Date) => {
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    
+    const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
+    
+    for (let i = 0; i < startDayOfWeek; i++) {
+      const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
+      days.push({
+        date: prevMonthDay.getDate(),
+        isCurrentMonth: false,
+        fullDate: formatDateToLocal(prevMonthDay),
+      });
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      const fullDate = new Date(year, month, i);
+      days.push({
+        date: i,
+        isCurrentMonth: true,
+        fullDate: formatDateToLocal(fullDate),
+      });
+    }
+    
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      const nextMonthDay = new Date(year, month + 1, i);
+      days.push({
+        date: i,
+        isCurrentMonth: false,
+        fullDate: formatDateToLocal(nextMonthDay),
+      });
+    }
+    
+    return days;
+  };
 
   const handleAddAnnouncement = () => {
     if (!name.trim()) {
@@ -33,19 +91,15 @@ export default function NieuwsScreen() {
       Alert.alert("Fout", "Omschrijving is verplicht");
       return;
     }
-    const year = selectedDate.getFullYear();
-    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const day = String(selectedDate.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
     
     addAnnouncement({ 
       name: name.trim(), 
       description: description.trim(),
-      date: dateStr
+      date: selectedDate
     });
     setName("");
     setDescription("");
-    setSelectedDate(new Date());
+    setSelectedDate(formatDateToLocal(new Date()));
     setShowAddModal(false);
   };
 
@@ -55,7 +109,7 @@ export default function NieuwsScreen() {
     setEditingAnnouncement(announcement);
     setName(announcement.name);
     setDescription(announcement.description);
-    setSelectedDate(new Date(announcement.date));
+    setSelectedDate(announcement.date);
     setShowEditModal(true);
   };
 
@@ -64,7 +118,7 @@ export default function NieuwsScreen() {
     setEditingAnnouncement(null);
     setName("");
     setDescription("");
-    setSelectedDate(new Date());
+    setSelectedDate(formatDateToLocal(new Date()));
   };
 
   const handleSaveEdit = () => {
@@ -79,15 +133,10 @@ export default function NieuwsScreen() {
       return;
     }
     
-    const year = selectedDate.getFullYear();
-    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const day = String(selectedDate.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-    
     updateAnnouncement(editingAnnouncement.id, {
       name: name.trim(),
       description: description.trim(),
-      date: dateStr
+      date: selectedDate
     });
     
     handleCancelEdit();
@@ -260,48 +309,78 @@ export default function NieuwsScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Datum *</Text>
-              {Platform.OS === 'web' ? (
-                <TextInput
-                  style={styles.input}
-                  value={selectedDate.toISOString().split('T')[0]}
-                  onChangeText={(text) => {
-                    const date = new Date(text);
-                    if (!isNaN(date.getTime())) {
-                      setSelectedDate(date);
-                    }
-                  }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.light.muted}
-                />
-              ) : (
-                <>
-                  <TouchableOpacity 
-                    style={styles.datePickerButton}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                    <Text style={styles.datePickerButtonText}>
-                      {selectedDate.toLocaleDateString('nl-NL', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
+              <TouchableOpacity 
+                style={styles.datePickerButton}
+                onPress={() => {
+                  setShowDatePicker(!showDatePicker);
+                  if (!showDatePicker) {
+                    setPickerMonth(parseDateString(selectedDate));
+                  }
+                }}
+              >
+                <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                <Text style={styles.datePickerButtonText}>
+                  {parseDateString(selectedDate).toLocaleDateString('nl-NL', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <View style={styles.calendarPickerContainer}>
+                  <View style={styles.calendarPickerHeader}>
+                    <TouchableOpacity 
+                      onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
+                      style={styles.calendarPickerButton}
+                    >
+                      <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <Text style={styles.calendarPickerMonth}>
+                      {MONTHS[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
                     </Text>
-                  </TouchableOpacity>
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={selectedDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, date) => {
-                        setShowDatePicker(false);
-                        if (date) {
-                          setSelectedDate(date);
-                        }
-                      }}
-                    />
-                  )}
-                </>
+                    <TouchableOpacity 
+                      onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))}
+                      style={styles.calendarPickerButton}
+                    >
+                      <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.calendarPickerWeekDays}>
+                    {DAYS.map((day) => (
+                      <Text key={day} style={styles.calendarPickerWeekDay}>{day}</Text>
+                    ))}
+                  </View>
+                  <View style={styles.calendarPickerGrid}>
+                    {getDatePickerDays(pickerMonth).map((day, index) => (
+                      <TouchableOpacity
+                        key={`${day.fullDate}-${index}`}
+                        style={styles.calendarPickerDay}
+                        onPress={() => {
+                          if (day.isCurrentMonth) {
+                            setSelectedDate(day.fullDate);
+                            setShowDatePicker(false);
+                          }
+                        }}
+                        disabled={!day.isCurrentMonth}
+                      >
+                        <View style={[
+                          styles.calendarPickerDayCircle,
+                          !day.isCurrentMonth && styles.calendarPickerDayInactive,
+                          selectedDate === day.fullDate && styles.calendarPickerDaySelected,
+                        ]}>
+                          <Text style={[
+                            styles.calendarPickerDayText,
+                            !day.isCurrentMonth && styles.calendarPickerDayTextInactive,
+                            selectedDate === day.fullDate && styles.calendarPickerDayTextSelected,
+                          ]}>
+                            {day.date}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               )}
             </View>
           </ScrollView>
@@ -359,48 +438,78 @@ export default function NieuwsScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Datum *</Text>
-              {Platform.OS === 'web' ? (
-                <TextInput
-                  style={styles.input}
-                  value={selectedDate.toISOString().split('T')[0]}
-                  onChangeText={(text) => {
-                    const date = new Date(text);
-                    if (!isNaN(date.getTime())) {
-                      setSelectedDate(date);
-                    }
-                  }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.light.muted}
-                />
-              ) : (
-                <>
-                  <TouchableOpacity 
-                    style={styles.datePickerButton}
-                    onPress={() => setShowEditDatePicker(true)}
-                  >
-                    <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                    <Text style={styles.datePickerButtonText}>
-                      {selectedDate.toLocaleDateString('nl-NL', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
+              <TouchableOpacity 
+                style={styles.datePickerButton}
+                onPress={() => {
+                  setShowEditDatePicker(!showEditDatePicker);
+                  if (!showEditDatePicker) {
+                    setEditPickerMonth(parseDateString(selectedDate));
+                  }
+                }}
+              >
+                <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                <Text style={styles.datePickerButtonText}>
+                  {parseDateString(selectedDate).toLocaleDateString('nl-NL', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </Text>
+              </TouchableOpacity>
+              {showEditDatePicker && (
+                <View style={styles.calendarPickerContainer}>
+                  <View style={styles.calendarPickerHeader}>
+                    <TouchableOpacity 
+                      onPress={() => setEditPickerMonth(new Date(editPickerMonth.getFullYear(), editPickerMonth.getMonth() - 1, 1))}
+                      style={styles.calendarPickerButton}
+                    >
+                      <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <Text style={styles.calendarPickerMonth}>
+                      {MONTHS[editPickerMonth.getMonth()]} {editPickerMonth.getFullYear()}
                     </Text>
-                  </TouchableOpacity>
-                  {showEditDatePicker && (
-                    <DateTimePicker
-                      value={selectedDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, date) => {
-                        setShowEditDatePicker(false);
-                        if (date) {
-                          setSelectedDate(date);
-                        }
-                      }}
-                    />
-                  )}
-                </>
+                    <TouchableOpacity 
+                      onPress={() => setEditPickerMonth(new Date(editPickerMonth.getFullYear(), editPickerMonth.getMonth() + 1, 1))}
+                      style={styles.calendarPickerButton}
+                    >
+                      <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.calendarPickerWeekDays}>
+                    {DAYS.map((day) => (
+                      <Text key={day} style={styles.calendarPickerWeekDay}>{day}</Text>
+                    ))}
+                  </View>
+                  <View style={styles.calendarPickerGrid}>
+                    {getDatePickerDays(editPickerMonth).map((day, index) => (
+                      <TouchableOpacity
+                        key={`${day.fullDate}-${index}`}
+                        style={styles.calendarPickerDay}
+                        onPress={() => {
+                          if (day.isCurrentMonth) {
+                            setSelectedDate(day.fullDate);
+                            setShowEditDatePicker(false);
+                          }
+                        }}
+                        disabled={!day.isCurrentMonth}
+                      >
+                        <View style={[
+                          styles.calendarPickerDayCircle,
+                          !day.isCurrentMonth && styles.calendarPickerDayInactive,
+                          selectedDate === day.fullDate && styles.calendarPickerDaySelected,
+                        ]}>
+                          <Text style={[
+                            styles.calendarPickerDayText,
+                            !day.isCurrentMonth && styles.calendarPickerDayTextInactive,
+                            selectedDate === day.fullDate && styles.calendarPickerDayTextSelected,
+                          ]}>
+                            {day.date}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               )}
             </View>
           </ScrollView>
@@ -680,5 +789,72 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600" as const,
     flex: 1,
+  },
+  calendarPickerContainer: {
+    marginTop: 8,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    padding: 12,
+  },
+  calendarPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  calendarPickerButton: {
+    padding: 4,
+  },
+  calendarPickerMonth: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  calendarPickerWeekDays: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calendarPickerWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
+  calendarPickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarPickerDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    padding: 2,
+  },
+  calendarPickerDayCircle: {
+    flex: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarPickerDayInactive: {
+    opacity: 0.3,
+  },
+  calendarPickerDaySelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  calendarPickerDayText: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  calendarPickerDayTextInactive: {
+    color: Colors.light.muted,
+  },
+  calendarPickerDayTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
   },
 });
