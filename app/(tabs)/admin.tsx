@@ -169,10 +169,14 @@ export default function AdminScreen() {
                 placeholder="Voer groepnaam in"
                 placeholderTextColor={Colors.light.muted}
                 value={groupName}
-                onChangeText={setGroupName}
+                onChangeText={(text) => {
+                  setGroupName(text);
+                }}
                 testID="group-name"
                 autoCorrect={false}
                 autoCapitalize="none"
+                returnKeyType="done"
+                blurOnSubmit={false}
               />
               
               <View style={styles.memberSelector}>
