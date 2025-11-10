@@ -82,11 +82,10 @@ export default function AdminScreen() {
   const [groupName, setGroupName] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-  const [refreshKey, setRefreshKey] = useState<number>(0);
   const insets = useSafeAreaInsets();
 
   const handleUserCreated = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
+    // User list will update automatically via AppState
   }, []);
 
   const handleCopyPassword = async (password: string, userName: string) => {
@@ -155,7 +154,6 @@ export default function AdminScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         removeClippedSubviews={false}
-        extraData={refreshKey}
         ListFooterComponent={() => (
           <View style={styles.scrollContent}>
             <View style={styles.groupsSection}>
@@ -209,32 +207,58 @@ export default function AdminScreen() {
                 </View>
               </View>
 
-              <View style={styles.groupButtonsRow}>
-                <Pressable
-                  style={[styles.createButton, { opacity: groupName ? 1 : 0.5, flex: editingGroup ? 1 : 0 }]}
-                  disabled={!groupName}
-                  onPress={async () => {
-                    if (editingGroup) {
-                      await updateGroup(editingGroup.id, groupName.trim(), selectedMemberIds);
-                      Alert.alert('Groep Bijgewerkt', `Groep "${groupName}" is succesvol bijgewerkt.`);
-                    } else {
-                      await addGroup(groupName.trim(), selectedMemberIds);
-                      Alert.alert('Groep Aangemaakt', `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`);
-                    }
-                    setGroupName('');
-                    setSelectedMemberIds([]);
-                    setEditingGroup(null);
-                  }}
-                  testID="create-group"
-                >
-                  <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
-                  <Text style={styles.createButtonText}>
-                    {editingGroup ? 'Groep Bijwerken' : 'Groep Aanmaken'}
-                  </Text>
-                </Pressable>
-                {editingGroup && (
+              <Pressable
+                style={[styles.createButton, { opacity: groupName ? 1 : 0.5 }]}
+                disabled={!groupName}
+                onPress={async () => {
+                  if (editingGroup) {
+                    await updateGroup(editingGroup.id, groupName.trim(), selectedMemberIds);
+                    Alert.alert('Groep Bijgewerkt', `Groep "${groupName}" is succesvol bijgewerkt.`);
+                  } else {
+                    await addGroup(groupName.trim(), selectedMemberIds);
+                    Alert.alert('Groep Aangemaakt', `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`);
+                  }
+                  setGroupName('');
+                  setSelectedMemberIds([]);
+                  setEditingGroup(null);
+                }}
+                testID="create-group"
+              >
+                <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
+                <Text style={styles.createButtonText}>
+                  {editingGroup ? 'Groep Bijwerken' : 'Groep Aanmaken'}
+                </Text>
+              </Pressable>
+
+              {editingGroup && (
+                <View style={styles.groupButtonsRow}>
                   <Pressable
-                    style={[styles.createButton, { flex: 1, backgroundColor: Colors.light.muted, marginLeft: 10 }]}
+                    style={[styles.deleteButton]}
+                    onPress={() => {
+                      Alert.alert(
+                        'Groep Verwijderen',
+                        `Weet je zeker dat je de groep "${editingGroup.name}" wilt verwijderen?`,
+                        [
+                          { text: 'Annuleren', style: 'cancel' },
+                          {
+                            text: 'Verwijderen',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await deleteGroups([editingGroup.id]);
+                              setEditingGroup(null);
+                              setGroupName('');
+                              setSelectedMemberIds([]);
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    testID="delete-editing-group"
+                  >
+                    <Text style={styles.deleteButtonText}>Groep Verwijderen</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.cancelButton]}
                     onPress={() => {
                       setGroupName('');
                       setSelectedMemberIds([]);
@@ -242,10 +266,10 @@ export default function AdminScreen() {
                     }}
                     testID="cancel-edit-group"
                   >
-                    <Text style={styles.createButtonText}>Annuleren</Text>
+                    <Text style={styles.cancelButtonText}>Annuleren</Text>
                   </Pressable>
-                )}
-              </View>
+                </View>
+              )}
             </View>
 
             <View style={styles.groupsListSection}>
@@ -501,7 +525,9 @@ const styles = StyleSheet.create({
   createButtonText: { 
     color: Colors.light.text, 
     fontWeight: "700" as const,
-    fontSize: 16,
+    fontSize: 15,
+    textAlign: "center" as const,
+    flexShrink: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -648,6 +674,46 @@ const styles = StyleSheet.create({
   },
   groupButtonsRow: {
     flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  deleteButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  deleteButtonText: { 
+    color: Colors.light.text, 
+    fontWeight: "700" as const,
+    fontSize: 15,
+    textAlign: "center" as const,
+  },
+  cancelButton: {
+    backgroundColor: Colors.light.darkGray,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  cancelButtonText: { 
+    color: Colors.light.text, 
+    fontWeight: "700" as const,
+    fontSize: 15,
+    textAlign: "center" as const,
   },
   groupsListSection: {
     marginBottom: 20,
