@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   due_date TIMESTAMPTZ,
   media_uri TEXT,
   media_type TEXT CHECK (media_type IN ('video', 'image', 'audio')),
+  require_media BOOLEAN DEFAULT FALSE,
+  completed_by JSONB DEFAULT '[]'::JSONB,
   submissions JSONB DEFAULT '[]'::JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

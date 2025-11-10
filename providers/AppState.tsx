@@ -1279,7 +1279,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     
     const { error } = await supabase.from('assignments').insert(insertData);
     if (error) {
-      console.error('❌ Error adding assignment:', error);
+      console.error('❌ Error adding assignment:', error.message || JSON.stringify(error));
       throw error;
     }
     
