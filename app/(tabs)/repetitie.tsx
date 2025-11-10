@@ -970,11 +970,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    overflow: "visible" as const,
-    zIndex: 1,
   },
   trainingBadgeWithDropdown: {
-    zIndex: 9999,
+    zIndex: 100,
+    elevation: 100,
   },
   trainingHeader: {
     flexDirection: "row",
@@ -1425,8 +1424,6 @@ const styles = StyleSheet.create({
   },
   repeatModeContainer: {
     marginTop: 12,
-    position: "relative" as const,
-    zIndex: 1000,
   },
   repeatModeDropdown: {
     backgroundColor: Colors.light.surfaceLight,
@@ -1445,21 +1442,17 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
   },
   repeatDropdownMenu: {
-    position: "absolute" as const,
-    top: 48,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.light.surface,
     borderWidth: 1,
     borderColor: Colors.light.border,
     borderRadius: 12,
     overflow: "hidden",
-    zIndex: 99999,
-    elevation: 99999,
+    marginTop: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 10,
   },
   repeatDropdownItem: {
     paddingHorizontal: 16,
