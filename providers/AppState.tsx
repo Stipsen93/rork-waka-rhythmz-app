@@ -1529,10 +1529,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const completeAssignment = useCallback(async (assignmentId: string, userId: string, mediaUri?: string) => {
     console.log('💾 Completing assignment in Supabase...');
-    const assignment = assignments.find(a => a.id === assignmentId);
-    if (!assignment) {
-      throw new Error('Assignment not found');
-    }
     
     const completion = {
       userId,
@@ -1540,11 +1536,15 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       ...(mediaUri && { mediaUri }),
     };
     
-    const updatedCompletedBy = [...assignment.completedBy, completion];
+    let updatedCompletedBy: any[] = [];
     
-    setAssignments((prev) => prev.map((a) => 
-      a.id === assignmentId ? { ...a, completedBy: updatedCompletedBy } : a
-    ));
+    setAssignments((prev) => prev.map((a) => {
+      if (a.id === assignmentId) {
+        updatedCompletedBy = [...a.completedBy, completion];
+        return { ...a, completedBy: updatedCompletedBy };
+      }
+      return a;
+    }));
     
     const updateData: Database['public']['Tables']['assignments']['Update'] = {
       completed_by: updatedCompletedBy as any,
@@ -1552,7 +1552,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     
     await supabase.from('assignments').update(updateData).eq('id', assignmentId);
     console.log('✅ Assignment completed');
-  }, [assignments]);
+  }, []);
 
   const value: AppStateValue = {
     users,
