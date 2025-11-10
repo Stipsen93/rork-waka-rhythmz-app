@@ -1114,30 +1114,20 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
               <View style={detailStyles.section}>
                 <Text style={detailStyles.label}>Jouw Media Upload</Text>
                 {!uploadedMediaUri ? (
-                  <View style={detailStyles.uploadOptionsContainer}>
-                    <TouchableOpacity
-                      style={detailStyles.uploadOptionButton}
-                      onPress={() => setShowMediaExplorer(true)}
-                      disabled={isUploadingMedia}
-                    >
-                      <Folder color={Colors.light.primary} size={24} strokeWidth={2.5} />
-                      <Text style={detailStyles.uploadOptionText}>Kies uit Bibliotheek</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={detailStyles.uploadOptionButton}
-                      onPress={handleUploadNewMedia}
-                      disabled={isUploadingMedia}
-                    >
-                      {isUploadingMedia ? (
-                        <ActivityIndicator size="small" color={Colors.light.primary} />
-                      ) : (
-                        <Upload color={Colors.light.primary} size={24} strokeWidth={2.5} />
-                      )}
-                      <Text style={detailStyles.uploadOptionText}>
-                        {isUploadingMedia ? 'Uploaden...' : 'Upload Nieuw'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={detailStyles.uploadButton}
+                    onPress={handleUploadNewMedia}
+                    disabled={isUploadingMedia}
+                  >
+                    {isUploadingMedia ? (
+                      <ActivityIndicator size="small" color={Colors.light.text} />
+                    ) : (
+                      <Upload color={Colors.light.text} size={24} strokeWidth={2.5} />
+                    )}
+                    <Text style={detailStyles.uploadButtonText}>
+                      {isUploadingMedia ? 'Uploaden...' : 'Upload Media'}
+                    </Text>
+                  </TouchableOpacity>
                 ) : (
                   <View style={detailStyles.uploadedMediaContainer}>
                     <View style={detailStyles.uploadedMediaInfo}>
@@ -2227,25 +2217,17 @@ const detailStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700' as const,
   },
-  uploadOptionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  uploadOptionButton: {
-    flex: 1,
+  uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: Colors.light.primary,
     paddingVertical: 16,
-    paddingHorizontal: 12,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
   },
-  uploadOptionText: {
-    fontSize: 14,
+  uploadButtonText: {
+    fontSize: 15,
     fontWeight: '700' as const,
     color: Colors.light.text,
   },
