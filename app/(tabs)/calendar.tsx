@@ -429,6 +429,21 @@ export default function CalendarScreen() {
               );
             })}
           </View>
+
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={styles.legendDotBlue} />
+              <Text style={styles.legendText}>Training</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendDotRed} />
+              <Text style={styles.legendText}>Extra Training</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendCirclePurple} />
+              <Text style={styles.legendText}>Optreden</Text>
+            </View>
+          </View>
           </View>
 
           <View style={styles.appointmentsHeader}>
@@ -1744,5 +1759,44 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingTop: 16,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.surfaceLight,
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDotBlue: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.light.primary,
+  },
+  legendDotRed: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DC2626',
+  },
+  legendCirclePurple: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#9333EA',
+  },
+  legendText: {
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '600' as const,
   },
 });
