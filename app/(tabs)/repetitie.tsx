@@ -656,7 +656,10 @@ export default function RepetitieScreen() {
               const isEditable = isAdmin && !isLocked;
               
               return (
-              <View key={training.id} style={styles.trainingBadge}>
+              <View key={training.id} style={[
+                styles.trainingBadge,
+                repeatDropdownOpen === training.id && styles.trainingBadgeWithDropdown
+              ]}>
                 <View style={styles.trainingHeader}>
                   <TextInput
                     style={[styles.trainingNameInput, (!isEditable) && styles.inputDisabled]}
@@ -969,6 +972,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
     overflow: "visible" as const,
     zIndex: 1,
+  },
+  trainingBadgeWithDropdown: {
+    zIndex: 9999,
   },
   trainingHeader: {
     flexDirection: "row",
