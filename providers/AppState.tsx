@@ -109,6 +109,7 @@ export interface Announcement {
   description: string;
   date: string;
   createdAt: string;
+  isExtraTraining?: boolean;
 }
 
 export interface Appointment {
@@ -978,6 +979,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const updatePracticeSchedule = useCallback(async (schedule: PracticeSchedule) => {
     console.log('💾 Updating practice schedule in Supabase...');
+    const oldSchedule = practiceSchedule;
     setPracticeSchedule(schedule);
     const scheduleUpdateData: Database['public']['Tables']['practice_schedule']['Update'] = {
       regular_days: schedule.regularDays as any,
@@ -998,9 +1000,56 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         is_one_time: t.isOneTime ?? false,
       }));
       await supabase.from('trainings').insert(trainingsInsert);
+      
+      const newOneTimeTrainings = schedule.trainings.filter(t => {
+        const existedBefore = oldSchedule.trainings.find(old => old.id === t.id);
+        return t.isOneTime && (!existedBefore || !existedBefore.isOneTime);
+      });
+      
+      for (const training of newOneTimeTrainings) {
+        const now = new Date();
+        const currentDayOfWeek = now.getDay();
+        now.setHours(0, 0, 0, 0);
+        
+        let nextTrainingDate = new Date(now);
+        const daysUntilTraining = (training.dayOfWeek - currentDayOfWeek + 7) % 7;
+        
+        if (daysUntilTraining === 0) {
+          nextTrainingDate = now;
+        } else {
+          nextTrainingDate.setDate(nextTrainingDate.getDate() + daysUntilTraining);
+        }
+        
+        const year = nextTrainingDate.getFullYear();
+        const month = String(nextTrainingDate.getMonth() + 1).padStart(2, '0');
+        const day = String(nextTrainingDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        const newAnnouncement: Announcement = {
+          id: genId('an'),
+          name: 'Extra training',
+          description: `Extra training: ${training.name} op ${training.time} in ${training.location}`,
+          date: dateStr,
+          createdAt: new Date().toISOString(),
+          isExtraTraining: true,
+        };
+        
+        const insertData: Database['public']['Tables']['announcements']['Insert'] = {
+          id: newAnnouncement.id,
+          name: newAnnouncement.name,
+          description: newAnnouncement.description,
+          date: newAnnouncement.date,
+        };
+        await supabase.from('announcements').insert(insertData);
+        setAnnouncements((prev) => [...prev, newAnnouncement].sort((a, b) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        ));
+        
+        console.log('✅ Extra training announcement created');
+      }
     }
     console.log('✅ Practice schedule updated');
-  }, []);
+  }, [practiceSchedule, announcements]);
 
   const getRecentMedia = useCallback((): MediaItem[] => {
     const allMedia: MediaItem[] = [];

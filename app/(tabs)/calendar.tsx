@@ -157,6 +157,35 @@ export default function CalendarScreen() {
     return dates;
   }, [practiceSchedule, currentDate]);
 
+  const extraTrainingDates = useMemo(() => {
+    const dates = new Set<string>();
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    practiceSchedule.trainings.forEach((training) => {
+      if (!training.isOneTime) return;
+      
+      let currentDay = new Date(firstDay);
+      while (currentDay <= lastDay) {
+        if (currentDay.getDay() === training.dayOfWeek) {
+          const dateStr = formatDateToLocal(currentDay);
+          const isCancelled = practiceSchedule.cancelledDates.some(
+            (cancelled) => cancelled.date === dateStr
+          );
+          if (!isCancelled) {
+            dates.add(dateStr);
+          }
+        }
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+    });
+    
+    return dates;
+  }, [practiceSchedule, currentDate]);
+
   const currentMonthAppointments = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -371,6 +400,7 @@ export default function CalendarScreen() {
               const isToday = day.fullDate === today;
               const hasPerformance = performanceDates.has(day.fullDate);
               const hasPractice = practiceDates.has(day.fullDate);
+              const hasExtraTraining = extraTrainingDates.has(day.fullDate);
               
               return (
                 <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
@@ -388,8 +418,11 @@ export default function CalendarScreen() {
                     ]}>
                       {day.date}
                     </Text>
-                    {hasPractice && day.isCurrentMonth && !hasPerformance && !hasAppointments && (
+                    {hasPractice && day.isCurrentMonth && !hasPerformance && !hasAppointments && !hasExtraTraining && (
                       <View style={styles.practiceDot} />
+                    )}
+                    {hasExtraTraining && day.isCurrentMonth && (
+                      <View style={styles.extraTrainingDot} />
                     )}
                   </View>
                 </View>
@@ -1222,6 +1255,14 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: Colors.light.primary,
+  },
+  extraTrainingDot: {
+    position: 'absolute',
+    bottom: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#DC2626',
   },
   dayNumberAppointment: {
     borderWidth: 2,

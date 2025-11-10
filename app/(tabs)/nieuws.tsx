@@ -186,7 +186,14 @@ export default function NieuwsScreen() {
                   activeOpacity={isAdmin ? 0.7 : 1}
                 >
                   <View style={styles.announcementHeader}>
-                    <Text style={styles.announcementName}>{announcement.name}</Text>
+                    <View style={styles.announcementNameContainer}>
+                      <Text style={styles.announcementName}>{announcement.name}</Text>
+                      {announcement.isExtraTraining && (
+                        <View style={styles.extraTrainingBadge}>
+                          <Text style={styles.extraTrainingBadgeText}>Extra training</Text>
+                        </View>
+                      )}
+                    </View>
                     {isAdmin && (
                       <View style={styles.editIndicator}>
                         <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
@@ -510,12 +517,29 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 12,
   },
+  announcementNameContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
   announcementName: {
     fontSize: 20,
     fontWeight: "700" as const,
     color: Colors.light.text,
-    flex: 1,
-    marginRight: 12,
+    marginBottom: 6,
+  },
+  extraTrainingBadge: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  extraTrainingBadgeText: {
+    color: Colors.light.background,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   deleteButton: {
     padding: 4,
