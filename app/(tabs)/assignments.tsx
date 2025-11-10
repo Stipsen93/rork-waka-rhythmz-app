@@ -218,13 +218,7 @@ export default function AssignmentsScreen() {
 
           <TouchableOpacity 
             style={[styles.widget, styles.widgetHalf]}
-            onPress={() => {
-              if (currentUser?.role === 'admin') {
-                router.push("/all-assignments");
-              } else {
-                router.push("/huiswerk");
-              }
-            }}
+            onPress={() => router.push("/huiswerk")}
             testID="huiswerk-widget"
           >
             <View style={styles.widgetHeader}>
