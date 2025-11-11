@@ -20,6 +20,7 @@ export type Database = {
           phone: string | null
           age: string | null
           address: string | null
+          notification_preferences: Json | null
           created_at: string
         }
         Insert: {
@@ -32,6 +33,7 @@ export type Database = {
           phone?: string | null
           age?: string | null
           address?: string | null
+          notification_preferences?: Json | null
           created_at?: string
         }
         Update: {
@@ -44,6 +46,7 @@ export type Database = {
           phone?: string | null
           age?: string | null
           address?: string | null
+          notification_preferences?: Json | null
           created_at?: string
         }
       }

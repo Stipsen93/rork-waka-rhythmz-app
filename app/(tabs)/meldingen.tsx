@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
-import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X } from "lucide-react-native";
+import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X, Users } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
@@ -24,7 +24,7 @@ const TIME_OPTIONS: TimeOption[] = [
 
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
-  const { notificationSettings, updateNotificationSettings } = useAppState();
+  const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences } = useAppState();
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
   const [newsEnabled, setNewsEnabled] = useState<boolean>(notificationSettings.newsEnabled);
@@ -40,6 +40,36 @@ export default function MeldingenScreen() {
   const [performancesReminders, setPerformancesReminders] = useState<number[]>([notificationSettings.performancesHoursAdvance]);
 
   const [showDropdown, setShowDropdown] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+  const members = useMemo(() => users.filter(u => u.role === 'member'), [users]);
+
+  const getMembersForCategory = (category: 'news' | 'assignments' | 'trainings' | 'performances') => {
+    return members.filter(m => {
+      switch(category) {
+        case 'news': return m.notificationPreferences.newsEnabled;
+        case 'assignments': return m.notificationPreferences.assignmentsEnabled;
+        case 'trainings': return m.notificationPreferences.trainingsEnabled;
+        case 'performances': return m.notificationPreferences.performancesEnabled;
+        default: return false;
+      }
+    });
+  };
+
+  const toggleMemberNotification = async (userId: string, category: 'news' | 'assignments' | 'trainings' | 'performances') => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    const newPrefs = { ...user.notificationPreferences };
+    switch(category) {
+      case 'news': newPrefs.newsEnabled = !newPrefs.newsEnabled; break;
+      case 'assignments': newPrefs.assignmentsEnabled = !newPrefs.assignmentsEnabled; break;
+      case 'trainings': newPrefs.trainingsEnabled = !newPrefs.trainingsEnabled; break;
+      case 'performances': newPrefs.performancesEnabled = !newPrefs.performancesEnabled; break;
+    }
+
+    await updateUserNotificationPreferences(userId, newPrefs);
+  };
 
   const getTimeLabel = (hours: number): string => {
     const option = TIME_OPTIONS.find(opt => opt.hours === hours);
@@ -174,6 +204,37 @@ export default function MeldingenScreen() {
             {newsEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding wanneer er een nieuwsbericht wordt geplaatst</Text>
+                
+                <TouchableOpacity 
+                  style={styles.membersSection}
+                  onPress={() => setExpandedCategory(expandedCategory === 'news' ? null : 'news')}
+                >
+                  <View style={styles.membersSectionHeader}>
+                    <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                    <Text style={styles.membersSectionTitle}>
+                      {getMembersForCategory('news').length} / {members.length} leden ontvangen meldingen
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                {expandedCategory === 'news' && (
+                  <View style={styles.membersList}>
+                    {members.map(member => {
+                      const isEnabled = member.notificationPreferences.newsEnabled;
+                      return (
+                        <TouchableOpacity
+                          key={member.id}
+                          style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                          onPress={() => toggleMemberNotification(member.id, 'news')}
+                        >
+                          <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                            {member.username}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {newsReminders.map((hours, index) => (
@@ -223,6 +284,37 @@ export default function MeldingenScreen() {
             {assignmentsEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding wanneer er een nieuwe huiswerkopdracht is</Text>
+                
+                <TouchableOpacity 
+                  style={styles.membersSection}
+                  onPress={() => setExpandedCategory(expandedCategory === 'assignments' ? null : 'assignments')}
+                >
+                  <View style={styles.membersSectionHeader}>
+                    <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                    <Text style={styles.membersSectionTitle}>
+                      {getMembersForCategory('assignments').length} / {members.length} leden ontvangen meldingen
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                {expandedCategory === 'assignments' && (
+                  <View style={styles.membersList}>
+                    {members.map(member => {
+                      const isEnabled = member.notificationPreferences.assignmentsEnabled;
+                      return (
+                        <TouchableOpacity
+                          key={member.id}
+                          style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                          onPress={() => toggleMemberNotification(member.id, 'assignments')}
+                        >
+                          <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                            {member.username}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {assignmentsReminders.map((hours, index) => (
@@ -272,6 +364,37 @@ export default function MeldingenScreen() {
             {trainingCancellationEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding over trainingen die wel of niet doorgaan</Text>
+                
+                <TouchableOpacity 
+                  style={styles.membersSection}
+                  onPress={() => setExpandedCategory(expandedCategory === 'trainings' ? null : 'trainings')}
+                >
+                  <View style={styles.membersSectionHeader}>
+                    <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                    <Text style={styles.membersSectionTitle}>
+                      {getMembersForCategory('trainings').length} / {members.length} leden ontvangen meldingen
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                {expandedCategory === 'trainings' && (
+                  <View style={styles.membersList}>
+                    {members.map(member => {
+                      const isEnabled = member.notificationPreferences.trainingsEnabled;
+                      return (
+                        <TouchableOpacity
+                          key={member.id}
+                          style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                          onPress={() => toggleMemberNotification(member.id, 'trainings')}
+                        >
+                          <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                            {member.username}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {trainingReminders.map((hours, index) => (
@@ -321,6 +444,37 @@ export default function MeldingenScreen() {
             {performancesEnabled && (
               <View style={styles.cardContent}>
                 <Text style={styles.cardDescription}>Leden krijgen een melding over aankomende optredens</Text>
+                
+                <TouchableOpacity 
+                  style={styles.membersSection}
+                  onPress={() => setExpandedCategory(expandedCategory === 'performances' ? null : 'performances')}
+                >
+                  <View style={styles.membersSectionHeader}>
+                    <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                    <Text style={styles.membersSectionTitle}>
+                      {getMembersForCategory('performances').length} / {members.length} leden ontvangen meldingen
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                {expandedCategory === 'performances' && (
+                  <View style={styles.membersList}>
+                    {members.map(member => {
+                      const isEnabled = member.notificationPreferences.performancesEnabled;
+                      return (
+                        <TouchableOpacity
+                          key={member.id}
+                          style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                          onPress={() => toggleMemberNotification(member.id, 'performances')}
+                        >
+                          <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                            {member.username}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
                 <View style={styles.remindersContainer}>
                   <Text style={styles.remindersTitle}>Herinneringen:</Text>
                   {performancesReminders.map((hours, index) => (
@@ -613,5 +767,49 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 16,
     fontWeight: "700" as const,
+  },
+  membersSection: {
+    marginTop: 12,
+  },
+  membersSectionHeader: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    padding: 12,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  membersSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  membersList: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 8,
+    marginTop: 12,
+  },
+  memberChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.light.darkGray,
+    borderWidth: 1.5,
+    borderColor: Colors.light.surfaceLight,
+  },
+  memberChipActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  memberChipText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    color: Colors.light.muted,
+  },
+  memberChipTextActive: {
+    color: Colors.light.text,
   },
 });

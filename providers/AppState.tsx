@@ -5,6 +5,13 @@ import type { Database } from "@/lib/database.types";
 
 export type Role = "admin" | "member";
 
+export interface UserNotificationPreferences {
+  newsEnabled: boolean;
+  assignmentsEnabled: boolean;
+  trainingsEnabled: boolean;
+  performancesEnabled: boolean;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -15,6 +22,7 @@ export interface User {
   phone?: string | null;
   age?: string | null;
   address?: string | null;
+  notificationPreferences: UserNotificationPreferences;
 }
 
 export interface PermissionMatrix {
@@ -180,6 +188,7 @@ export interface AppStateValue {
   resetPassword: (userId: string) => Promise<string>;
   changePassword: (userId: string, newPassword: string) => void;
   updateUserProfile: (userId: string, profile: { username?: string; email?: string | null; phone?: string | null; age?: string | null; address?: string | null }) => Promise<void>;
+  updateUserNotificationPreferences: (userId: string, preferences: UserNotificationPreferences) => Promise<void>;
   permissions: Record<Role, PermissionMatrix>;
   setPermissions: (role: Role, perms: PermissionMatrix) => void;
   library: CategoryNode[];
@@ -380,6 +389,12 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           phone: u.phone,
           age: u.age,
           address: u.address,
+          notificationPreferences: (u.notification_preferences as any) ?? {
+            newsEnabled: true,
+            assignmentsEnabled: true,
+            trainingsEnabled: true,
+            performancesEnabled: true,
+          },
         }));
         setUsers(mappedUsers);
       }
@@ -536,6 +551,12 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             phone: u.phone,
             age: u.age,
             address: u.address,
+            notificationPreferences: (u.notification_preferences as any) ?? {
+              newsEnabled: true,
+              assignmentsEnabled: true,
+              trainingsEnabled: true,
+              performancesEnabled: true,
+            },
           }));
           setUsers(mappedUsers);
           if (mappedUsers.length === 0) {
@@ -547,7 +568,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               password_changed_by_user: true,
             };
             await supabase.from('users').insert(newUser);
-            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null }]);
+            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null, notificationPreferences: { newsEnabled: true, assignmentsEnabled: true, trainingsEnabled: true, performancesEnabled: true } }]);
           }
         }
 
@@ -759,6 +780,12 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               phone: u.phone,
               age: u.age,
               address: u.address,
+              notificationPreferences: (u.notification_preferences as any) ?? {
+                newsEnabled: true,
+                assignmentsEnabled: true,
+                trainingsEnabled: true,
+                performancesEnabled: true,
+              },
             }));
             setUsers(mappedUsers);
           }
@@ -1020,13 +1047,26 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const addUser = useCallback(async (username: string, role: Role): Promise<{ user: User; password: string }> => {
     console.log('💾 Adding new user to Supabase...');
     const password = genPassword();
-    const user: User = { id: genId("u"), username, password, role, passwordChangedByUser: false };
+    const user: User = { 
+      id: genId("u"), 
+      username, 
+      password, 
+      role, 
+      passwordChangedByUser: false,
+      notificationPreferences: {
+        newsEnabled: true,
+        assignmentsEnabled: true,
+        trainingsEnabled: true,
+        performancesEnabled: true,
+      }
+    };
     const insertData: Database['public']['Tables']['users']['Insert'] = {
       id: user.id,
       username: user.username,
       password: user.password,
       role: user.role,
       password_changed_by_user: user.passwordChangedByUser,
+      notification_preferences: user.notificationPreferences as any,
     };
     await supabase.from('users').insert(insertData);
     setUsers((prev) => [...prev, user]);
@@ -1079,6 +1119,18 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     }
     console.log('✅ User profile updated');
   }, [currentUser]);
+
+  const updateUserNotificationPreferences = useCallback(async (userId: string, preferences: UserNotificationPreferences) => {
+    console.log('💾 Updating user notification preferences in Supabase...');
+    setUsers((prev) => prev.map((u) => 
+      u.id === userId ? { ...u, notificationPreferences: preferences } : u
+    ));
+    const updateData: Database['public']['Tables']['users']['Update'] = {
+      notification_preferences: preferences as any,
+    };
+    await supabase.from('users').update(updateData).eq('id', userId);
+    console.log('✅ User notification preferences updated');
+  }, []);
 
   const setPermissions = useCallback((role: Role, perms: PermissionMatrix) => {
     setPermissionsState((prev) => ({ ...prev, [role]: perms }));
@@ -1980,6 +2032,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     resetPassword,
     changePassword,
     updateUserProfile,
+    updateUserNotificationPreferences,
     permissions,
     setPermissions,
     library,
