@@ -43,6 +43,10 @@ export default function MeldingenScreen() {
   const [performancesReminderEnabled, setPerformancesReminderEnabled] = useState<boolean>(true);
   const [performancesReminderHours, setPerformancesReminderHours] = useState<number>(48);
 
+  const [birthdayEnabled, setBirthdayEnabled] = useState<boolean>(true);
+  const [birthdayReminderEnabled, setBirthdayReminderEnabled] = useState<boolean>(true);
+  const [birthdayReminderHours, setBirthdayReminderHours] = useState<number>(24);
+
   const [showDropdown, setShowDropdown] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
@@ -410,6 +414,61 @@ export default function MeldingenScreen() {
             </View>
           </View>
 
+          <View style={styles.notificationCard}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderLeft}>
+                <Calendar color={Colors.light.primary} size={22} strokeWidth={2.5} />
+                <Text style={styles.cardTitle}>Verjaardagen</Text>
+              </View>
+            </View>
+            
+            <View style={styles.cardContent}>
+              <TouchableOpacity 
+                style={styles.membersSection}
+                onPress={() => setExpandedCategory(expandedCategory === 'birthdays' ? null : 'birthdays')}
+              >
+                <View style={styles.membersSectionHeader}>
+                  <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                  <Text style={styles.membersSectionTitle}>
+                    Alle leden ontvangen verjaardag meldingen
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.toggleSection}>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.toggleLabel}>Melding als een lid jarig is</Text>
+                  <TouchableOpacity
+                    style={[styles.toggle, birthdayEnabled && styles.toggleActive]}
+                    onPress={() => setBirthdayEnabled(!birthdayEnabled)}
+                  >
+                    <View style={[styles.toggleThumb, birthdayEnabled && styles.toggleThumbActive]} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.toggleSection}>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.toggleLabel}>Herinnering voor verjaardag</Text>
+                  <TouchableOpacity
+                    style={[styles.toggle, birthdayReminderEnabled && styles.toggleActive]}
+                    onPress={() => setBirthdayReminderEnabled(!birthdayReminderEnabled)}
+                  >
+                    <View style={[styles.toggleThumb, birthdayReminderEnabled && styles.toggleThumbActive]} />
+                  </TouchableOpacity>
+                </View>
+                {birthdayReminderEnabled && (
+                  <TouchableOpacity
+                    style={styles.timeSelector}
+                    onPress={() => setShowDropdown('birthday-reminder')}
+                  >
+                    <Text style={styles.timeSelectorText}>{getTimeLabel(birthdayReminderHours)} van tevoren</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+
           <TouchableOpacity style={styles.saveButton} onPress={saveSettings}>
             <LinearGradient
               colors={[Colors.light.primary, Colors.light.primaryDark]}
@@ -450,6 +509,8 @@ export default function MeldingenScreen() {
                         setTrainingReminderHours(option.hours);
                       } else if (showDropdown === 'performances-reminder') {
                         setPerformancesReminderHours(option.hours);
+                      } else if (showDropdown === 'birthday-reminder') {
+                        setBirthdayReminderHours(option.hours);
                       }
                       setShowDropdown(null);
                     }}

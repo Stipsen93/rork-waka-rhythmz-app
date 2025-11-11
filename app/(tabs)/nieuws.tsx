@@ -26,7 +26,7 @@ const parseDateString = (dateStr: string): Date => {
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments } = useAppState();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments, users } = useAppState();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
@@ -39,6 +39,34 @@ export default function NieuwsScreen() {
   const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
 
   const isAdmin = currentUser?.role === "admin";
+
+  const getBirthdayAnnouncements = () => {
+    const today = new Date();
+    const todayStr = formatDateToLocal(today);
+    
+    return users
+      .filter(user => {
+        if (!user.age) return false;
+        const birthDate = parseDateString(user.age);
+        const birthMonth = birthDate.getMonth();
+        const birthDay = birthDate.getDate();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+        return birthMonth === todayMonth && birthDay === todayDay;
+      })
+      .map(user => ({
+        id: `birthday-${user.id}`,
+        name: `🎉 Verjaardag: ${user.username}`,
+        description: `Vandaag is ${user.username} jarig! Feliciteer hem/haar!`,
+        date: todayStr,
+        createdAt: todayStr,
+        isBirthday: true,
+      }));
+  };
+
+  const allAnnouncements = [...announcements, ...getBirthdayAnnouncements()].sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 
   const getDatePickerDays = (baseDate: Date) => {
     const year = baseDate.getFullYear();
@@ -198,7 +226,7 @@ export default function NieuwsScreen() {
             </TouchableOpacity>
           )}
 
-          {announcements.filter((announcement) => {
+          {allAnnouncements.filter((announcement: any) => {
             const isCancelledAppointmentNews = announcement.name.startsWith('Afspraak geannuleerd:');
             if (!isCancelledAppointmentNews) return true;
             
@@ -217,7 +245,7 @@ export default function NieuwsScreen() {
             </View>
           ) : (
             <View style={styles.announcementsList}>
-              {announcements.filter((announcement) => {
+              {allAnnouncements.filter((announcement: any) => {
                 const isCancelledAppointmentNews = announcement.name.startsWith('Afspraak geannuleerd:');
                 if (!isCancelledAppointmentNews) return true;
                 
@@ -227,12 +255,12 @@ export default function NieuwsScreen() {
                 );
                 
                 return !!relatedAppointment;
-              }).map((announcement) => (
+              }).map((announcement: any) => (
                 <TouchableOpacity 
                   key={announcement.id} 
                   style={styles.announcementCard}
-                  onPress={() => isAdmin ? handleOpenEditModal(announcement) : null}
-                  activeOpacity={isAdmin ? 0.7 : 1}
+                  onPress={() => (isAdmin && !announcement.isBirthday) ? handleOpenEditModal(announcement) : null}
+                  activeOpacity={(isAdmin && !announcement.isBirthday) ? 0.7 : 1}
                 >
                   <View style={styles.announcementHeader}>
                     <View style={styles.announcementNameContainer}>
@@ -243,7 +271,7 @@ export default function NieuwsScreen() {
                         </View>
                       )}
                     </View>
-                    {isAdmin && (
+                    {isAdmin && !announcement.isBirthday && (
                       <View style={styles.editIndicator}>
                         <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
                       </View>
