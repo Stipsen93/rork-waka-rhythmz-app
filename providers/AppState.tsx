@@ -2093,8 +2093,15 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     await supabase.from('users').update(updateData).eq('id', userId);
     
     setUsers((prev) => prev.map((u) => ({ ...u, isCrownAdmin: u.id === userId })));
+    
+    if (currentUser) {
+      const updatedUser = users.find(u => u.id === currentUser.id);
+      if (updatedUser) {
+        setCurrentUser({ ...updatedUser, isCrownAdmin: updatedUser.id === userId });
+      }
+    }
     console.log('✅ Crown admin set');
-  }, []);
+  }, [currentUser, users]);
 
   const value: AppStateValue = {
     users,
