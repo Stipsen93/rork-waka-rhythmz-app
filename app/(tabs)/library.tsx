@@ -68,16 +68,22 @@ export default function LibraryScreen() {
       
       if (currentPath === '' && folderPath.includes('/')) {
         const firstFolder = folderPath.split('/')[0];
-        folderMap.set(firstFolder, (folderMap.get(firstFolder) || 0) + 1);
+        if (!folderMap.has(firstFolder)) {
+          folderMap.set(firstFolder, 0);
+        }
       } else if (currentPath && folderPath.startsWith(currentPath + '/')) {
         const remaining = folderPath.substring(currentPath.length + 1);
         if (remaining.includes('/')) {
           const nextFolder = remaining.split('/')[0];
           const fullPath = currentPath + '/' + nextFolder;
-          folderMap.set(fullPath, (folderMap.get(fullPath) || 0) + 1);
+          if (!folderMap.has(fullPath)) {
+            folderMap.set(fullPath, 0);
+          }
         }
       } else if (currentPath === '' && !folderPath.includes('/')) {
-        folderMap.set(folderPath, 0);
+        if (!folderMap.has(folderPath)) {
+          folderMap.set(folderPath, 0);
+        }
       }
     });
     
