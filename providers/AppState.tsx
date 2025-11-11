@@ -1217,17 +1217,22 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const updatePracticeSchedule = useCallback(async (schedule: PracticeSchedule) => {
     console.log('💾 Updating practice schedule in Supabase...');
+    
     const oldSchedule = practiceSchedule;
     setPracticeSchedule(schedule);
+    
     const scheduleUpdateData: Database['public']['Tables']['practice_schedule']['Update'] = {
       regular_days: schedule.regularDays as any,
       location: schedule.location,
       cancelled_dates: schedule.cancelledDates as any,
       is_active: schedule.isActive,
     };
-    await supabase.from('practice_schedule').update(scheduleUpdateData).eq('id', (await supabase.from('practice_schedule').select('id').single()).data?.id ?? '');
+    
+    const scheduleIdRes = await supabase.from('practice_schedule').select('id').single();
+    await supabase.from('practice_schedule').update(scheduleUpdateData).eq('id', scheduleIdRes.data?.id ?? '');
     
     await supabase.from('trainings').delete().neq('id', '');
+    
     if (schedule.trainings.length > 0) {
       const trainingsInsert: Database['public']['Tables']['trainings']['Insert'][] = schedule.trainings.map(t => ({
         id: t.id,
@@ -1237,6 +1242,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         location: t.location,
         is_one_time: t.isOneTime ?? false,
       }));
+      
       await supabase.from('trainings').insert(trainingsInsert);
       
       const newOneTimeTrainings = schedule.trainings.filter(t => {
@@ -1286,8 +1292,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         console.log('✅ Extra training announcement created');
       }
     }
+    
     console.log('✅ Practice schedule updated');
-  }, [practiceSchedule, announcements]);
+  }, [practiceSchedule]);
 
   const getRecentMedia = useCallback((): MediaItem[] => {
     const allMedia: MediaItem[] = [];
