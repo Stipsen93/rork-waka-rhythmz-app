@@ -2089,10 +2089,17 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     
     await supabase.from('users').update({ is_crown_admin: false }).neq('id', '');
     
-    const updateData: Database['public']['Tables']['users']['Update'] = { is_crown_admin: true };
+    const updateData: Database['public']['Tables']['users']['Update'] = { 
+      is_crown_admin: true,
+      role: 'admin'
+    };
     await supabase.from('users').update(updateData).eq('id', userId);
     
-    setUsers((prev) => prev.map((u) => ({ ...u, isCrownAdmin: u.id === userId })));
+    setUsers((prev) => prev.map((u) => ({
+      ...u,
+      isCrownAdmin: u.id === userId,
+      role: u.id === userId ? 'admin' as Role : u.role
+    })));
     
     if (currentUser) {
       const updatedUser = users.find(u => u.id === currentUser.id);
