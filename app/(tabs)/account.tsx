@@ -395,6 +395,11 @@ const DatePickerContent = ({ selectedDate, onDateSelect }: { selectedDate: strin
     return selectedDate ? parseDate(selectedDate) : new Date();
   });
   
+  const [showYearPicker, setShowYearPicker] = useState<boolean>(false);
+  
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
+  
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -448,9 +453,11 @@ const DatePickerContent = ({ selectedDate, onDateSelect }: { selectedDate: strin
         >
           <ChevronLeft color={Colors.light.text} size={24} strokeWidth={2.5} />
         </Pressable>
-        <Text style={styles.monthText}>
-          {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-        </Text>
+        <Pressable onPress={() => setShowYearPicker(!showYearPicker)}>
+          <Text style={styles.monthText}>
+            {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+          </Text>
+        </Pressable>
         <Pressable 
           style={styles.monthButton}
           onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
@@ -458,6 +465,36 @@ const DatePickerContent = ({ selectedDate, onDateSelect }: { selectedDate: strin
           <ChevronRight color={Colors.light.text} size={24} strokeWidth={2.5} />
         </Pressable>
       </View>
+      
+      {showYearPicker && (
+        <View style={styles.yearPickerContainer}>
+          <ScrollView 
+            style={styles.yearPickerScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {years.map((year) => (
+              <Pressable
+                key={year}
+                style={[
+                  styles.yearOption,
+                  year === currentMonth.getFullYear() && styles.yearOptionSelected,
+                ]}
+                onPress={() => {
+                  setCurrentMonth(new Date(year, currentMonth.getMonth(), 1));
+                  setShowYearPicker(false);
+                }}
+              >
+                <Text style={[
+                  styles.yearOptionText,
+                  year === currentMonth.getFullYear() && styles.yearOptionTextSelected,
+                ]}>
+                  {year}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       
       <View style={styles.weekDays}>
         {DAYS.map((day) => (
@@ -810,7 +847,38 @@ const styles = StyleSheet.create({
     color: Colors.light.muted,
   },
   dayTextSelected: {
+    color: '#fff',
+    fontWeight: '700' as const,
+  },
+  yearPickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    maxHeight: 200,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  yearPickerScroll: {
+    maxHeight: 200,
+  },
+  yearOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  yearOptionSelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  yearOptionText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
     color: Colors.light.text,
+    textAlign: 'center' as const,
+  },
+  yearOptionTextSelected: {
+    color: '#fff',
     fontWeight: '700' as const,
   },
 });
