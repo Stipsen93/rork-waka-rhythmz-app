@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from "expo-router";
-import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell, LogOut } from "lucide-react-native";
+import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell, LogOut, Crown } from "lucide-react-native";
 import React, { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -387,6 +387,9 @@ export default function TabLayout() {
           },
           headerRight: () => (
             <View style={localStyles.userNameContainer}>
+              {currentUser?.isCrownAdmin && (
+                <Crown color="#FFD700" size={16} strokeWidth={2.5} style={{ marginRight: 6 }} />
+              )}
               <Text style={localStyles.headerUserName}>{currentUser?.username || ''}</Text>
             </View>
           ),
@@ -444,6 +447,8 @@ const localStyles = StyleSheet.create({
   userNameContainer: {
     marginRight: 16,
     padding: 8,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
   },
   headerUserName: {
     fontSize: 16,

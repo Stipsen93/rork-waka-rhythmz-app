@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
 import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X, CheckCircle, XCircle } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X, CheckCircle, XCircle, Crown } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 
@@ -513,6 +513,9 @@ export default function AdminScreen() {
                 </View>
                 <View style={styles.userInfo}>
                   <View style={styles.userNameRow}>
+                    {item.isCrownAdmin && (
+                      <Crown color="#FFD700" size={16} strokeWidth={2.5} style={{ marginRight: 4 }} />
+                    )}
                     <Text style={styles.userName}>{item.username}</Text>
                     {item.deletedByUser && (
                       <View style={styles.deletedBadge}>
