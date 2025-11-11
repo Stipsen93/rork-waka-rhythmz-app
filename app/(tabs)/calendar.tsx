@@ -186,6 +186,25 @@ export default function CalendarScreen() {
     return dates;
   }, [practiceSchedule, currentDate]);
 
+  const birthdayDates = useMemo(() => {
+    const dates = new Set<string>();
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    users.forEach((user) => {
+      if (!user.age) return;
+      
+      const [birthYear, birthMonth, birthDay] = user.age.split('-').map(Number);
+      if (birthMonth - 1 === month) {
+        const birthdayThisYear = new Date(year, month, birthDay);
+        dates.add(formatDateToLocal(birthdayThisYear));
+      }
+    });
+    
+    return dates;
+  }, [users, currentDate]);
+
   const currentMonthAppointments = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -401,6 +420,7 @@ export default function CalendarScreen() {
               const hasPerformance = performanceDates.has(day.fullDate);
               const hasPractice = practiceDates.has(day.fullDate);
               const hasExtraTraining = extraTrainingDates.has(day.fullDate);
+              const hasBirthday = birthdayDates.has(day.fullDate);
               
               return (
                 <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
@@ -410,6 +430,7 @@ export default function CalendarScreen() {
                     isToday && styles.dayNumberToday,
                     hasPerformance && day.isCurrentMonth && styles.dayNumberPerformance,
                     hasAppointments && day.isCurrentMonth && styles.dayNumberAppointment,
+                    hasBirthday && day.isCurrentMonth && !hasPerformance && !hasAppointments && styles.dayNumberBirthday,
                   ]}>
                     <Text style={[
                       styles.dayText,
@@ -418,7 +439,7 @@ export default function CalendarScreen() {
                     ]}>
                       {day.date}
                     </Text>
-                    {hasPractice && day.isCurrentMonth && !hasPerformance && !hasAppointments && !hasExtraTraining && (
+                    {hasPractice && day.isCurrentMonth && !hasPerformance && !hasAppointments && !hasExtraTraining && !hasBirthday && (
                       <View style={styles.practiceDot} />
                     )}
                     {hasExtraTraining && day.isCurrentMonth && (
@@ -442,6 +463,10 @@ export default function CalendarScreen() {
             <View style={styles.legendItem}>
               <View style={styles.legendCirclePurple} />
               <Text style={styles.legendText}>Optreden</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendCircleOrange} />
+              <Text style={styles.legendText}>Verjaardag</Text>
             </View>
           </View>
           </View>
@@ -1794,9 +1819,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#9333EA',
   },
+  legendCircleOrange: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#F97316',
+  },
   legendText: {
     color: Colors.light.muted,
     fontSize: 11,
     fontWeight: '600' as const,
+  },
+  dayNumberBirthday: {
+    borderWidth: 2,
+    borderColor: '#F97316',
   },
 });

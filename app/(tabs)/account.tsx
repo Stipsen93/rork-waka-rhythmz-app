@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Pressable, Modal } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
-import { User, Lock, LogOut, Trash2 } from "lucide-react-native";
+import { User, Lock, LogOut, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useAppState } from "@/providers/AppState";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
@@ -12,6 +12,7 @@ export default function AccountScreen() {
   const { currentUser, logout, changePassword, updateUserProfile, softDeleteAccount } = useAppState();
   const router = useRouter();
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   
   const [name, setName] = useState<string>(currentUser?.username || "");
   const [birthDate, setBirthDate] = useState<string>(currentUser?.age || "");
@@ -160,22 +161,21 @@ export default function AccountScreen() {
               </View>
             </View>
 
-            <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
+            <Pressable 
+              style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}
+              onPress={() => isEditingProfile && setShowDatePicker(true)}
+              disabled={!isEditingProfile}
+            >
               <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
-                <User size={20} color={Colors.light.muted} />
+                <Calendar size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Geboortedatum</Text>
-                <TextInput
-                  style={[styles.input, !isEditingProfile && styles.inputDisabled]}
-                  value={birthDate}
-                  onChangeText={setBirthDate}
-                  placeholder=""
-                  placeholderTextColor={Colors.light.mutedLight}
-                  editable={isEditingProfile}
-                />
+                <Text style={[styles.input, !isEditingProfile && styles.inputDisabled, styles.inputText]}>
+                  {birthDate || 'Selecteer geboortedatum'}
+                </Text>
               </View>
-            </View>
+            </Pressable>
 
             <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
               <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
@@ -340,11 +340,156 @@ export default function AccountScreen() {
           </View>
         </ScrollView>
       </View>
+      
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.datePickerModal}>
+            <View style={styles.datePickerHeader}>
+              <Text style={styles.datePickerTitle}>Selecteer geboortedatum</Text>
+              <Pressable onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.closeText}>Sluiten</Text>
+              </Pressable>
+            </View>
+            <DatePickerContent
+              selectedDate={birthDate}
+              onDateSelect={(date) => {
+                setBirthDate(date);
+                setShowDatePicker(false);
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       <MenuModal 
         visible={showMenuModal} 
         onClose={() => setShowMenuModal(false)}
       />
     </>
+  );
+}
+
+const DatePickerContent = ({ selectedDate, onDateSelect }: { selectedDate: string; onDateSelect: (date: string) => void }) => {
+  const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+  const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+  
+  const parseDate = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+  
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
+    return selectedDate ? parseDate(selectedDate) : new Date();
+  });
+  
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = lastDay.getDate();
+    
+    const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
+    
+    for (let i = 0; i < startDayOfWeek; i++) {
+      const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
+      days.push({
+        date: prevMonthDay.getDate(),
+        isCurrentMonth: false,
+        fullDate: formatDate(prevMonthDay),
+      });
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      const fullDate = new Date(year, month, i);
+      days.push({
+        date: i,
+        isCurrentMonth: true,
+        fullDate: formatDate(fullDate),
+      });
+    }
+    
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      const nextMonthDay = new Date(year, month + 1, i);
+      days.push({
+        date: i,
+        isCurrentMonth: false,
+        fullDate: formatDate(nextMonthDay),
+      });
+    }
+    
+    return days;
+  };
+  
+  const days = getDaysInMonth(currentMonth);
+  
+  return (
+    <View style={styles.datePickerContent}>
+      <View style={styles.monthNavigation}>
+        <Pressable 
+          style={styles.monthButton}
+          onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+        >
+          <ChevronLeft color={Colors.light.text} size={24} strokeWidth={2.5} />
+        </Pressable>
+        <Text style={styles.monthText}>
+          {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </Text>
+        <Pressable 
+          style={styles.monthButton}
+          onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+        >
+          <ChevronRight color={Colors.light.text} size={24} strokeWidth={2.5} />
+        </Pressable>
+      </View>
+      
+      <View style={styles.weekDays}>
+        {DAYS.map((day) => (
+          <Text key={day} style={styles.weekDayText}>{day}</Text>
+        ))}
+      </View>
+      
+      <View style={styles.daysGrid}>
+        {days.map((day, index) => (
+          <Pressable
+            key={`${day.fullDate}-${index}`}
+            style={styles.dayButton}
+            onPress={() => day.isCurrentMonth && onDateSelect(day.fullDate)}
+            disabled={!day.isCurrentMonth}
+          >
+            <View style={[
+              styles.dayCircle,
+              !day.isCurrentMonth && styles.dayCircleInactive,
+              selectedDate === day.fullDate && styles.dayCircleSelected,
+            ]}>
+              <Text style={[
+                styles.dayText,
+                !day.isCurrentMonth && styles.dayTextInactive,
+                selectedDate === day.fullDate && styles.dayTextSelected,
+              ]}>
+                {day.date}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -571,5 +716,101 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700" as const,
     color: "#fff",
+  },
+  inputText: {
+    paddingVertical: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerModal: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  datePickerTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  closeText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.light.primary,
+  },
+  datePickerContent: {
+    gap: 16,
+  },
+  monthNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  monthButton: {
+    padding: 8,
+  },
+  monthText: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  weekDays: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  weekDayText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.light.muted,
+    textAlign: 'center' as const,
+    width: 40,
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayButton: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    padding: 4,
+  },
+  dayCircle: {
+    flex: 1,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayCircleInactive: {
+    opacity: 0.3,
+  },
+  dayCircleSelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  dayText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  dayTextInactive: {
+    color: Colors.light.muted,
+  },
+  dayTextSelected: {
+    color: Colors.light.text,
+    fontWeight: '700' as const,
   },
 });

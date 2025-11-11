@@ -1,6 +1,7 @@
 import React, { useState, useCallback, memo } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable, Platform } from "react-native";
 import * as Clipboard from 'expo-clipboard';
+import { useRouter } from "expo-router";
 import Colors from "@/constants/colors";
 import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -289,6 +290,7 @@ CreateGroupSection.displayName = 'CreateGroupSection';
 
 export default function AdminScreen() {
   const { users, setRole, resetPassword, deleteUsers, reactivateAccount, permanentDeleteAccount } = useAppState();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -489,7 +491,13 @@ export default function AdminScreen() {
           return (
             <Pressable
               style={[styles.userCard, isSelected && styles.userCardSelected]}
-              onPress={() => selectionMode ? toggleUserSelection(item.id) : undefined}
+              onPress={() => {
+                if (selectionMode) {
+                  toggleUserSelection(item.id);
+                } else {
+                  router.push(`/member-profile?userId=${item.id}`);
+                }
+              }}
               onPressIn={() => handlePressIn(item.id)}
               onPressOut={handlePressOut}
               testID={`user-card-${item.id}`}
