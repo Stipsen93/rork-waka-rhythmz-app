@@ -23,6 +23,7 @@ export type Database = {
           notification_preferences: Json | null
           deleted_by_user: boolean
           deleted_at: string | null
+          is_crown_admin: boolean
           created_at: string
         }
         Insert: {
@@ -38,6 +39,7 @@ export type Database = {
           notification_preferences?: Json | null
           deleted_by_user?: boolean
           deleted_at?: string | null
+          is_crown_admin?: boolean
           created_at?: string
         }
         Update: {
@@ -53,6 +55,7 @@ export type Database = {
           notification_preferences?: Json | null
           deleted_by_user?: boolean
           deleted_at?: string | null
+          is_crown_admin?: boolean
           created_at?: string
         }
       }

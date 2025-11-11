@@ -25,6 +25,7 @@ export interface User {
   notificationPreferences: UserNotificationPreferences;
   deletedByUser: boolean;
   deletedAt?: string | null;
+  isCrownAdmin: boolean;
 }
 
 export interface PermissionMatrix {
@@ -186,6 +187,7 @@ export interface AppStateValue {
   logout: () => void;
   addUser: (username: string, role: Role) => Promise<{ user: User; password: string }>;
   deleteUsers: (userIds: string[]) => Promise<void>;
+  setCrownAdmin: (userId: string) => Promise<void>;
   softDeleteAccount: (userId: string) => Promise<void>;
   reactivateAccount: (userId: string, newPassword: string) => Promise<void>;
   permanentDeleteAccount: (userId: string) => Promise<void>;
@@ -402,6 +404,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           },
           deletedByUser: u.deleted_by_user ?? false,
           deletedAt: u.deleted_at ?? null,
+          isCrownAdmin: u.is_crown_admin ?? false,
         }));
         setUsers(mappedUsers);
       }
@@ -566,6 +569,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             },
             deletedByUser: u.deleted_by_user ?? false,
             deletedAt: u.deleted_at ?? null,
+            isCrownAdmin: u.is_crown_admin ?? false,
           }));
           setUsers(mappedUsers);
           if (mappedUsers.length === 0) {
@@ -577,7 +581,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               password_changed_by_user: true,
             };
             await supabase.from('users').insert(newUser);
-            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null, notificationPreferences: { newsEnabled: true, assignmentsEnabled: true, trainingsEnabled: true, performancesEnabled: true }, deletedByUser: false, deletedAt: null }]);
+            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null, notificationPreferences: { newsEnabled: true, assignmentsEnabled: true, trainingsEnabled: true, performancesEnabled: true }, deletedByUser: false, deletedAt: null, isCrownAdmin: true }]);
           }
         }
 
@@ -797,6 +801,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               },
               deletedByUser: u.deleted_by_user ?? false,
               deletedAt: u.deleted_at ?? null,
+              isCrownAdmin: u.is_crown_admin ?? false,
             }));
             setUsers(mappedUsers);
           }
@@ -1075,6 +1080,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       },
       deletedByUser: false,
       deletedAt: null,
+      isCrownAdmin: false,
     };
     const insertData: Database['public']['Tables']['users']['Insert'] = {
       id: user.id,
@@ -2078,6 +2084,18 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return group ? group.memberIds : [];
   }, [groups]);
 
+  const setCrownAdmin = useCallback(async (userId: string) => {
+    console.log('💾 Setting crown admin in Supabase...');
+    
+    await supabase.from('users').update({ is_crown_admin: false }).neq('id', '');
+    
+    const updateData: Database['public']['Tables']['users']['Update'] = { is_crown_admin: true };
+    await supabase.from('users').update(updateData).eq('id', userId);
+    
+    setUsers((prev) => prev.map((u) => ({ ...u, isCrownAdmin: u.id === userId })));
+    console.log('✅ Crown admin set');
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
@@ -2137,6 +2155,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     updateGroup,
     deleteGroups,
     getMembersByGroupId,
+    setCrownAdmin,
     syncAllData,
   };
 
