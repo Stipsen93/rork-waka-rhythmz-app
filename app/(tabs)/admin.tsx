@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import Colors from "@/constants/colors";
 import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X, CheckCircle, XCircle } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 
@@ -288,7 +288,7 @@ const CreateGroupSection = memo(() => {
 CreateGroupSection.displayName = 'CreateGroupSection';
 
 export default function AdminScreen() {
-  const { users, setRole, resetPassword, deleteUsers } = useAppState();
+  const { users, setRole, resetPassword, deleteUsers, reactivateAccount, permanentDeleteAccount } = useAppState();
   const insets = useSafeAreaInsets();
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -382,6 +382,45 @@ export default function AdminScreen() {
     );
   }, [selectedUserIds, users, deleteUsers]);
 
+  const handleReactivateAccount = (userId: string, userName: string) => {
+    Alert.alert(
+      "Account heractiveren",
+      `Account voor ${userName} heractiveren met nieuw wachtwoord?`,
+      [
+        { text: "Annuleren", style: "cancel" },
+        {
+          text: "Heractiveren",
+          onPress: async () => {
+            const newPassword = Math.random().toString(36).slice(2, 8) + Math.floor(100 + Math.random() * 900).toString();
+            await reactivateAccount(userId, newPassword);
+            Alert.alert(
+              "Account Geheractiveerd",
+              `Account voor ${userName} is geheractiveerd.\nNieuw wachtwoord: ${newPassword}\n\nBewaar dit wachtwoord!`
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePermanentDelete = (userId: string, userName: string) => {
+    Alert.alert(
+      "Account permanent verwijderen",
+      `Weet je zeker dat je het account van ${userName} PERMANENT wilt verwijderen? Dit kan niet ongedaan worden gemaakt!`,
+      [
+        { text: "Annuleren", style: "cancel" },
+        {
+          text: "Permanent verwijderen",
+          style: "destructive",
+          onPress: async () => {
+            await permanentDeleteAccount(userId);
+            Alert.alert("Verwijderd", `Account van ${userName} is permanent verwijderd.`);
+          },
+        },
+      ]
+    );
+  };
+
   const renderHeader = useCallback(() => (
     <>
       <LinearGradient 
@@ -465,62 +504,94 @@ export default function AdminScreen() {
                 </View>
               )}
               <View style={styles.userCardLeft}>
-                <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin]}>
+                <View style={[styles.userAvatar, item.role === "admin" && styles.userAvatarAdmin, item.deletedByUser && styles.userAvatarDeleted]}>
                   {item.role === "admin" ? (
                     <Shield color={Colors.light.text} size={20} strokeWidth={2.5} />
                   ) : (
-                    <User color={Colors.light.muted} size={20} strokeWidth={2.5} />
+                    <User color={item.deletedByUser ? "#ef4444" : Colors.light.muted} size={20} strokeWidth={2.5} />
                   )}
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{item.username}</Text>
+                  <View style={styles.userNameRow}>
+                    <Text style={styles.userName}>{item.username}</Text>
+                    {item.deletedByUser && (
+                      <View style={styles.deletedBadge}>
+                        <Text style={styles.deletedBadgeText}>Verwijderd door lid</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.userRole}>{item.role.toUpperCase()}</Text>
-                  <Text style={styles.userPassword}>
-                    {item.passwordChangedByUser ? "••••••••" : item.password}
-                  </Text>
+                  {!item.deletedByUser && (
+                    <Text style={styles.userPassword}>
+                      {item.passwordChangedByUser ? "••••••••" : item.password}
+                    </Text>
+                  )}
                 </View>
               </View>
               
               {!selectionMode && (
                 <View style={styles.userActions}>
-                  <View style={styles.iconButtons}>
-                    {!item.passwordChangedByUser && (
+                  {item.deletedByUser ? (
+                    <View style={styles.deletedActions}>
                       <Pressable
-                        style={styles.iconButton}
-                        onPress={() => handleCopyPassword(item.password, item.username)}
-                        testID={`copy-password-${item.id}`}
+                        style={styles.reactivateButton}
+                        onPress={() => handleReactivateAccount(item.id, item.username)}
+                        testID={`reactivate-${item.id}`}
                       >
-                        <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                        <CheckCircle color="#10b981" size={16} strokeWidth={2.5} />
+                        <Text style={styles.reactivateButtonText}>Heractiveren</Text>
                       </Pressable>
-                    )}
-                    <Pressable
-                      style={styles.iconButton}
-                      onPress={() => handleResetPassword(item.id, item.username)}
-                      testID={`reset-password-${item.id}`}
-                    >
-                      <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
-                    </Pressable>
-                  </View>
-                  <View style={styles.roleButtonsWrapper}>
-                    <Pressable 
-                      style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                      onPress={() => setRole(item.id, "member")} 
-                      testID={`make-member-${item.id}`}
-                    >
-                      <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
-                        Lid
-                      </Text>
-                    </Pressable>
-                    <Pressable 
-                      style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
-                      onPress={() => setRole(item.id, "admin")} 
-                      testID={`make-admin-${item.id}`}
-                    >
-                      <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
-                        Admin
-                      </Text>
-                    </Pressable>
-                  </View>
+                      <Pressable
+                        style={styles.permanentDeleteButton}
+                        onPress={() => handlePermanentDelete(item.id, item.username)}
+                        testID={`permanent-delete-${item.id}`}
+                      >
+                        <XCircle color="#ef4444" size={16} strokeWidth={2.5} />
+                        <Text style={styles.permanentDeleteButtonText}>Permanent wissen</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.iconButtons}>
+                        {!item.passwordChangedByUser && (
+                          <Pressable
+                            style={styles.iconButton}
+                            onPress={() => handleCopyPassword(item.password, item.username)}
+                            testID={`copy-password-${item.id}`}
+                          >
+                            <Copy color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                          </Pressable>
+                        )}
+                        <Pressable
+                          style={styles.iconButton}
+                          onPress={() => handleResetPassword(item.id, item.username)}
+                          testID={`reset-password-${item.id}`}
+                        >
+                          <RotateCcw color={Colors.light.primary} size={16} strokeWidth={2.5} />
+                        </Pressable>
+                      </View>
+                      <View style={styles.roleButtonsWrapper}>
+                        <Pressable 
+                          style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
+                          onPress={() => setRole(item.id, "member")} 
+                          testID={`make-member-${item.id}`}
+                        >
+                          <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
+                            Lid
+                          </Text>
+                        </Pressable>
+                        <Pressable 
+                          style={[styles.actionButton, item.role === "admin" && styles.actionButtonActive]} 
+                          onPress={() => setRole(item.id, "admin")} 
+                          testID={`make-admin-${item.id}`}
+                        >
+                          <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
+                            Admin
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
                 </View>
               )}
             </Pressable>
@@ -959,5 +1030,57 @@ const styles = StyleSheet.create({
   groupActions: {
     flexDirection: "row",
     gap: 8,
+  },
+  userAvatarDeleted: {
+    backgroundColor: "#fee2e2",
+  },
+  userNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  deletedBadge: {
+    backgroundColor: "#fee2e2",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  deletedBadgeText: {
+    color: "#ef4444",
+    fontSize: 10,
+    fontWeight: "700" as const,
+    textTransform: "uppercase" as const,
+  },
+  deletedActions: {
+    gap: 8,
+  },
+  reactivateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#d1fae5",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  reactivateButtonText: {
+    color: "#10b981",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  permanentDeleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fee2e2",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  permanentDeleteButtonText: {
+    color: "#ef4444",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
 });

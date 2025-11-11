@@ -21,6 +21,8 @@ export type Database = {
           age: string | null
           address: string | null
           notification_preferences: Json | null
+          deleted_by_user: boolean
+          deleted_at: string | null
           created_at: string
         }
         Insert: {
@@ -34,6 +36,8 @@ export type Database = {
           age?: string | null
           address?: string | null
           notification_preferences?: Json | null
+          deleted_by_user?: boolean
+          deleted_at?: string | null
           created_at?: string
         }
         Update: {
@@ -47,6 +51,8 @@ export type Database = {
           age?: string | null
           address?: string | null
           notification_preferences?: Json | null
+          deleted_by_user?: boolean
+          deleted_at?: string | null
           created_at?: string
         }
       }

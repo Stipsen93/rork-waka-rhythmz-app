@@ -3,13 +3,13 @@ import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
-import { User, Lock, LogOut } from "lucide-react-native";
+import { User, Lock, LogOut, Trash2 } from "lucide-react-native";
 import { useAppState } from "@/providers/AppState";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser, logout, changePassword, updateUserProfile } = useAppState();
+  const { currentUser, logout, changePassword, updateUserProfile, softDeleteAccount } = useAppState();
   const router = useRouter();
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
@@ -78,6 +78,41 @@ export default function AccountScreen() {
           onPress: () => {
             logout();
             router.replace("/login");
+          }
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Account verwijderen",
+      "Weet je zeker dat je je account wilt verwijderen? Je kunt niet meer inloggen totdat een admin je account heractiveert.",
+      [
+        { text: "Annuleren", style: "cancel" },
+        { 
+          text: "Verwijderen", 
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Laatste bevestiging",
+              "Dit is je laatste kans. Weet je zeker dat je je account wilt verwijderen?",
+              [
+                { text: "Annuleren", style: "cancel" },
+                { 
+                  text: "Ja, verwijderen", 
+                  style: "destructive",
+                  onPress: async () => {
+                    if (currentUser) {
+                      await softDeleteAccount(currentUser.id);
+                      logout();
+                      router.replace("/login");
+                      Alert.alert("Account verwijderd", "Je account is verwijderd. Neem contact op met een admin om je account te heractiveren.");
+                    }
+                  }
+                },
+              ]
+            );
           }
         },
       ]
@@ -296,6 +331,13 @@ export default function AccountScreen() {
               <Text style={styles.logoutButtonText}>Uitloggen</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+              <Trash2 size={20} color="#fff" />
+              <Text style={styles.deleteAccountButtonText}>Account verwijderen</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </View>
       <MenuModal 
@@ -510,5 +552,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600" as const,
     color: Colors.light.error,
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#dc2626",
+    borderRadius: 16,
+    padding: 18,
+    shadowColor: "#dc2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#fff",
   },
 });

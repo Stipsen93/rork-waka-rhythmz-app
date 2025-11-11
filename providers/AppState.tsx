@@ -23,6 +23,8 @@ export interface User {
   age?: string | null;
   address?: string | null;
   notificationPreferences: UserNotificationPreferences;
+  deletedByUser: boolean;
+  deletedAt?: string | null;
 }
 
 export interface PermissionMatrix {
@@ -184,6 +186,9 @@ export interface AppStateValue {
   logout: () => void;
   addUser: (username: string, role: Role) => Promise<{ user: User; password: string }>;
   deleteUsers: (userIds: string[]) => Promise<void>;
+  softDeleteAccount: (userId: string) => Promise<void>;
+  reactivateAccount: (userId: string, newPassword: string) => Promise<void>;
+  permanentDeleteAccount: (userId: string) => Promise<void>;
   setRole: (userId: string, role: Role) => void;
   resetPassword: (userId: string) => Promise<string>;
   changePassword: (userId: string, newPassword: string) => void;
@@ -395,6 +400,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             trainingsEnabled: true,
             performancesEnabled: true,
           },
+          deletedByUser: u.deleted_by_user ?? false,
+          deletedAt: u.deleted_at ?? null,
         }));
         setUsers(mappedUsers);
       }
@@ -557,6 +564,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               trainingsEnabled: true,
               performancesEnabled: true,
             },
+            deletedByUser: u.deleted_by_user ?? false,
+            deletedAt: u.deleted_at ?? null,
           }));
           setUsers(mappedUsers);
           if (mappedUsers.length === 0) {
@@ -568,7 +577,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               password_changed_by_user: true,
             };
             await supabase.from('users').insert(newUser);
-            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null, notificationPreferences: { newsEnabled: true, assignmentsEnabled: true, trainingsEnabled: true, performancesEnabled: true } }]);
+            setUsers([{ id: "u_admin", username: "admin", password: "admin", role: "admin", passwordChangedByUser: true, email: null, phone: null, age: null, address: null, notificationPreferences: { newsEnabled: true, assignmentsEnabled: true, trainingsEnabled: true, performancesEnabled: true }, deletedByUser: false, deletedAt: null }]);
           }
         }
 
@@ -786,6 +795,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
                 trainingsEnabled: true,
                 performancesEnabled: true,
               },
+              deletedByUser: u.deleted_by_user ?? false,
+              deletedAt: u.deleted_at ?? null,
             }));
             setUsers(mappedUsers);
           }
@@ -1034,6 +1045,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const login = useCallback((username: string, password: string) => {
     const user = users.find(u => u.username === username && u.password === password);
     if (user) {
+      if (user.deletedByUser) {
+        return false;
+      }
       setCurrentUser(user);
       return true;
     }
@@ -1058,7 +1072,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         assignmentsEnabled: true,
         trainingsEnabled: true,
         performancesEnabled: true,
-      }
+      },
+      deletedByUser: false,
+      deletedAt: null,
     };
     const insertData: Database['public']['Tables']['users']['Insert'] = {
       id: user.id,
@@ -1084,6 +1100,41 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     }
     console.log('✅ Users deleted');
   }, [currentUser]);
+
+  const softDeleteAccount = useCallback(async (userId: string) => {
+    console.log('💾 Soft deleting account...');
+    const updateData: Database['public']['Tables']['users']['Update'] = {
+      deleted_by_user: true,
+      deleted_at: new Date().toISOString()
+    };
+    await supabase.from('users').update(updateData).eq('id', userId);
+    setUsers((prev) => prev.map((u) => 
+      u.id === userId ? { ...u, deletedByUser: true, deletedAt: new Date().toISOString() } : u
+    ));
+    console.log('✅ Account soft deleted');
+  }, []);
+
+  const reactivateAccount = useCallback(async (userId: string, newPassword: string) => {
+    console.log('💾 Reactivating account...');
+    const updateData: Database['public']['Tables']['users']['Update'] = {
+      deleted_by_user: false,
+      deleted_at: null,
+      password: newPassword,
+      password_changed_by_user: false
+    };
+    await supabase.from('users').update(updateData).eq('id', userId);
+    setUsers((prev) => prev.map((u) => 
+      u.id === userId ? { ...u, deletedByUser: false, deletedAt: null, password: newPassword, passwordChangedByUser: false } : u
+    ));
+    console.log('✅ Account reactivated');
+  }, []);
+
+  const permanentDeleteAccount = useCallback(async (userId: string) => {
+    console.log('💾 Permanently deleting account...');
+    await supabase.from('users').delete().eq('id', userId);
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    console.log('✅ Account permanently deleted');
+  }, []);
 
   const resetPassword = useCallback(async (userId: string): Promise<string> => {
     console.log('💾 Resetting password in Supabase...');
@@ -2035,6 +2086,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     logout,
     addUser,
     deleteUsers,
+    softDeleteAccount,
+    reactivateAccount,
+    permanentDeleteAccount,
     setRole,
     resetPassword,
     changePassword,
