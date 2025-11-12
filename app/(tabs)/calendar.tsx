@@ -3,7 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, Touch
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment } from "@/providers/AppState";
-import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight, Check } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
@@ -35,6 +35,8 @@ export default function CalendarScreen() {
     time: string;
     location: string;
     memberIds: string[];
+    forUserId?: string;
+    confirmed: boolean;
   }>({
     name: '',
     category: 'Feestje',
@@ -42,8 +44,12 @@ export default function CalendarScreen() {
     time: '12:00',
     location: '',
     memberIds: [],
+    forUserId: undefined,
+    confirmed: false,
   });
   const [showCategoryDropdown, setShowCategoryDropdown] = useState<boolean>(false);
+  const [showForUserDropdown, setShowForUserDropdown] = useState<boolean>(false);
+  const [showEditForUserDropdown, setShowEditForUserDropdown] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showHourPicker, setShowHourPicker] = useState<boolean>(false);
   const [showMinutePicker, setShowMinutePicker] = useState<boolean>(false);
@@ -60,6 +66,8 @@ export default function CalendarScreen() {
     time: string;
     location: string;
     memberIds: string[];
+    forUserId?: string;
+    confirmed: boolean;
   }>({
     name: '',
     category: 'Feestje',
@@ -67,6 +75,8 @@ export default function CalendarScreen() {
     time: '12:00',
     location: '',
     memberIds: [],
+    forUserId: undefined,
+    confirmed: false,
   });
 
   const calendarDays = useMemo(() => {
@@ -245,7 +255,9 @@ export default function CalendarScreen() {
       time: formData.time,
       location: formData.location.trim(),
       memberIds: formData.memberIds,
-    });
+      forUserId: formData.forUserId,
+      confirmed: formData.confirmed,
+    } as any);
 
     setFormData({
       name: '',
@@ -254,6 +266,8 @@ export default function CalendarScreen() {
       time: '12:00',
       location: '',
       memberIds: [],
+      forUserId: undefined,
+      confirmed: false,
     });
     setShowAddModal(false);
   };
@@ -267,6 +281,8 @@ export default function CalendarScreen() {
       time: appointment.time,
       location: appointment.location,
       memberIds: appointment.memberIds,
+      forUserId: appointment.forUserId,
+      confirmed: appointment.confirmed,
     });
     setShowEditModal(true);
   };
@@ -283,7 +299,9 @@ export default function CalendarScreen() {
       time: editFormData.time,
       location: editFormData.location.trim(),
       memberIds: editFormData.memberIds,
-    });
+      forUserId: editFormData.forUserId,
+      confirmed: editFormData.confirmed,
+    } as any);
 
     setShowEditModal(false);
     setSelectedAppointment(null);
@@ -541,6 +559,16 @@ export default function CalendarScreen() {
                     {isCancelled && (
                       <View style={styles.cancelledBadge}>
                         <Text style={styles.cancelledBadgeText}>Geannuleerd</Text>
+                      </View>
+                    )}
+                    {!item.confirmed && !isCancelled && (
+                      <View style={styles.notConfirmedBadge}>
+                        <Text style={styles.notConfirmedBadgeText}>Niet bevestigd</Text>
+                      </View>
+                    )}
+                    {item.confirmed && !isCancelled && (
+                      <View style={styles.confirmedBadge}>
+                        <Text style={styles.confirmedBadgeText}>Bevestigd</Text>
                       </View>
                     )}
                   </Pressable>
@@ -826,6 +854,77 @@ export default function CalendarScreen() {
                 />
               </View>
 
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Voor wie</Text>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => setShowForUserDropdown(!showForUserDropdown)}
+                >
+                  <Text style={styles.dropdownText}>
+                    {formData.forUserId ? users.find(u => u.id === formData.forUserId)?.username || 'Selecteer lid' : 'Selecteer lid'}
+                  </Text>
+                  <ChevronRight 
+                    color={Colors.light.muted} 
+                    size={20} 
+                    style={{ transform: [{ rotate: showForUserDropdown ? '90deg' : '0deg' }] }}
+                  />
+                </Pressable>
+                {showForUserDropdown && (
+                  <ScrollView
+                    style={styles.memberScrollView}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setFormData({ ...formData, forUserId: undefined });
+                        setShowForUserDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        !formData.forUserId && styles.dropdownItemTextActive
+                      ]}>
+                        Niemand
+                      </Text>
+                    </TouchableOpacity>
+                    {users.map((user) => (
+                      <TouchableOpacity
+                        key={user.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setFormData({ ...formData, forUserId: user.id });
+                          setShowForUserDropdown(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          formData.forUserId === user.id && styles.dropdownItemTextActive
+                        ]}>
+                          {user.username}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Pressable
+                  style={styles.checkboxContainer}
+                  onPress={() => setFormData({ ...formData, confirmed: !formData.confirmed })}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    formData.confirmed && styles.checkboxChecked
+                  ]}>
+                    {formData.confirmed && <Check color={Colors.light.text} size={16} strokeWidth={3} />}
+                  </View>
+                  <Text style={styles.checkboxLabel}>Bevestigd</Text>
+                </Pressable>
+              </View>
+
               <View style={styles.modalActions}>
                 <Pressable
                   style={[styles.actionButton, styles.cancelButton]}
@@ -838,6 +937,8 @@ export default function CalendarScreen() {
                       time: '12:00',
                       location: '',
                       memberIds: [],
+                      forUserId: undefined,
+                      confirmed: false,
                     });
                   }}
                   testID="cancel-button"
@@ -1131,6 +1232,77 @@ export default function CalendarScreen() {
                   placeholder="Locatie van de afspraak"
                   placeholderTextColor={Colors.light.muted}
                 />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Voor wie</Text>
+                <Pressable
+                  style={styles.dropdownButton}
+                  onPress={() => setShowEditForUserDropdown(!showEditForUserDropdown)}
+                >
+                  <Text style={styles.dropdownText}>
+                    {editFormData.forUserId ? users.find(u => u.id === editFormData.forUserId)?.username || 'Selecteer lid' : 'Selecteer lid'}
+                  </Text>
+                  <ChevronRight 
+                    color={Colors.light.muted} 
+                    size={20} 
+                    style={{ transform: [{ rotate: showEditForUserDropdown ? '90deg' : '0deg' }] }}
+                  />
+                </Pressable>
+                {showEditForUserDropdown && (
+                  <ScrollView
+                    style={styles.memberScrollView}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setEditFormData({ ...editFormData, forUserId: undefined });
+                        setShowEditForUserDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        !editFormData.forUserId && styles.dropdownItemTextActive
+                      ]}>
+                        Niemand
+                      </Text>
+                    </TouchableOpacity>
+                    {users.map((user) => (
+                      <TouchableOpacity
+                        key={user.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setEditFormData({ ...editFormData, forUserId: user.id });
+                          setShowEditForUserDropdown(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          editFormData.forUserId === user.id && styles.dropdownItemTextActive
+                        ]}>
+                          {user.username}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Pressable
+                  style={styles.checkboxContainer}
+                  onPress={() => setEditFormData({ ...editFormData, confirmed: !editFormData.confirmed })}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    editFormData.confirmed && styles.checkboxChecked
+                  ]}>
+                    {editFormData.confirmed && <Check color={Colors.light.text} size={16} strokeWidth={3} />}
+                  </View>
+                  <Text style={styles.checkboxLabel}>Bevestigd</Text>
+                </Pressable>
               </View>
 
               <View style={styles.modalActions}>
@@ -1834,5 +2006,69 @@ const styles = StyleSheet.create({
   dayNumberBirthday: {
     borderWidth: 2,
     borderColor: '#F97316',
+  },
+  memberScrollView: {
+    marginTop: 8,
+    maxHeight: 200,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  checkboxLabel: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  notConfirmedBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: Colors.light.darkGray,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  notConfirmedBadgeText: {
+    color: Colors.light.muted,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    fontStyle: 'italic',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  confirmedBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  confirmedBadgeText: {
+    color: Colors.light.text,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

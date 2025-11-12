@@ -140,6 +140,8 @@ export interface Appointment {
   createdAt: string;
   createdBy: string;
   status: 'active' | 'cancelled';
+  forUserId?: string;
+  confirmed: boolean;
 }
 
 export interface NotificationSettings {
@@ -447,6 +449,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           createdAt: a.created_at,
           createdBy: a.created_by,
           status: a.status,
+          forUserId: (a as any).for_user_id ?? undefined,
+          confirmed: (a as any).confirmed ?? false,
         })));
       }
 
@@ -678,6 +682,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             createdAt: a.created_at,
             createdBy: a.created_by,
             status: a.status,
+            forUserId: (a as any).for_user_id ?? undefined,
+            confirmed: (a as any).confirmed ?? false,
           })));
           if (appointmentsRes.data.length === 0) {
             const defaultAppointment: Database['public']['Tables']['appointments']['Insert'] = {
@@ -702,6 +708,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               createdAt: new Date().toISOString(),
               createdBy: defaultAppointment.created_by,
               status: 'active',
+              forUserId: undefined,
+              confirmed: false,
             }]);
           }
         }
@@ -868,6 +876,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               createdAt: a.created_at,
               createdBy: a.created_by,
               status: a.status,
+              forUserId: (a as any).for_user_id ?? undefined,
+              confirmed: (a as any).confirmed ?? false,
             })));
           }
         });
@@ -1532,6 +1542,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       location: newAppointment.location,
       member_ids: newAppointment.memberIds,
       created_by: newAppointment.createdBy,
+      for_user_id: (newAppointment as any).forUserId ?? null,
+      confirmed: (newAppointment as any).confirmed ?? false,
     };
     await supabase.from('appointments').insert(insertData);
     setAppointments((prev) => [...prev, newAppointment].sort((a, b) => 
@@ -1558,6 +1570,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (appointment.memberIds !== undefined) updateData.member_ids = appointment.memberIds;
     if (appointment.status !== undefined) updateData.status = appointment.status;
     if (appointment.createdBy !== undefined) updateData.created_by = appointment.createdBy;
+    if ((appointment as any).forUserId !== undefined) (updateData as any).for_user_id = (appointment as any).forUserId;
+    if ((appointment as any).confirmed !== undefined) (updateData as any).confirmed = (appointment as any).confirmed;
     await supabase.from('appointments').update(updateData).eq('id', id);
     console.log('✅ Appointment updated');
 
