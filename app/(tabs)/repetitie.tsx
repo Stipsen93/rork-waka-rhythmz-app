@@ -6,9 +6,9 @@ import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
 import { useState } from "react";
 import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
+import { translations } from "@/constants/translations";
 
-const WEEKDAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
-const WEEKDAYS_FULL = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
+
 
 type CancelOption = "next1" | "next2" | "next3" | "custom";
 type RepeatMode = 'none' | '1x' | '2x' | 'custom';
@@ -19,7 +19,12 @@ function genId(prefix: string): string {
 
 export default function RepetitieScreen() {
   const insets = useSafeAreaInsets();
-  const { practiceSchedule, updatePracticeSchedule, currentUser } = useAppState();
+  const { practiceSchedule, updatePracticeSchedule, currentUser, language } = useAppState();
+  const t = translations[language].practices;
+  const tc = translations[language].common;
+  
+  const WEEKDAYS = t.weekdays.short;
+  const WEEKDAYS_FULL = t.weekdays.full;
   
   const filterOneTimeTrainings = (trainings: Training[]): Training[] => {
     const now = new Date();
@@ -77,7 +82,7 @@ export default function RepetitieScreen() {
         const date = new Date(training.customDate);
         return `${date.getDate()} ${date.toLocaleDateString('nl-NL', { month: 'short' })}`;
       }
-      return 'Aangepast';
+      return t.custom;
     }
     return '-';
   };
@@ -94,7 +99,7 @@ export default function RepetitieScreen() {
     if (!isAdmin) return;
     const newTraining: Training = {
       id: genId("t"),
-      name: "Nieuwe training",
+      name: t.newTraining,
       dayOfWeek: 1,
       time: "19:00",
       location: "Zaal 3",
@@ -368,13 +373,13 @@ export default function RepetitieScreen() {
                 style={styles.calendarButton}
                 onPress={() => setCalendarModalOpen(false)}
               >
-                <Text style={styles.calendarButtonText}>Terug</Text>
+                <Text style={styles.calendarButtonText}>{t.back}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.calendarButton, styles.calendarButtonPrimary]}
                 onPress={handleCalendarConfirm}
               >
-                <Text style={[styles.calendarButtonText, styles.calendarButtonTextPrimary]}>Selecteer</Text>
+                <Text style={[styles.calendarButtonText, styles.calendarButtonTextPrimary]}>{t.select}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -508,7 +513,7 @@ export default function RepetitieScreen() {
                 style={styles.calendarButton}
                 onPress={() => setCustomDatePickerOpen(null)}
               >
-                <Text style={styles.calendarButtonText}>Annuleren</Text>
+                <Text style={styles.calendarButtonText}>{tc.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.calendarButton, styles.calendarButtonPrimary]}
@@ -516,7 +521,7 @@ export default function RepetitieScreen() {
                   setCustomDatePickerOpen(null);
                 }}
               >
-                <Text style={[styles.calendarButtonText, styles.calendarButtonTextPrimary]}>Selecteer</Text>
+                <Text style={[styles.calendarButtonText, styles.calendarButtonTextPrimary]}>{t.select}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -538,7 +543,7 @@ export default function RepetitieScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.timePickerModal}>
-            <Text style={styles.timePickerTitle}>Selecteer tijd</Text>
+            <Text style={styles.timePickerTitle}>{t.selectTime}</Text>
             
             <View style={styles.timeDisplayContainer}>
               <Text style={styles.timeDisplay}>
@@ -548,7 +553,7 @@ export default function RepetitieScreen() {
 
             <View style={styles.scrollPickersContainer}>
               <View style={styles.scrollPickerColumn}>
-                <Text style={styles.scrollPickerLabel}>Uur</Text>
+                <Text style={styles.scrollPickerLabel}>{t.hour}</Text>
                 <ScrollView 
                   style={styles.scrollPicker}
                   contentContainerStyle={styles.scrollPickerContent}
@@ -575,7 +580,7 @@ export default function RepetitieScreen() {
               </View>
 
               <View style={styles.scrollPickerColumn}>
-                <Text style={styles.scrollPickerLabel}>Minuut</Text>
+                <Text style={styles.scrollPickerLabel}>{t.minute}</Text>
                 <ScrollView 
                   style={styles.scrollPicker}
                   contentContainerStyle={styles.scrollPickerContent}
@@ -607,7 +612,7 @@ export default function RepetitieScreen() {
                 style={styles.timePickerButton}
                 onPress={() => setTimePickerOpen(false)}
               >
-                <Text style={styles.timePickerButtonText}>Annuleren</Text>
+                <Text style={styles.timePickerButtonText}>{tc.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.timePickerButton, styles.timePickerButtonPrimary]}
@@ -640,16 +645,16 @@ export default function RepetitieScreen() {
       />
       <View style={[styles.container, { paddingBottom: insets.bottom }]}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>Repetitie Planning</Text>
+          <Text style={styles.title}>{t.practiceSchedule}</Text>
 
           {!isAdmin && (
             <View style={styles.noticeCard}>
-              <Text style={styles.noticeText}>Alleen admins kunnen de planning aanpassen</Text>
+              <Text style={styles.noticeText}>{t.adminOnly}</Text>
             </View>
           )}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Trainingen</Text>
+            <Text style={styles.sectionTitle}>{t.trainings}</Text>
             
             {filterOneTimeTrainings(trainings).map((training) => {
               const isLocked = lockedTrainings.has(training.id);
@@ -665,7 +670,7 @@ export default function RepetitieScreen() {
                     style={[styles.trainingNameInput, (!isEditable) && styles.inputDisabled]}
                     value={training.name}
                     onChangeText={(text) => updateTraining(training.id, { name: text })}
-                    placeholder="Training naam"
+                    placeholder={t.trainingName}
                     placeholderTextColor={Colors.light.mutedLight}
                     editable={isEditable}
                   />
@@ -735,7 +740,7 @@ export default function RepetitieScreen() {
                     style={[styles.locationInput, !isEditable && styles.inputDisabled]}
                     value={training.location}
                     onChangeText={(text) => updateTraining(training.id, { location: text })}
-                    placeholder="Locatie"
+                    placeholder={t.location}
                     placeholderTextColor={Colors.light.mutedLight}
                     editable={isEditable}
                   />
@@ -788,7 +793,7 @@ export default function RepetitieScreen() {
                           setCustomDatePickerOpen(training.id);
                         }}
                       >
-                        <Text style={styles.repeatDropdownItemText}>Aangepast</Text>
+                        <Text style={styles.repeatDropdownItemText}>{t.custom}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -800,7 +805,7 @@ export default function RepetitieScreen() {
             {isAdmin && (
               <TouchableOpacity style={styles.addTrainingButton} onPress={addTraining}>
                 <Plus color={Colors.light.primary} size={24} strokeWidth={2.5} />
-                <Text style={styles.addTrainingText}>Training toevoegen</Text>
+                <Text style={styles.addTrainingText}>{t.addTraining}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -808,17 +813,17 @@ export default function RepetitieScreen() {
           {isAdmin && (
             <>
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Training Annuleren</Text>
+                <Text style={styles.sectionTitle}>{t.cancelTraining}</Text>
                 <TouchableOpacity
                   style={styles.dropdown}
                   onPress={() => setDropdownOpen(!dropdownOpen)}
                 >
                   <Text style={styles.dropdownText}>
-                    {selectedCancelOption === "next1" ? "Eerstvolgende training" :
-                     selectedCancelOption === "next2" ? "Komende 2 trainingen" :
-                     selectedCancelOption === "next3" ? "Komende 3 trainingen" :
-                     selectedCancelOption === "custom" ? "Aangepast" :
-                     "Selecteer optie"}
+                    {selectedCancelOption === "next1" ? t.next1 :
+                     selectedCancelOption === "next2" ? t.next2 :
+                     selectedCancelOption === "next3" ? t.next3 :
+                     selectedCancelOption === "custom" ? t.custom :
+                     t.selectOption}
                   </Text>
                   <ChevronDown color={Colors.light.text} size={20} />
                 </TouchableOpacity>
@@ -829,25 +834,25 @@ export default function RepetitieScreen() {
                       style={styles.dropdownItem}
                       onPress={() => handleCancelOptionSelect("next1")}
                     >
-                      <Text style={styles.dropdownItemText}>Eerstvolgende training</Text>
+                      <Text style={styles.dropdownItemText}>{t.next1}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.dropdownItem}
                       onPress={() => handleCancelOptionSelect("next2")}
                     >
-                      <Text style={styles.dropdownItemText}>Komende 2 trainingen</Text>
+                      <Text style={styles.dropdownItemText}>{t.next2}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.dropdownItem}
                       onPress={() => handleCancelOptionSelect("next3")}
                     >
-                      <Text style={styles.dropdownItemText}>Komende 3 trainingen</Text>
+                      <Text style={styles.dropdownItemText}>{t.next3}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.dropdownItem}
                       onPress={() => handleCancelOptionSelect("custom")}
                     >
-                      <Text style={styles.dropdownItemText}>Aangepast</Text>
+                      <Text style={styles.dropdownItemText}>{t.custom}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -855,7 +860,7 @@ export default function RepetitieScreen() {
 
               {selectedCancelDates.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Geselecteerde Trainingen</Text>
+                  <Text style={styles.sectionTitle}>{t.selectedTrainings}</Text>
                   {selectedCancelDates.map(dateStr => (
                     <View key={dateStr} style={styles.cancelDateItem}>
                       <View style={styles.cancelDateInfo}>
@@ -864,7 +869,7 @@ export default function RepetitieScreen() {
                           style={styles.reasonInput}
                           value={cancelReasons[dateStr] || ""}
                           onChangeText={(text) => setCancelReasons(prev => ({ ...prev, [dateStr]: text }))}
-                          placeholder="Optioneel: reden"
+                          placeholder={t.optionalReason}
                           placeholderTextColor={Colors.light.mutedLight}
                         />
                       </View>
@@ -881,7 +886,7 @@ export default function RepetitieScreen() {
 
               {selectedCancelDates.length > 0 && (
                 <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                  <Text style={styles.saveButtonText}>Opslaan</Text>
+                  <Text style={styles.saveButtonText}>{tc.save}</Text>
                 </TouchableOpacity>
               )}
             </>
@@ -889,7 +894,7 @@ export default function RepetitieScreen() {
 
           {practiceSchedule.cancelledDates.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Geannuleerde Trainingen</Text>
+              <Text style={styles.sectionTitle}>{t.cancelledTrainings}</Text>
               {practiceSchedule.cancelledDates
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map(cancelled => (
