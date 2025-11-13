@@ -4,9 +4,11 @@ import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Trash2 } from "lucide-react-native";
+import { useAppState } from "@/providers/AppState";
 
 export default function DeletedScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useAppState();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="deleted-screen">
@@ -18,17 +20,17 @@ export default function DeletedScreen() {
       
       <View style={styles.header}>
         <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-        <Text style={styles.title}>Verwijderd</Text>
-        <Text style={styles.subtitle}>Geen verwijderde items</Text>
+        <Text style={styles.title}>{t.deleted.title}</Text>
+        <Text style={styles.subtitle}>{t.deleted.subtitle}</Text>
       </View>
 
       <View style={styles.emptyState}>
         <View style={styles.emptyIconContainer}>
           <Trash2 color={Colors.light.muted} size={64} strokeWidth={1.5} />
         </View>
-        <Text style={styles.emptyTitle}>Geen verwijderde items</Text>
+        <Text style={styles.emptyTitle}>{t.deleted.emptyTitle}</Text>
         <Text style={styles.emptyDescription}>
-          Items die je verwijdert verschijnen hier
+          {t.deleted.emptyDescription}
         </Text>
       </View>
     </View>

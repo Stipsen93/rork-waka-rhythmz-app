@@ -36,6 +36,7 @@ type FolderItem = {
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const appState = useAppState();
+  const { t } = appState;
   const [currentPath, setCurrentPath] = useState<string>("");
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -591,7 +592,7 @@ export default function LibraryScreen() {
         
         <View style={styles.header}>
           <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-          <Text style={styles.title}>Bibliotheek</Text>
+          <Text style={styles.title}>{t.library.title}</Text>
           {breadcrumbText ? (
             <Text style={styles.breadcrumb}>{breadcrumbText}</Text>
           ) : null}
@@ -600,7 +601,7 @@ export default function LibraryScreen() {
         <View style={styles.storageCard}>
           <View style={styles.storageHeader}>
             <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            <Text style={styles.storageTitle}>Opslag</Text>
+            <Text style={styles.storageTitle}>{t.library.storage}</Text>
           </View>
           {!appState.storageUsage ? (
             <View style={styles.storageLoading}>
@@ -627,10 +628,10 @@ export default function LibraryScreen() {
               </View>
               <View style={styles.storageTextRow}>
                 <Text style={styles.storageText}>
-                  {(appState.storageUsage.usageGB || 0).toFixed(2)} GB gebruikt
+                  {(appState.storageUsage.usageGB || 0).toFixed(2)} GB {t.library.used}
                 </Text>
                 <Text style={styles.storageTextSecondary}>
-                  van {appState.storageUsage.maxGB || 0} GB
+                  {t.library.of} {appState.storageUsage.maxGB || 0} GB
                 </Text>
               </View>
             </View>
@@ -653,7 +654,7 @@ export default function LibraryScreen() {
             testID="breadcrumb-back"
           >
             <ArrowLeft color={Colors.light.primary} size={20} strokeWidth={2.5} />
-            <Text style={styles.backText}>Terug</Text>
+            <Text style={styles.backText}>{t.library.back}</Text>
           </Pressable>
         ) : null}
 
@@ -692,7 +693,7 @@ export default function LibraryScreen() {
                   <View style={styles.cardContent}>
                     <Text style={styles.cardTitle}>{item.folder.name}</Text>
                     <Text style={styles.cardMeta}>
-                      {item.folder.isCreating ? 'Aanmaken...' : `${item.folder.itemCount} items`}
+                      {item.folder.isCreating ? t.library.creating : `${item.folder.itemCount} ${t.library.items}`}
                     </Text>
                   </View>
                   {!item.folder.isCreating && !selectionMode && <ChevronRight color={Colors.light.muted} size={20} />}
@@ -737,7 +738,7 @@ export default function LibraryScreen() {
                   <Text style={styles.cardTitle}>{item.media.name}</Text>
                   <Text style={styles.cardMeta}>
                     {item.media.isUploading
-                      ? 'Uploaden...'
+                      ? t.library.uploading
                       : `${item.media.file_type.toUpperCase()} • ${(item.media.file_size / (1024 * 1024)).toFixed(1)} MB`}
                   </Text>
                   {item.media.isUploading && item.media.uploadProgress !== undefined && (
@@ -768,7 +769,7 @@ export default function LibraryScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nieuwe Map</Text>
+                <Text style={styles.modalTitle}>{t.library.newFolder}</Text>
                 <Pressable onPress={() => {
                   setShowFolderModal(false);
                   setFolderName("");
@@ -778,12 +779,12 @@ export default function LibraryScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Mapnaam</Text>
+                <Text style={styles.inputLabel}>{t.library.folderName}</Text>
                 <TextInput
                   style={styles.input}
                   value={folderName}
                   onChangeText={setFolderName}
-                  placeholder="Voer mapnaam in"
+                  placeholder={t.library.enterFolderName}
                   placeholderTextColor={Colors.light.muted}
                   autoFocus
                   testID="folder-name-input"
@@ -799,7 +800,7 @@ export default function LibraryScreen() {
                   }}
                   testID="cancel-folder-button"
                 >
-                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                  <Text style={styles.cancelButtonText}>{t.library.cancel}</Text>
                 </Pressable>
                 
                 <Pressable
@@ -814,7 +815,7 @@ export default function LibraryScreen() {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <Text style={[styles.createButtonText, !folderName.trim() && styles.disabledButtonText]}>Aanmaken</Text>
+                    <Text style={[styles.createButtonText, !folderName.trim() && styles.disabledButtonText]}>{t.library.create}</Text>
                   </LinearGradient>
                 </Pressable>
               </View>
@@ -851,7 +852,7 @@ export default function LibraryScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Hernoemen</Text>
+                <Text style={styles.modalTitle}>{t.library.rename}</Text>
                 <Pressable onPress={() => {
                   setShowRenameModal(false);
                   setRenameValue("");
@@ -862,12 +863,12 @@ export default function LibraryScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Nieuwe naam</Text>
+                <Text style={styles.inputLabel}>{t.library.newName}</Text>
                 <TextInput
                   style={styles.input}
                   value={renameValue}
                   onChangeText={setRenameValue}
-                  placeholder="Voer nieuwe naam in"
+                  placeholder={t.library.enterNewName}
                   placeholderTextColor={Colors.light.muted}
                   autoFocus
                   testID="rename-input"
@@ -884,7 +885,7 @@ export default function LibraryScreen() {
                   }}
                   testID="cancel-rename-button"
                 >
-                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                  <Text style={styles.cancelButtonText}>{t.library.cancel}</Text>
                 </Pressable>
                 
                 <Pressable
@@ -902,7 +903,7 @@ export default function LibraryScreen() {
                     {isRenaming ? (
                       <ActivityIndicator size="small" color={Colors.light.text} />
                     ) : (
-                      <Text style={[styles.createButtonText, !renameValue.trim() && styles.disabledButtonText]}>Hernoemen</Text>
+                      <Text style={[styles.createButtonText, !renameValue.trim() && styles.disabledButtonText]}>{t.library.rename}</Text>
                     )}
                   </LinearGradient>
                 </Pressable>
@@ -936,8 +937,8 @@ export default function LibraryScreen() {
                   <Folder color={Colors.light.primary} size={24} strokeWidth={2.5} />
                 </View>
                 <View style={styles.actionSheetTextContainer}>
-                  <Text style={styles.actionSheetTitle}>Nieuwe Map</Text>
-                  <Text style={styles.actionSheetSubtitle}>Maak een nieuwe map aan</Text>
+                  <Text style={styles.actionSheetTitle}>{t.library.newFolder}</Text>
+                  <Text style={styles.actionSheetSubtitle}>{t.library.create}</Text>
                 </View>
                 <ChevronRight color={Colors.light.muted} size={20} />
               </TouchableOpacity>
@@ -959,10 +960,10 @@ export default function LibraryScreen() {
                 </View>
                 <View style={styles.actionSheetTextContainer}>
                   <Text style={styles.actionSheetTitle}>
-                    {isUploading ? 'Uploaden...' : 'Media Uploaden'}
+                    {isUploading ? t.library.uploading : t.library.uploadMedia}
                   </Text>
                   <Text style={styles.actionSheetSubtitle}>
-                    Video, foto of audio uploaden
+                    {t.library.uploadDescription}
                   </Text>
                 </View>
                 <ChevronRight color={Colors.light.muted} size={20} />
@@ -980,11 +981,11 @@ export default function LibraryScreen() {
                 testID="cancel-selection-button"
               >
                 <X color={Colors.light.text} size={20} strokeWidth={2.5} />
-                <Text style={styles.toolbarButtonText}>Annuleren</Text>
+                <Text style={styles.toolbarButtonText}>{t.library.cancel}</Text>
               </Pressable>
               
               <Text style={styles.toolbarText}>
-                {selectedItems.size} {selectedItems.size === 1 ? 'item' : 'items'} geselecteerd
+                {selectedItems.size} {selectedItems.size === 1 ? t.library.item : t.library.items} {t.library.selected}
               </Text>
             </View>
             
@@ -996,7 +997,7 @@ export default function LibraryScreen() {
                   testID="rename-selected-button"
                 >
                   <Edit3 color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                  <Text style={styles.toolbarButtonTextRename}>Hernoem</Text>
+                  <Text style={styles.toolbarButtonTextRename}>{t.library.rename}</Text>
                 </Pressable>
               )}
               
@@ -1011,7 +1012,7 @@ export default function LibraryScreen() {
                 ) : (
                   <>
                     <Trash2 color="#DC2626" size={20} strokeWidth={2.5} />
-                    <Text style={styles.toolbarButtonTextDelete}>Verwijder</Text>
+                    <Text style={styles.toolbarButtonTextDelete}>{t.library.delete}</Text>
                   </>
                 )}
               </Pressable>
