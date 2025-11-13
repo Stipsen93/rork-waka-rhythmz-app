@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from "@/constants/translations";
+import { translations } from "@/constants/translations";
 
 export type Role = "admin" | "member";
 
@@ -187,6 +188,7 @@ export interface AppStateValue {
   users: User[];
   currentUser: User | null;
   language: Language;
+  t: typeof translations['nl'];
   setLanguage: (lang: Language) => Promise<void>;
   setCurrentUser: (u: User | null) => void;
   login: (username: string, password: string) => boolean;
@@ -2158,6 +2160,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     users,
     currentUser,
     language,
+    t: translations[language],
     setLanguage,
     setCurrentUser,
     login,
