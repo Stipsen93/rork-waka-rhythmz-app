@@ -2,6 +2,8 @@ import { useCallback, useState, useEffect } from "react";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Language } from "@/constants/translations";
 
 export type Role = "admin" | "member";
 
@@ -184,6 +186,8 @@ export interface Group {
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
+  language: Language;
+  setLanguage: (lang: Language) => Promise<void>;
   setCurrentUser: (u: User | null) => void;
   login: (username: string, password: string) => boolean;
   logout: () => void;
@@ -336,6 +340,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [mediaLibrary, setMediaLibrary] = useState<MediaLibraryItem[]>([]);
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [language, setLanguageState] = useState<Language>('nl');
 
   const refreshStorageUsage = useCallback(async () => {
     console.log('💾 Refreshing storage usage...');
@@ -363,6 +368,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     } catch (error) {
       console.error('Error refreshing storage usage:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    const loadLanguage = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('app_language');
+        if (saved && (saved === 'nl' || saved === 'en')) {
+          setLanguageState(saved as Language);
+        }
+      } catch (error) {
+        console.error('Error loading language:', error);
+      }
+    };
+    loadLanguage();
   }, []);
 
   useEffect(() => {
@@ -2124,9 +2143,22 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Crown admin set');
   }, [currentUser, users]);
 
+  const setLanguage = useCallback(async (lang: Language) => {
+    console.log('💾 Setting language...', lang);
+    setLanguageState(lang);
+    try {
+      await AsyncStorage.setItem('app_language', lang);
+      console.log('✅ Language saved');
+    } catch (error) {
+      console.error('❌ Error saving language:', error);
+    }
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
+    language,
+    setLanguage,
     setCurrentUser,
     login,
     logout,
