@@ -7,18 +7,18 @@ import Colors from "@/constants/colors";
 import { useAppState, Role } from "@/providers/AppState";
 
 function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { currentUser, logout } = useAppState();
+  const { currentUser, logout, t } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const handleLogout = () => {
     Alert.alert(
-      "Uitloggen",
+      t.account.logout,
       "Weet je zeker dat je wilt uitloggen?",
       [
-        { text: "Annuleren", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         { 
-          text: "Uitloggen", 
+          text: t.account.logout, 
           style: "destructive",
           onPress: () => {
             logout();
@@ -40,7 +40,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
       <View style={localStyles.modalOverlay}>
         <View style={[localStyles.menuModalContent, { paddingTop: insets.top + 20 }]}>
           <View style={localStyles.modalHeader}>
-            <Text style={localStyles.modalTitle}>Menu</Text>
+            <Text style={localStyles.modalTitle}>{t.tabs.calendar === 'Calendar' ? 'Menu' : 'Menu'}</Text>
             <Pressable onPress={onClose} testID="close-menu-modal">
               <X color={Colors.light.text} size={28} strokeWidth={2.5} />
             </Pressable>
@@ -63,7 +63,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             <View style={localStyles.menuIconContainer}>
               <UserIcon color={Colors.light.primary} size={22} strokeWidth={2.5} />
             </View>
-            <Text style={localStyles.menuItemText}>Account</Text>
+            <Text style={localStyles.menuItemText}>{t.tabs.account}</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
@@ -79,7 +79,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
               <View style={localStyles.menuIconContainer}>
                 <Users color={Colors.light.primary} size={22} strokeWidth={2.5} />
               </View>
-              <Text style={localStyles.menuItemText}>Leden</Text>
+              <Text style={localStyles.menuItemText}>{t.tabs.admin}</Text>
               <ChevronRight color={Colors.light.muted} size={20} />
             </TouchableOpacity>
           )}
@@ -96,7 +96,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
               <View style={localStyles.menuIconContainer}>
                 <CalendarCheck color={Colors.light.primary} size={22} strokeWidth={2.5} />
               </View>
-              <Text style={localStyles.menuItemText}>Repetitie</Text>
+              <Text style={localStyles.menuItemText}>{t.tabs.repetitie}</Text>
               <ChevronRight color={Colors.light.muted} size={20} />
             </TouchableOpacity>
           )}
@@ -112,7 +112,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             <View style={localStyles.menuIconContainer}>
               <BookOpen color={Colors.light.primary} size={22} strokeWidth={2.5} />
             </View>
-            <Text style={localStyles.menuItemText}>Huiswerk</Text>
+            <Text style={localStyles.menuItemText}>{t.tabs.huiswerk}</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
@@ -128,7 +128,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
               <View style={localStyles.menuIconContainer}>
                 <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
               </View>
-              <Text style={localStyles.menuItemText}>Nieuws</Text>
+              <Text style={localStyles.menuItemText}>{t.tabs.nieuws}</Text>
               <ChevronRight color={Colors.light.muted} size={20} />
             </TouchableOpacity>
           )}
@@ -145,7 +145,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
               <View style={localStyles.menuIconContainer}>
                 <Bell color={Colors.light.primary} size={22} strokeWidth={2.5} />
               </View>
-              <Text style={localStyles.menuItemText}>Meldingen</Text>
+              <Text style={localStyles.menuItemText}>{t.tabs.meldingen}</Text>
               <ChevronRight color={Colors.light.muted} size={20} />
             </TouchableOpacity>
           )}
@@ -162,7 +162,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
               <View style={localStyles.menuIconContainer}>
                 <Trash2 color={Colors.light.primary} size={22} strokeWidth={2.5} />
               </View>
-              <Text style={localStyles.menuItemText}>Verwijderd</Text>
+              <Text style={localStyles.menuItemText}>{t.tabs.deleted}</Text>
               <ChevronRight color={Colors.light.muted} size={20} />
             </TouchableOpacity>
           )}
@@ -178,7 +178,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             <View style={localStyles.menuIconContainer}>
               <Settings color={Colors.light.primary} size={22} strokeWidth={2.5} />
             </View>
-            <Text style={localStyles.menuItemText}>Instellingen</Text>
+            <Text style={localStyles.menuItemText}>{t.tabs.instellingen}</Text>
             <ChevronRight color={Colors.light.muted} size={20} />
           </TouchableOpacity>
 
@@ -190,7 +190,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             <View style={[localStyles.menuIconContainer, localStyles.logoutIconContainer]}>
               <LogOut color={Colors.light.error} size={22} strokeWidth={2.5} />
             </View>
-            <Text style={[localStyles.menuItemText, localStyles.logoutText]}>Uitloggen</Text>
+            <Text style={[localStyles.menuItemText, localStyles.logoutText]}>{t.account.logout}</Text>
             <ChevronRight color={Colors.light.error} size={20} />
           </TouchableOpacity>
           </ScrollView>
@@ -336,7 +336,7 @@ function AdminModal({ visible, onClose }: { visible: boolean; onClose: () => voi
 }
 
 export default function TabLayout() {
-  const { currentUser } = useAppState();
+  const { currentUser, t } = useAppState();
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
 
@@ -398,21 +398,21 @@ export default function TabLayout() {
         <Tabs.Screen
           name="library"
           options={{
-            title: "Bibliotheek",
+            title: t.tabs.library,
             tabBarIcon: ({ color, focused }) => <FolderOpen color={color} size={focused ? 26 : 24} strokeWidth={focused ? 2.5 : 2} />,
           }}
         />
         <Tabs.Screen
           name="assignments"
           options={{
-            title: "Dashboard",
+            title: t.tabs.assignments,
             tabBarIcon: ({ color, focused }) => <LayoutDashboard color={color} size={focused ? 26 : 24} strokeWidth={focused ? 2.5 : 2} />,
           }}
         />
         <Tabs.Screen
           name="calendar"
           options={{
-            title: "Agenda",
+            title: t.tabs.calendar,
             tabBarIcon: ({ color, focused }) => <CalendarDays color={color} size={focused ? 26 : 24} strokeWidth={focused ? 2.5 : 2} />,
           }}
         />
