@@ -25,7 +25,6 @@ export const trpcClient = trpc.createClient({
         const { data: { session } } = await supabase.auth.getSession();
         return {
           authorization: session?.access_token ? `Bearer ${session.access_token}` : '',
-          'Content-Type': 'application/json',
         };
       },
       fetch(url, options) {
