@@ -7,9 +7,7 @@ import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { useAppState } from "@/providers/AppState";
 import { Plus, X, Trash2, Calendar, Edit2, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Announcement } from "@/providers/AppState";
-
-const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
-const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+import { translations } from "@/constants/translations";
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -26,7 +24,10 @@ const parseDateString = (dateStr: string): Date => {
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments, users } = useAppState();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments, users, language } = useAppState();
+  const t = translations[language];
+  const DAYS = t.news.days.short;
+  const MONTHS = t.news.months;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
@@ -56,8 +57,8 @@ export default function NieuwsScreen() {
       })
       .map(user => ({
         id: `birthday-${user.id}`,
-        name: `🎉 Verjaardag: ${user.username}`,
-        description: `Vandaag is ${user.username} jarig! Feliciteer hem/haar!`,
+        name: `🎉 ${t.news.birthdayToday} ${user.username}`,
+        description: `${t.news.birthdayTodayMessage} ${user.username} ${t.news.birthdayCongrats}`,
         date: todayStr,
         createdAt: todayStr,
         isBirthday: true,
@@ -112,11 +113,11 @@ export default function NieuwsScreen() {
 
   const handleAddAnnouncement = () => {
     if (!name.trim()) {
-      Alert.alert("Fout", "Naam is verplicht");
+      Alert.alert(t.news.errorTitle, t.news.nameRequired);
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Fout", "Omschrijving is verplicht");
+      Alert.alert(t.news.errorTitle, t.news.descriptionRequired);
       return;
     }
     
@@ -153,11 +154,11 @@ export default function NieuwsScreen() {
     if (!editingAnnouncement) return;
     
     if (!name.trim()) {
-      Alert.alert("Fout", "Naam is verplicht");
+      Alert.alert(t.news.errorTitle, t.news.nameRequired);
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Fout", "Omschrijving is verplicht");
+      Alert.alert(t.news.errorTitle, t.news.descriptionRequired);
       return;
     }
     
@@ -174,12 +175,12 @@ export default function NieuwsScreen() {
     if (!editingAnnouncement) return;
     
     Alert.alert(
-      "Mededeling verwijderen",
-      "Weet je zeker dat je deze mededeling wilt verwijderen?",
+      t.news.deleteAnnouncement,
+      t.news.confirmDelete,
       [
-        { text: "Annuleer", style: "cancel" },
+        { text: t.news.cancel, style: "cancel" },
         { 
-          text: "Verwijder", 
+          text: t.news.delete, 
           style: "destructive", 
           onPress: () => {
             deleteAnnouncements([editingAnnouncement.id]);
@@ -219,18 +220,20 @@ export default function NieuwsScreen() {
                   <Plus color={Colors.light.background} size={24} strokeWidth={3} />
                 </View>
                 <View style={styles.addButtonTextContainer}>
-                  <Text style={styles.addButtonTitle}>Nieuwe Mededeling</Text>
-                  <Text style={styles.addButtonSubtitle}>Maak een nieuwe mededeling aan</Text>
+                  <Text style={styles.addButtonTitle}>{t.news.newAnnouncement}</Text>
+                  <Text style={styles.addButtonSubtitle}>{t.news.createNewAnnouncement}</Text>
                 </View>
               </View>
             </TouchableOpacity>
           )}
 
           {allAnnouncements.filter((announcement: any) => {
-            const isCancelledAppointmentNews = announcement.name.startsWith('Afspraak geannuleerd:');
+            const dutchPrefix = 'Afspraak geannuleerd:';
+            const englishPrefix = 'Appointment cancelled:';
+            const isCancelledAppointmentNews = announcement.name.startsWith(dutchPrefix) || announcement.name.startsWith(englishPrefix);
             if (!isCancelledAppointmentNews) return true;
             
-            const appointmentName = announcement.name.replace('Afspraak geannuleerd: ', '');
+            const appointmentName = announcement.name.replace(dutchPrefix, '').replace(englishPrefix, '').trim();
             const relatedAppointment = appointments.find(apt => 
               apt.name === appointmentName && apt.status === 'cancelled'
             );
@@ -238,18 +241,20 @@ export default function NieuwsScreen() {
             return !!relatedAppointment;
           }).length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>Geen mededelingen</Text>
+              <Text style={styles.emptyText}>{t.news.noAnnouncements}</Text>
               {isAdmin && (
-                <Text style={styles.emptySubtext}>Maak je eerste mededeling aan</Text>
+                <Text style={styles.emptySubtext}>{t.news.createFirstAnnouncement}</Text>
               )}
             </View>
           ) : (
             <View style={styles.announcementsList}>
               {allAnnouncements.filter((announcement: any) => {
-                const isCancelledAppointmentNews = announcement.name.startsWith('Afspraak geannuleerd:');
+                const dutchPrefix = 'Afspraak geannuleerd:';
+                const englishPrefix = 'Appointment cancelled:';
+                const isCancelledAppointmentNews = announcement.name.startsWith(dutchPrefix) || announcement.name.startsWith(englishPrefix);
                 if (!isCancelledAppointmentNews) return true;
                 
-                const appointmentName = announcement.name.replace('Afspraak geannuleerd: ', '');
+                const appointmentName = announcement.name.replace(dutchPrefix, '').replace(englishPrefix, '').trim();
                 const relatedAppointment = appointments.find(apt => 
                   apt.name === appointmentName && apt.status === 'cancelled'
                 );
@@ -267,7 +272,7 @@ export default function NieuwsScreen() {
                       <Text style={styles.announcementName}>{announcement.name}</Text>
                       {announcement.isExtraTraining && (
                         <View style={styles.extraTrainingBadge}>
-                          <Text style={styles.extraTrainingBadgeText}>Extra training</Text>
+                          <Text style={styles.extraTrainingBadgeText}>{t.news.extraTraining}</Text>
                         </View>
                       )}
                     </View>
@@ -303,7 +308,7 @@ export default function NieuwsScreen() {
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Nieuwe Mededeling</Text>
+            <Text style={styles.modalTitle}>{t.news.newAnnouncement}</Text>
             <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
               <X color={Colors.light.text} size={24} strokeWidth={2.5} />
             </TouchableOpacity>
@@ -311,23 +316,23 @@ export default function NieuwsScreen() {
 
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Naam *</Text>
+              <Text style={styles.inputLabel}>{t.news.name} {t.news.required}</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Bijv. Nieuw trainingsschema"
+                placeholder={t.news.namePlaceholder}
                 placeholderTextColor={Colors.light.muted}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Omschrijving *</Text>
+              <Text style={styles.inputLabel}>{t.news.descriptionLabel} {t.news.required}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Beschrijf de mededeling..."
+                placeholder={t.news.descriptionPlaceholder}
                 placeholderTextColor={Colors.light.muted}
                 multiline
                 numberOfLines={6}
@@ -336,7 +341,7 @@ export default function NieuwsScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Datum *</Text>
+              <Text style={styles.inputLabel}>{t.news.dateLabel} {t.news.required}</Text>
               <TouchableOpacity 
                 style={styles.datePickerButton}
                 onPress={() => {
@@ -418,7 +423,7 @@ export default function NieuwsScreen() {
               style={styles.submitButton}
               onPress={handleAddAnnouncement}
             >
-              <Text style={styles.submitButtonText}>Toevoegen</Text>
+              <Text style={styles.submitButtonText}>{t.news.add}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -432,7 +437,7 @@ export default function NieuwsScreen() {
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Mededeling Bewerken</Text>
+            <Text style={styles.modalTitle}>{t.news.editAnnouncement}</Text>
             <TouchableOpacity onPress={handleCancelEdit} style={styles.closeButton}>
               <X color={Colors.light.text} size={24} strokeWidth={2.5} />
             </TouchableOpacity>
@@ -440,23 +445,23 @@ export default function NieuwsScreen() {
 
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Naam *</Text>
+              <Text style={styles.inputLabel}>{t.news.name} {t.news.required}</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Bijv. Nieuw trainingsschema"
+                placeholder={t.news.namePlaceholder}
                 placeholderTextColor={Colors.light.muted}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Omschrijving *</Text>
+              <Text style={styles.inputLabel}>{t.news.descriptionLabel} {t.news.required}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Beschrijf de mededeling..."
+                placeholder={t.news.descriptionPlaceholder}
                 placeholderTextColor={Colors.light.muted}
                 multiline
                 numberOfLines={6}
@@ -465,7 +470,7 @@ export default function NieuwsScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Datum *</Text>
+              <Text style={styles.inputLabel}>{t.news.dateLabel} {t.news.required}</Text>
               <TouchableOpacity 
                 style={styles.datePickerButton}
                 onPress={() => {
@@ -547,21 +552,21 @@ export default function NieuwsScreen() {
               style={styles.submitButton}
               onPress={handleSaveEdit}
             >
-              <Text style={styles.submitButtonText}>Opslaan</Text>
+              <Text style={styles.submitButtonText}>{t.news.save}</Text>
             </TouchableOpacity>
             <View style={styles.editModalActions}>
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={handleCancelEdit}
               >
-                <Text style={styles.cancelButtonText}>Annuleren</Text>
+                <Text style={styles.cancelButtonText}>{t.news.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteButtonLarge}
                 onPress={handleDeleteFromEdit}
               >
                 <Trash2 color={Colors.light.background} size={20} strokeWidth={2.5} />
-                <Text style={styles.deleteButtonText}>Verwijderen</Text>
+                <Text style={styles.deleteButtonText}>{t.news.delete}</Text>
               </TouchableOpacity>
             </View>
           </View>
