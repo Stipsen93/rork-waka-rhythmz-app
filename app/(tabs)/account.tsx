@@ -6,10 +6,12 @@ import { useState } from "react";
 import { User, Lock, LogOut, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useAppState } from "@/providers/AppState";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
+import { translations } from "@/constants/translations";
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser, logout, changePassword, updateUserProfile, softDeleteAccount } = useAppState();
+  const { currentUser, logout, changePassword, updateUserProfile, softDeleteAccount, language } = useAppState();
+  const t = translations[language];
   const router = useRouter();
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -30,13 +32,13 @@ export default function AccountScreen() {
     if (!currentUser) return;
     
     if (currentPassword !== currentUser.password) {
-      Alert.alert("Fout", "Huidig wachtwoord is onjuist");
+      Alert.alert(t.common.error, "Huidig wachtwoord is onjuist");
       return;
     }
     
     if (newPassword === confirmPassword && newPassword.length >= 6) {
       changePassword(currentUser.id, newPassword);
-      Alert.alert("Gelukt", "Wachtwoord is succesvol gewijzigd");
+      Alert.alert(t.common.success, "Wachtwoord is succesvol gewijzigd");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -55,10 +57,10 @@ export default function AccountScreen() {
             phone: phone || null,
             email: email || null,
           });
-          Alert.alert("Gelukt", "Profiel opgeslagen");
+          Alert.alert(t.common.success, "Profiel opgeslagen");
         } catch (error) {
           console.error('Profile save error:', error);
-          Alert.alert("Fout", "Kon profiel niet opslaan");
+          Alert.alert(t.common.error, "Kon profiel niet opslaan");
         }
       }
       setIsEditingProfile(false);
@@ -69,12 +71,12 @@ export default function AccountScreen() {
   
   const handleLogout = () => {
     Alert.alert(
-      "Uitloggen",
+      t.account.logout,
       "Weet je zeker dat je wilt uitloggen?",
       [
-        { text: "Annuleren", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         { 
-          text: "Uitloggen", 
+          text: t.account.logout, 
           style: "destructive",
           onPress: () => {
             logout();
@@ -87,21 +89,21 @@ export default function AccountScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Account verwijderen",
+      t.account.deleteAccount,
       "Weet je zeker dat je je account wilt verwijderen? Je kunt niet meer inloggen totdat een admin je account heractiveert.",
       [
-        { text: "Annuleren", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         { 
-          text: "Verwijderen", 
+          text: t.common.delete, 
           style: "destructive",
           onPress: () => {
             Alert.alert(
-              "Laatste bevestiging",
+              t.common.confirm,
               "Dit is je laatste kans. Weet je zeker dat je je account wilt verwijderen?",
               [
-                { text: "Annuleren", style: "cancel" },
+                { text: t.common.cancel, style: "cancel" },
                 { 
-                  text: "Ja, verwijderen", 
+                  text: t.common.yes + ", " + t.common.delete.toLowerCase(), 
                   style: "destructive",
                   onPress: async () => {
                     if (currentUser) {
@@ -138,23 +140,23 @@ export default function AccountScreen() {
       />
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Account</Text>
-          <Text style={styles.subtitle}>Beheer je persoonlijke gegevens</Text>
+          <Text style={styles.title}>{t.account.title}</Text>
+          <Text style={styles.subtitle}>{t.account.personalInfo}</Text>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Persoonlijke informatie</Text>
+            <Text style={styles.sectionTitle}>{t.account.personalInfo}</Text>
             
             <View style={[styles.inputContainer, !isEditingProfile && styles.inputContainerDisabled]}>
               <View style={[styles.inputIconWrapper, !isEditingProfile && styles.inputIconWrapperDisabled]}>
                 <User size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Naam</Text>
+                <Text style={styles.inputLabel}>{t.account.username}</Text>
                 <TextInput
                   style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={name}
                   onChangeText={setName}
-                  placeholder="Voer je naam in"
+                  placeholder={language === 'en' ? 'Enter your name' : 'Voer je naam in'}
                   placeholderTextColor={Colors.light.mutedLight}
                   editable={isEditingProfile}
                 />
@@ -170,9 +172,9 @@ export default function AccountScreen() {
                 <Calendar size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Geboortedatum</Text>
+                <Text style={styles.inputLabel}>{t.account.birthdate}</Text>
                 <Text style={[styles.input, !isEditingProfile && styles.inputDisabled, styles.inputText]}>
-                  {birthDate || 'Selecteer geboortedatum'}
+                  {birthDate || t.account.selectDate}
                 </Text>
               </View>
             </Pressable>
@@ -182,7 +184,7 @@ export default function AccountScreen() {
                 <User size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Adres</Text>
+                <Text style={styles.inputLabel}>{t.account.address}</Text>
                 <TextInput
                   style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={address}
@@ -199,7 +201,7 @@ export default function AccountScreen() {
                 <User size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Nummer</Text>
+                <Text style={styles.inputLabel}>{t.account.phone}</Text>
                 <TextInput
                   style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={phone}
@@ -217,7 +219,7 @@ export default function AccountScreen() {
                 <User size={20} color={Colors.light.muted} />
               </View>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>E-mail</Text>
+                <Text style={styles.inputLabel}>{t.account.email}</Text>
                 <TextInput
                   style={[styles.input, !isEditingProfile && styles.inputDisabled]}
                   value={email}
@@ -233,7 +235,7 @@ export default function AccountScreen() {
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
               <Text style={styles.saveButtonText}>
-                {isEditingProfile ? "Profiel opslaan" : "Profiel bewerken"}
+                {isEditingProfile ? (language === 'en' ? 'Save Profile' : 'Profiel opslaan') : (language === 'en' ? 'Edit Profile' : 'Profiel bewerken')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -241,7 +243,7 @@ export default function AccountScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Lock size={20} color={Colors.light.text} />
-              <Text style={styles.sectionTitle}>Wachtwoord</Text>
+              <Text style={styles.sectionTitle}>{t.account.password}</Text>
             </View>
             
             {!isEditingPassword ? (
@@ -249,52 +251,52 @@ export default function AccountScreen() {
                 style={styles.changePasswordButton}
                 onPress={() => setIsEditingPassword(true)}
               >
-                <Text style={styles.changePasswordButtonText}>Wachtwoord wijzigen</Text>
+                <Text style={styles.changePasswordButtonText}>{t.account.changePassword}</Text>
               </TouchableOpacity>
             ) : (
               <>
                 <View style={styles.passwordInputContainer}>
-                  <Text style={styles.inputLabel}>Huidig wachtwoord</Text>
+                  <Text style={styles.inputLabel}>{language === 'en' ? 'Current Password' : 'Huidig wachtwoord'}</Text>
                   <TextInput
                     style={styles.passwordInput}
                     value={currentPassword}
                     onChangeText={setCurrentPassword}
-                    placeholder="Voer huidig wachtwoord in"
+                    placeholder={language === 'en' ? 'Enter current password' : 'Voer huidig wachtwoord in'}
                     secureTextEntry
                     placeholderTextColor={Colors.light.mutedLight}
                   />
                 </View>
 
                 <View style={styles.passwordInputContainer}>
-                  <Text style={styles.inputLabel}>Nieuw wachtwoord</Text>
+                  <Text style={styles.inputLabel}>{language === 'en' ? 'New Password' : 'Nieuw wachtwoord'}</Text>
                   <TextInput
                     style={styles.passwordInput}
                     value={newPassword}
                     onChangeText={setNewPassword}
-                    placeholder="Voer nieuw wachtwoord in"
+                    placeholder={language === 'en' ? 'Enter new password' : 'Voer nieuw wachtwoord in'}
                     secureTextEntry
                     placeholderTextColor={Colors.light.mutedLight}
                   />
                 </View>
 
                 <View style={styles.passwordInputContainer}>
-                  <Text style={styles.inputLabel}>Bevestig nieuw wachtwoord</Text>
+                  <Text style={styles.inputLabel}>{language === 'en' ? 'Confirm New Password' : 'Bevestig nieuw wachtwoord'}</Text>
                   <TextInput
                     style={styles.passwordInput}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
-                    placeholder="Bevestig nieuw wachtwoord"
+                    placeholder={language === 'en' ? 'Confirm new password' : 'Bevestig nieuw wachtwoord'}
                     secureTextEntry
                     placeholderTextColor={Colors.light.mutedLight}
                   />
                 </View>
 
                 {newPassword !== confirmPassword && confirmPassword.length > 0 && (
-                  <Text style={styles.errorText}>Wachtwoorden komen niet overeen</Text>
+                  <Text style={styles.errorText}>{language === 'en' ? 'Passwords do not match' : 'Wachtwoorden komen niet overeen'}</Text>
                 )}
 
                 {newPassword.length > 0 && newPassword.length < 6 && (
-                  <Text style={styles.errorText}>Wachtwoord moet minimaal 6 tekens bevatten</Text>
+                  <Text style={styles.errorText}>{language === 'en' ? 'Password must be at least 6 characters' : 'Wachtwoord moet minimaal 6 tekens bevatten'}</Text>
                 )}
 
                 <View style={styles.passwordButtonContainer}>
@@ -307,7 +309,7 @@ export default function AccountScreen() {
                       setConfirmPassword("");
                     }}
                   >
-                    <Text style={styles.cancelButtonText}>Annuleren</Text>
+                    <Text style={styles.cancelButtonText}>{t.common.cancel}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
@@ -318,7 +320,7 @@ export default function AccountScreen() {
                     onPress={handleSavePassword}
                     disabled={newPassword !== confirmPassword || newPassword.length < 6}
                   >
-                    <Text style={styles.savePasswordButtonText}>Opslaan</Text>
+                    <Text style={styles.savePasswordButtonText}>{t.common.save}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -328,14 +330,14 @@ export default function AccountScreen() {
           <View style={styles.section}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <LogOut size={20} color={Colors.light.error} />
-              <Text style={styles.logoutButtonText}>Uitloggen</Text>
+              <Text style={styles.logoutButtonText}>{t.account.logout}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
             <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
               <Trash2 size={20} color="#fff" />
-              <Text style={styles.deleteAccountButtonText}>Account verwijderen</Text>
+              <Text style={styles.deleteAccountButtonText}>{t.account.deleteAccount}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -350,9 +352,9 @@ export default function AccountScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.datePickerModal}>
             <View style={styles.datePickerHeader}>
-              <Text style={styles.datePickerTitle}>Selecteer geboortedatum</Text>
+              <Text style={styles.datePickerTitle}>{t.account.selectDate}</Text>
               <Pressable onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.closeText}>Sluiten</Text>
+                <Text style={styles.closeText}>{t.common.close}</Text>
               </Pressable>
             </View>
             <DatePickerContent
@@ -361,6 +363,7 @@ export default function AccountScreen() {
                 setBirthDate(date);
                 setShowDatePicker(false);
               }}
+              language={language}
             />
           </View>
         </View>
@@ -374,9 +377,9 @@ export default function AccountScreen() {
   );
 }
 
-const DatePickerContent = ({ selectedDate, onDateSelect }: { selectedDate: string; onDateSelect: (date: string) => void }) => {
-  const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
-  const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const DatePickerContent = ({ selectedDate, onDateSelect, language }: { selectedDate: string; onDateSelect: (date: string) => void; language: 'nl' | 'en' }) => {
+  const DAYS = language === 'en' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+  const MONTHS = language === 'en' ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] : ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
   
   const parseDate = (dateStr: string): Date => {
     if (!dateStr) return new Date();

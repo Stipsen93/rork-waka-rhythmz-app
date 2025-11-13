@@ -7,30 +7,35 @@ import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X, CheckCircle, XCircle, Crown } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { translations } from "@/constants/translations";
 
 
-const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }) => {
+const CreateUserSection = memo(({ onUserCreated, language }: { onUserCreated: () => void; language: 'nl' | 'en' }) => {
   const { addUser } = useAppState();
+  const t = translations[language];
   const [username, setUsername] = useState<string>("");
   const [role, setRoleLocal] = useState<Role>("member");
 
   const handleCreateUser = useCallback(async () => {
     const { user, password } = await addUser(username.trim(), role);
-    Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
+    Alert.alert(
+      language === 'en' ? 'Account Created' : 'Account Aangemaakt',
+      `${language === 'en' ? 'Username' : 'Gebruikersnaam'}: ${user.username}\n${language === 'en' ? 'Password' : 'Wachtwoord'}: ${password}\n\n${language === 'en' ? 'Save this password!' : 'Bewaar dit wachtwoord!'}`
+    );
     setUsername("");
     onUserCreated();
-  }, [username, role, addUser, onUserCreated]);
+  }, [username, role, addUser, onUserCreated, language]);
 
   return (
     <View style={styles.createSection}>
       <View style={styles.sectionHeader}>
         <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
-        <Text style={styles.sectionTitle}>Nieuwe Gebruiker Aanmaken</Text>
+        <Text style={styles.sectionTitle}>{language === 'en' ? 'Create New User' : 'Nieuwe Gebruiker Aanmaken'}</Text>
       </View>
       
       <TextInput
         style={styles.input}
-        placeholder="Voer gebruikersnaam in"
+        placeholder={language === 'en' ? 'Enter username' : 'Voer gebruikersnaam in'}
         placeholderTextColor={Colors.light.muted}
         value={username}
         onChangeText={setUsername}
@@ -40,7 +45,7 @@ const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }
       />
       
       <View style={styles.roleSelector}>
-        <Text style={styles.roleLabel}>Rol:</Text>
+        <Text style={styles.roleLabel}>{t.memberProfile.role}:</Text>
         <View style={styles.roleButtons}>
           <Pressable 
             style={[styles.roleButton, role === "member" && styles.roleButtonActive]} 
@@ -48,7 +53,7 @@ const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }
           >
             <User color={role === "member" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
             <Text style={[styles.roleButtonText, role === "member" && styles.roleButtonTextActive]}>
-              Lid
+              {t.admin.member}
             </Text>
           </Pressable>
           <Pressable 
@@ -57,7 +62,7 @@ const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }
           >
             <Shield color={role === "admin" ? Colors.light.text : Colors.light.muted} size={16} strokeWidth={2} />
             <Text style={[styles.roleButtonText, role === "admin" && styles.roleButtonTextActive]}>
-              Admin
+              {t.admin.admin}
             </Text>
           </Pressable>
         </View>
@@ -70,7 +75,7 @@ const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }
         testID="create-user"
       >
         <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
-        <Text style={styles.createButtonText}>Account Aanmaken</Text>
+        <Text style={styles.createButtonText}>{language === 'en' ? 'Create Account' : 'Account Aanmaken'}</Text>
       </Pressable>
     </View>
   );
@@ -78,8 +83,9 @@ const CreateUserSection = memo(({ onUserCreated }: { onUserCreated: () => void }
 
 CreateUserSection.displayName = 'CreateUserSection';
 
-const CreateGroupSection = memo(() => {
+const CreateGroupSection = memo(({ language }: { language: 'nl' | 'en' }) => {
   const { users, groups, addGroup, updateGroup, deleteGroups } = useAppState();
+  const t = translations[language];
   const [groupName, setGroupName] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
@@ -87,15 +93,21 @@ const CreateGroupSection = memo(() => {
   const handleCreateOrUpdateGroup = useCallback(async () => {
     if (editingGroup) {
       await updateGroup(editingGroup.id, groupName.trim(), selectedMemberIds);
-      Alert.alert('Groep Bijgewerkt', `Groep "${groupName}" is succesvol bijgewerkt.`);
+      Alert.alert(
+        language === 'en' ? 'Group Updated' : 'Groep Bijgewerkt',
+        language === 'en' ? `Group "${groupName}" has been successfully updated.` : `Groep "${groupName}" is succesvol bijgewerkt.`
+      );
     } else {
       await addGroup(groupName.trim(), selectedMemberIds);
-      Alert.alert('Groep Aangemaakt', `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`);
+      Alert.alert(
+        language === 'en' ? 'Group Created' : 'Groep Aangemaakt',
+        language === 'en' ? `Group "${groupName}" has been created with ${selectedMemberIds.length} member(s).` : `Groep "${groupName}" is aangemaakt met ${selectedMemberIds.length} lid(en).`
+      );
     }
     setGroupName('');
     setSelectedMemberIds([]);
     setEditingGroup(null);
-  }, [editingGroup, groupName, selectedMemberIds, addGroup, updateGroup]);
+  }, [editingGroup, groupName, selectedMemberIds, addGroup, updateGroup, language]);
 
   const handleEditGroup = useCallback((group: Group) => {
     setGroupName(group.name);
@@ -112,12 +124,12 @@ const CreateGroupSection = memo(() => {
   const handleDeleteEditingGroup = useCallback(async () => {
     if (!editingGroup) return;
     Alert.alert(
-      'Groep Verwijderen',
-      `Weet je zeker dat je de groep "${editingGroup.name}" wilt verwijderen?`,
+      language === 'en' ? 'Delete Group' : 'Groep Verwijderen',
+      language === 'en' ? `Are you sure you want to delete the group "${editingGroup.name}"?` : `Weet je zeker dat je de groep "${editingGroup.name}" wilt verwijderen?`,
       [
-        { text: 'Annuleren', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Verwijderen',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteGroups([editingGroup.id]);
@@ -128,16 +140,16 @@ const CreateGroupSection = memo(() => {
         },
       ]
     );
-  }, [editingGroup, deleteGroups]);
+  }, [editingGroup, deleteGroups, t.common.cancel, t.common.delete, language]);
 
   const handleDeleteGroup = useCallback(async (group: Group) => {
     Alert.alert(
-      'Groep Verwijderen',
-      `Weet je zeker dat je de groep "${group.name}" wilt verwijderen?`,
+      language === 'en' ? 'Delete Group' : 'Groep Verwijderen',
+      language === 'en' ? `Are you sure you want to delete the group "${group.name}"?` : `Weet je zeker dat je de groep "${group.name}" wilt verwijderen?`,
       [
-        { text: 'Annuleren', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Verwijderen',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteGroups([group.id]);
@@ -150,7 +162,7 @@ const CreateGroupSection = memo(() => {
         },
       ]
     );
-  }, [deleteGroups, editingGroup]);
+  }, [deleteGroups, editingGroup, t.common.cancel, t.common.delete, language]);
 
   const toggleMemberSelection = useCallback((userId: string) => {
     setSelectedMemberIds(prev =>
@@ -166,13 +178,13 @@ const CreateGroupSection = memo(() => {
         <View style={styles.sectionHeader}>
           <UserPlus color={Colors.light.primary} size={22} strokeWidth={2.5} />
           <Text style={styles.sectionTitle}>
-            {editingGroup ? 'Groep Bewerken' : 'Nieuwe Groep Aanmaken'}
+            {editingGroup ? (language === 'en' ? 'Edit Group' : 'Groep Bewerken') : (language === 'en' ? 'Create New Group' : 'Nieuwe Groep Aanmaken')}
           </Text>
         </View>
         
         <TextInput
           style={styles.input}
-          placeholder="Voer groepnaam in"
+          placeholder={language === 'en' ? 'Enter group name' : 'Voer groepnaam in'}
           placeholderTextColor={Colors.light.muted}
           value={groupName}
           onChangeText={setGroupName}
@@ -183,7 +195,7 @@ const CreateGroupSection = memo(() => {
         />
         
         <View style={styles.memberSelector}>
-          <Text style={styles.roleLabel}>Leden selecteren:</Text>
+          <Text style={styles.roleLabel}>{language === 'en' ? 'Select members:' : 'Leden selecteren:'}</Text>
           <View style={styles.membersList}>
             {users.map(user => (
               <Pressable
@@ -218,7 +230,7 @@ const CreateGroupSection = memo(() => {
         >
           <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
           <Text style={styles.createButtonText}>
-            {editingGroup ? 'Groep Bijwerken' : 'Groep Aanmaken'}
+            {editingGroup ? (language === 'en' ? 'Update Group' : 'Groep Bijwerken') : (language === 'en' ? 'Create Group' : 'Groep Aanmaken')}
           </Text>
         </Pressable>
 
@@ -229,14 +241,14 @@ const CreateGroupSection = memo(() => {
               onPress={handleDeleteEditingGroup}
               testID="delete-editing-group"
             >
-              <Text style={styles.deleteButtonText}>Groep Verwijderen</Text>
+              <Text style={styles.deleteButtonText}>{language === 'en' ? 'Delete Group' : 'Groep Verwijderen'}</Text>
             </Pressable>
             <Pressable
               style={[styles.cancelButton]}
               onPress={handleCancelEdit}
               testID="cancel-edit-group"
             >
-              <Text style={styles.cancelButtonText}>Annuleren</Text>
+              <Text style={styles.cancelButtonText}>{t.common.cancel}</Text>
             </Pressable>
           </View>
         )}
@@ -244,7 +256,7 @@ const CreateGroupSection = memo(() => {
 
       <View style={styles.groupsListSection}>
         <Text style={styles.usersSectionTitle}>
-          Alle Groepen ({groups.length})
+          {language === 'en' ? `All Groups (${groups.length})` : `Alle Groepen (${groups.length})`}
         </Text>
         {groups.map(group => (
           <View key={group.id} style={styles.groupCard}>
@@ -255,7 +267,7 @@ const CreateGroupSection = memo(() => {
               <View style={styles.groupInfo}>
                 <Text style={styles.groupName}>{group.name}</Text>
                 <Text style={styles.groupMembers}>
-                  {group.memberIds.length} lid(en)
+                  {language === 'en' ? `${group.memberIds.length} member(s)` : `${group.memberIds.length} lid(en)`}
                 </Text>
                 <Text style={styles.groupMemberNames}>
                   {group.memberIds.map(id => users.find(u => u.id === id)?.username).filter(Boolean).join(', ')}
@@ -289,7 +301,8 @@ const CreateGroupSection = memo(() => {
 CreateGroupSection.displayName = 'CreateGroupSection';
 
 export default function AdminScreen() {
-  const { users, setRole, resetPassword, deleteUsers, reactivateAccount, permanentDeleteAccount } = useAppState();
+  const { users, setRole, resetPassword, deleteUsers, reactivateAccount, permanentDeleteAccount, language } = useAppState();
+  const t = translations[language];
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
@@ -297,28 +310,30 @@ export default function AdminScreen() {
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   const handleUserCreated = useCallback(() => {
-    // User list will update automatically via AppState
   }, []);
 
   const handleCopyPassword = async (password: string, userName: string) => {
     await Clipboard.setStringAsync(password);
-    Alert.alert("Gekopieerd", `Wachtwoord voor ${userName} is gekopieerd naar klembord`);
+    Alert.alert(
+      language === 'en' ? 'Copied' : 'Gekopieerd',
+      language === 'en' ? `Password for ${userName} has been copied to clipboard` : `Wachtwoord voor ${userName} is gekopieerd naar klembord`
+    );
   };
 
   const handleResetPassword = (userId: string, userName: string) => {
     Alert.alert(
-      "Wachtwoord Resetten",
-      `Weet je zeker dat je het wachtwoord voor ${userName} wilt resetten?`,
+      language === 'en' ? 'Reset Password' : 'Wachtwoord Resetten',
+      language === 'en' ? `Are you sure you want to reset the password for ${userName}?` : `Weet je zeker dat je het wachtwoord voor ${userName} wilt resetten?`,
       [
-        { text: "Annuleren", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "Resetten",
+          text: language === 'en' ? 'Reset' : 'Resetten',
           style: "destructive",
           onPress: async () => {
             const newPassword = await resetPassword(userId);
             Alert.alert(
-              "Wachtwoord Gereset",
-              `Nieuw wachtwoord voor ${userName}:\n${newPassword}\n\nBewaar dit wachtwoord!`
+              language === 'en' ? 'Password Reset' : 'Wachtwoord Gereset',
+              language === 'en' ? `New password for ${userName}:\n${newPassword}\n\nSave this password!` : `Nieuw wachtwoord voor ${userName}:\n${newPassword}\n\nBewaar dit wachtwoord!`
             );
           },
         },
@@ -367,12 +382,12 @@ export default function AdminScreen() {
   const handleDeleteSelected = useCallback(() => {
     const userNames = users.filter(u => selectedUserIds.includes(u.id)).map(u => u.username).join(', ');
     Alert.alert(
-      'Leden Verwijderen',
-      `Weet je zeker dat je de volgende ${selectedUserIds.length} ${selectedUserIds.length === 1 ? 'lid' : 'leden'} wilt verwijderen?\n\n${userNames}`,
+      language === 'en' ? 'Delete Members' : 'Leden Verwijderen',
+      language === 'en' ? `Are you sure you want to delete the following ${selectedUserIds.length} ${selectedUserIds.length === 1 ? 'member' : 'members'}?\n\n${userNames}` : `Weet je zeker dat je de volgende ${selectedUserIds.length} ${selectedUserIds.length === 1 ? 'lid' : 'leden'} wilt verwijderen?\n\n${userNames}`,
       [
-        { text: 'Annuleren', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Verwijderen',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteUsers(selectedUserIds);
@@ -382,22 +397,22 @@ export default function AdminScreen() {
         },
       ]
     );
-  }, [selectedUserIds, users, deleteUsers]);
+  }, [selectedUserIds, users, deleteUsers, t.common.cancel, t.common.delete, language]);
 
   const handleReactivateAccount = (userId: string, userName: string) => {
     Alert.alert(
-      "Account heractiveren",
-      `Account voor ${userName} heractiveren met nieuw wachtwoord?`,
+      language === 'en' ? 'Reactivate Account' : 'Account heractiveren',
+      language === 'en' ? `Reactivate account for ${userName} with new password?` : `Account voor ${userName} heractiveren met nieuw wachtwoord?`,
       [
-        { text: "Annuleren", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "Heractiveren",
+          text: language === 'en' ? 'Reactivate' : 'Heractiveren',
           onPress: async () => {
             const newPassword = Math.random().toString(36).slice(2, 8) + Math.floor(100 + Math.random() * 900).toString();
             await reactivateAccount(userId, newPassword);
             Alert.alert(
-              "Account Geheractiveerd",
-              `Account voor ${userName} is geheractiveerd.\nNieuw wachtwoord: ${newPassword}\n\nBewaar dit wachtwoord!`
+              language === 'en' ? 'Account Reactivated' : 'Account Geheractiveerd',
+              language === 'en' ? `Account for ${userName} has been reactivated.\nNew password: ${newPassword}\n\nSave this password!` : `Account voor ${userName} is geheractiveerd.\nNieuw wachtwoord: ${newPassword}\n\nBewaar dit wachtwoord!`
             );
           },
         },
@@ -407,16 +422,19 @@ export default function AdminScreen() {
 
   const handlePermanentDelete = (userId: string, userName: string) => {
     Alert.alert(
-      "Account permanent verwijderen",
-      `Weet je zeker dat je het account van ${userName} PERMANENT wilt verwijderen? Dit kan niet ongedaan worden gemaakt!`,
+      language === 'en' ? 'Permanently Delete Account' : 'Account permanent verwijderen',
+      language === 'en' ? `Are you sure you want to PERMANENTLY delete the account of ${userName}? This cannot be undone!` : `Weet je zeker dat je het account van ${userName} PERMANENT wilt verwijderen? Dit kan niet ongedaan worden gemaakt!`,
       [
-        { text: "Annuleren", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "Permanent verwijderen",
+          text: language === 'en' ? 'Permanently Delete' : 'Permanent verwijderen',
           style: "destructive",
           onPress: async () => {
             await permanentDeleteAccount(userId);
-            Alert.alert("Verwijderd", `Account van ${userName} is permanent verwijderd.`);
+            Alert.alert(
+              language === 'en' ? 'Deleted' : 'Verwijderd',
+              language === 'en' ? `Account of ${userName} has been permanently deleted.` : `Account van ${userName} is permanent verwijderd.`
+            );
           },
         },
       ]
@@ -433,17 +451,17 @@ export default function AdminScreen() {
       
       <View style={styles.header}>
         <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-        <Text style={styles.title}>Admin</Text>
-        <Text style={styles.subtitle}>Beheer gebruikers & media</Text>
+        <Text style={styles.title}>{t.admin.title}</Text>
+        <Text style={styles.subtitle}>{language === 'en' ? 'Manage users & media' : 'Beheer gebruikers & media'}</Text>
       </View>
 
       <View style={styles.scrollContent}>
-        <CreateUserSection onUserCreated={handleUserCreated} />
+        <CreateUserSection onUserCreated={handleUserCreated} language={language} />
 
         <View style={styles.usersSection}>
           <View style={styles.usersSectionHeader}>
             <Text style={styles.usersSectionTitle}>
-              Alle Gebruikers ({users.length})
+              {t.admin.allMembers} ({users.length})
             </Text>
             {selectionMode && (
               <View style={styles.selectionActions}>
@@ -472,7 +490,7 @@ export default function AdminScreen() {
         </View>
       </View>
     </>
-  ), [users.length, handleUserCreated, selectionMode, selectedUserIds.length, handleCancelSelection, handleDeleteSelected]);
+  ), [users.length, handleUserCreated, selectionMode, selectedUserIds.length, handleCancelSelection, handleDeleteSelected, t.admin.title, t.admin.allMembers, language]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
@@ -485,7 +503,7 @@ export default function AdminScreen() {
         keyboardDismissMode="on-drag"
         removeClippedSubviews={false}
         automaticallyAdjustKeyboardInsets
-        ListFooterComponent={CreateGroupSection}
+        ListFooterComponent={() => <CreateGroupSection language={language} />}
         renderItem={({ item }) => {
           const isSelected = selectedUserIds.includes(item.id);
           return (
@@ -527,7 +545,7 @@ export default function AdminScreen() {
                     <Text style={styles.userName}>{item.username}</Text>
                     {item.deletedByUser && (
                       <View style={styles.deletedBadge}>
-                        <Text style={styles.deletedBadgeText}>Verwijderd door lid</Text>
+                        <Text style={styles.deletedBadgeText}>{language === 'en' ? 'Deleted by user' : 'Verwijderd door lid'}</Text>
                       </View>
                     )}
                   </View>
@@ -550,7 +568,7 @@ export default function AdminScreen() {
                         testID={`reactivate-${item.id}`}
                       >
                         <CheckCircle color="#10b981" size={16} strokeWidth={2.5} />
-                        <Text style={styles.reactivateButtonText}>Heractiveren</Text>
+                        <Text style={styles.reactivateButtonText}>{language === 'en' ? 'Reactivate' : 'Heractiveren'}</Text>
                       </Pressable>
                       <Pressable
                         style={styles.permanentDeleteButton}
@@ -558,7 +576,7 @@ export default function AdminScreen() {
                         testID={`permanent-delete-${item.id}`}
                       >
                         <XCircle color="#ef4444" size={16} strokeWidth={2.5} />
-                        <Text style={styles.permanentDeleteButtonText}>Permanent wissen</Text>
+                        <Text style={styles.permanentDeleteButtonText}>{language === 'en' ? 'Permanently Delete' : 'Permanent wissen'}</Text>
                       </Pressable>
                     </View>
                   ) : (
@@ -588,7 +606,7 @@ export default function AdminScreen() {
                           testID={`make-member-${item.id}`}
                         >
                           <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
-                            Lid
+                            {t.admin.member}
                           </Text>
                         </Pressable>
                         <Pressable 
@@ -597,7 +615,7 @@ export default function AdminScreen() {
                           testID={`make-admin-${item.id}`}
                         >
                           <Text style={[styles.actionButtonText, item.role === "admin" && styles.actionButtonTextActive]}>
-                            Admin
+                            {t.admin.admin}
                           </Text>
                         </Pressable>
                       </View>
