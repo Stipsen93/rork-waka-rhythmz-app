@@ -7,24 +7,14 @@ import { useAppState } from "@/providers/AppState";
 import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X, Users } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
+import { translations } from "@/constants/translations";
 
 type TimeOption = { label: string; hours: number };
 
-const TIME_OPTIONS: TimeOption[] = [
-  { label: "1 uur", hours: 1 },
-  { label: "2 uur", hours: 2 },
-  { label: "3 uur", hours: 3 },
-  { label: "6 uur", hours: 6 },
-  { label: "12 uur", hours: 12 },
-  { label: "24 uur", hours: 24 },
-  { label: "48 uur", hours: 48 },
-  { label: "3 dagen", hours: 72 },
-  { label: "7 dagen", hours: 168 },
-];
-
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
-  const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences } = useAppState();
+  const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences, language } = useAppState();
+  const t = translations[language];
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
   const [newsPostEnabled, setNewsPostEnabled] = useState<boolean>(true);
@@ -79,13 +69,25 @@ export default function MeldingenScreen() {
     await updateUserNotificationPreferences(userId, newPrefs);
   };
 
+  const TIME_OPTIONS: TimeOption[] = useMemo(() => [
+    { label: t.notifications.timeOptions.hour1, hours: 1 },
+    { label: t.notifications.timeOptions.hour2, hours: 2 },
+    { label: t.notifications.timeOptions.hour3, hours: 3 },
+    { label: t.notifications.timeOptions.hour6, hours: 6 },
+    { label: t.notifications.timeOptions.hour12, hours: 12 },
+    { label: t.notifications.timeOptions.hour24, hours: 24 },
+    { label: t.notifications.timeOptions.hour48, hours: 48 },
+    { label: t.notifications.timeOptions.day3, hours: 72 },
+    { label: t.notifications.timeOptions.day7, hours: 168 },
+  ], [language]);
+
   const getTimeLabel = (hours: number): string => {
     const option = TIME_OPTIONS.find(opt => opt.hours === hours);
-    return option ? option.label : `${hours} uur`;
+    return option ? option.label : `${hours} ${t.notifications.timeOptions.hour1.split(' ')[1]}`;
   };
 
   const saveSettings = () => {
-    Alert.alert("Opgeslagen", "Notificatie-instellingen zijn bijgewerkt");
+    Alert.alert(t.notifications.saved, t.notifications.settingsUpdated);
   };
 
   return (
@@ -113,8 +115,8 @@ export default function MeldingenScreen() {
         
         <View style={styles.header}>
           <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-          <Text style={styles.title}>Meldingen</Text>
-          <Text style={styles.subtitle}>Beheer notificatie-instellingen</Text>
+          <Text style={styles.title}>{t.notifications.title}</Text>
+          <Text style={styles.subtitle}>{t.notifications.subtitle}</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -122,7 +124,7 @@ export default function MeldingenScreen() {
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.cardTitle}>Nieuws</Text>
+                <Text style={styles.cardTitle}>{t.notifications.news}</Text>
               </View>
             </View>
             
@@ -134,7 +136,7 @@ export default function MeldingenScreen() {
                 <View style={styles.membersSectionHeader}>
                   <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
                   <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('news').length} / {members.length} leden ontvangen meldingen
+                    {getMembersForCategory('news').length} / {members.length} {t.notifications.membersReceiving}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -160,7 +162,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Melding bij nieuw nieuwsbericht</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnNewPost}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, newsPostEnabled && styles.toggleActive]}
                     onPress={() => setNewsPostEnabled(!newsPostEnabled)}
@@ -172,7 +174,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Herinnering voor event</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.eventReminder}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, newsEventEnabled && styles.toggleActive]}
                     onPress={() => setNewsEventEnabled(!newsEventEnabled)}
@@ -185,7 +187,7 @@ export default function MeldingenScreen() {
                     style={styles.timeSelector}
                     onPress={() => setShowDropdown('news-event')}
                   >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(newsEventHours)} van tevoren</Text>
+                    <Text style={styles.timeSelectorText}>{getTimeLabel(newsEventHours)} {t.notifications.inAdvance}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -196,7 +198,7 @@ export default function MeldingenScreen() {
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <FileText color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.cardTitle}>Huiswerk</Text>
+                <Text style={styles.cardTitle}>{t.notifications.homework}</Text>
               </View>
             </View>
             
@@ -208,7 +210,7 @@ export default function MeldingenScreen() {
                 <View style={styles.membersSectionHeader}>
                   <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
                   <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('assignments').length} / {members.length} leden ontvangen meldingen
+                    {getMembersForCategory('assignments').length} / {members.length} {t.notifications.membersReceiving}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -234,7 +236,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Melding bij nieuw huiswerk</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnNewHomework}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, assignmentsAddedEnabled && styles.toggleActive]}
                     onPress={() => setAssignmentsAddedEnabled(!assignmentsAddedEnabled)}
@@ -246,7 +248,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Herinnering voor deadline</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.deadlineReminder}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, assignmentsDeadlineEnabled && styles.toggleActive]}
                     onPress={() => setAssignmentsDeadlineEnabled(!assignmentsDeadlineEnabled)}
@@ -259,7 +261,7 @@ export default function MeldingenScreen() {
                     style={styles.timeSelector}
                     onPress={() => setShowDropdown('assignments-deadline')}
                   >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(assignmentsDeadlineHours)} van tevoren</Text>
+                    <Text style={styles.timeSelectorText}>{getTimeLabel(assignmentsDeadlineHours)} {t.notifications.inAdvance}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -270,7 +272,7 @@ export default function MeldingenScreen() {
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <AlertCircle color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.cardTitle}>Trainingen</Text>
+                <Text style={styles.cardTitle}>{t.notifications.trainings}</Text>
               </View>
             </View>
             
@@ -282,7 +284,7 @@ export default function MeldingenScreen() {
                 <View style={styles.membersSectionHeader}>
                   <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
                   <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('trainings').length} / {members.length} leden ontvangen meldingen
+                    {getMembersForCategory('trainings').length} / {members.length} {t.notifications.membersReceiving}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -308,7 +310,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Melding bij wijziging/annulering</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnChange}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, trainingChangedEnabled && styles.toggleActive]}
                     onPress={() => setTrainingChangedEnabled(!trainingChangedEnabled)}
@@ -320,7 +322,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Herinnering training</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.trainingReminder}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, trainingReminderEnabled && styles.toggleActive]}
                     onPress={() => setTrainingReminderEnabled(!trainingReminderEnabled)}
@@ -333,7 +335,7 @@ export default function MeldingenScreen() {
                     style={styles.timeSelector}
                     onPress={() => setShowDropdown('training-reminder')}
                   >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(trainingReminderHours)} van tevoren</Text>
+                    <Text style={styles.timeSelectorText}>{getTimeLabel(trainingReminderHours)} {t.notifications.inAdvance}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -344,7 +346,7 @@ export default function MeldingenScreen() {
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <Calendar color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.cardTitle}>Optredens</Text>
+                <Text style={styles.cardTitle}>{t.notifications.performances}</Text>
               </View>
             </View>
             
@@ -356,7 +358,7 @@ export default function MeldingenScreen() {
                 <View style={styles.membersSectionHeader}>
                   <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
                   <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('performances').length} / {members.length} leden ontvangen meldingen
+                    {getMembersForCategory('performances').length} / {members.length} {t.notifications.membersReceiving}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -382,7 +384,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Melding bij nieuw optreden</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnNewPerformance}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, performancesAddedEnabled && styles.toggleActive]}
                     onPress={() => setPerformancesAddedEnabled(!performancesAddedEnabled)}
@@ -394,7 +396,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Herinnering optreden</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.performanceReminder}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, performancesReminderEnabled && styles.toggleActive]}
                     onPress={() => setPerformancesReminderEnabled(!performancesReminderEnabled)}
@@ -407,7 +409,7 @@ export default function MeldingenScreen() {
                     style={styles.timeSelector}
                     onPress={() => setShowDropdown('performances-reminder')}
                   >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(performancesReminderHours)} van tevoren</Text>
+                    <Text style={styles.timeSelectorText}>{getTimeLabel(performancesReminderHours)} {t.notifications.inAdvance}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -418,7 +420,7 @@ export default function MeldingenScreen() {
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <Calendar color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.cardTitle}>Verjaardagen</Text>
+                <Text style={styles.cardTitle}>{t.notifications.birthdays}</Text>
               </View>
             </View>
             
@@ -430,14 +432,14 @@ export default function MeldingenScreen() {
                 <View style={styles.membersSectionHeader}>
                   <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
                   <Text style={styles.membersSectionTitle}>
-                    Alle leden ontvangen verjaardag meldingen
+                    {t.notifications.allMembersReceiving}
                   </Text>
                 </View>
               </TouchableOpacity>
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Melding als een lid jarig is</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnBirthday}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, birthdayEnabled && styles.toggleActive]}
                     onPress={() => setBirthdayEnabled(!birthdayEnabled)}
@@ -449,7 +451,7 @@ export default function MeldingenScreen() {
 
               <View style={styles.toggleSection}>
                 <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>Herinnering voor verjaardag</Text>
+                  <Text style={styles.toggleLabel}>{t.notifications.birthdayReminder}</Text>
                   <TouchableOpacity
                     style={[styles.toggle, birthdayReminderEnabled && styles.toggleActive]}
                     onPress={() => setBirthdayReminderEnabled(!birthdayReminderEnabled)}
@@ -462,7 +464,7 @@ export default function MeldingenScreen() {
                     style={styles.timeSelector}
                     onPress={() => setShowDropdown('birthday-reminder')}
                   >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(birthdayReminderHours)} van tevoren</Text>
+                    <Text style={styles.timeSelectorText}>{getTimeLabel(birthdayReminderHours)} {t.notifications.inAdvance}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -477,7 +479,7 @@ export default function MeldingenScreen() {
               end={{ x: 1, y: 1 }}
             >
               <Bell color={Colors.light.text} size={20} strokeWidth={2.5} />
-              <Text style={styles.saveButtonText}>Instellingen Opslaan</Text>
+              <Text style={styles.saveButtonText}>{t.notifications.saveSettings}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </ScrollView>
@@ -494,7 +496,7 @@ export default function MeldingenScreen() {
             onPress={() => setShowDropdown(null)}
           >
             <View style={styles.dropdownModal}>
-              <Text style={styles.dropdownTitle}>Selecteer tijd</Text>
+              <Text style={styles.dropdownTitle}>{t.notifications.selectTime}</Text>
               <ScrollView style={styles.dropdownScroll}>
                 {TIME_OPTIONS.map((option) => (
                   <TouchableOpacity
