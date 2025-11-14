@@ -6,6 +6,7 @@ import { getFoldersRoute } from "@/backend/trpc/routes/media/get-folders/route";
 import { deleteMediaRoute } from "@/backend/trpc/routes/media/delete-media/route";
 import { uploadMediaRoute } from "@/backend/trpc/routes/media/upload-media/route";
 import { createFolderRoute } from "@/backend/trpc/routes/media/create-folder/route";
+import { deleteFolderRoute } from "@/backend/trpc/routes/media/delete-folder/route";
 import { deleteAccountProcedure } from "@/backend/trpc/routes/users/delete-account/route";
 import { reactivateAccountProcedure } from "@/backend/trpc/routes/users/reactivate-account/route";
 import { permanentDeleteAccountProcedure } from "@/backend/trpc/routes/users/permanent-delete-account/route";
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
     deleteMedia: deleteMediaRoute,
     uploadMedia: uploadMediaRoute,
     createFolder: createFolderRoute,
+    deleteFolder: deleteFolderRoute,
   }),
   users: createTRPCRouter({
     deleteAccount: deleteAccountProcedure,
