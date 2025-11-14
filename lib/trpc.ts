@@ -7,13 +7,16 @@ import { supabase } from "@/lib/supabase";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+  const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+  console.log('[TRPC] Base URL:', baseUrl);
+  
+  if (!baseUrl) {
+    throw new Error(
+      "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
+    );
   }
-
-  throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
-  );
+  
+  return baseUrl;
 };
 
 export const trpcClient = trpc.createClient({
