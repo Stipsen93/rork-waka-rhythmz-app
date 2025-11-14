@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from "@/constants/translations";
 import { translations } from "@/constants/translations";
+import { trpcClient } from "@/lib/trpc";
 
 export type Role = "admin" | "member";
 
@@ -395,6 +396,15 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const syncAllData = useCallback(async () => {
     try {
       console.log('🔄 [AUTO-SYNC] Syncing all data from Supabase...');
+      
+      console.log('🔄 [AUTO-SYNC] Syncing storage with database...');
+      try {
+        await trpcClient.media.syncStorage.mutate();
+        console.log('✅ [AUTO-SYNC] Storage synced successfully');
+      } catch (syncError) {
+        console.error('⚠️ [AUTO-SYNC] Storage sync error (non-fatal):', syncError);
+      }
+      
       const [usersRes, assignmentsRes, announcementsRes, appointmentsRes, trainingsRes, scheduleRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('assignments').select('*'),
