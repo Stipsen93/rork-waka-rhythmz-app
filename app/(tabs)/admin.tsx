@@ -301,7 +301,7 @@ const CreateGroupSection = memo(({ language }: { language: 'nl' | 'en' }) => {
 CreateGroupSection.displayName = 'CreateGroupSection';
 
 export default function AdminScreen() {
-  const { users, setRole, resetPassword, deleteUsers, reactivateAccount, permanentDeleteAccount, language } = useAppState();
+  const { users, currentUser, setRole, resetPassword, deleteUsers, reactivateAccount, permanentDeleteAccount, language } = useAppState();
   const t = translations[language];
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -601,11 +601,35 @@ export default function AdminScreen() {
                       </View>
                       <View style={styles.roleButtonsWrapper}>
                         <Pressable 
-                          style={[styles.actionButton, item.role === "member" && styles.actionButtonActive]} 
-                          onPress={() => setRole(item.id, "member")} 
+                          style={[
+                            styles.actionButton, 
+                            item.role === "member" && styles.actionButtonActive,
+                            (item.role === "admin" && !currentUser?.isCrownAdmin) && styles.actionButtonDisabled
+                          ]} 
+                          onPress={async () => {
+                            if (item.role === "admin" && !currentUser?.isCrownAdmin) {
+                              Alert.alert(
+                                t.admin.accessDenied || "Geen toegang",
+                                t.admin.onlyCrownAdminCanDemote || "Alleen de hoofdbeheerder kan admins depromoveren naar leden"
+                              );
+                              return;
+                            }
+                            try {
+                              await setRole(item.id, "member");
+                            } catch (error) {
+                              Alert.alert(
+                                t.admin.accessDenied || "Geen toegang",
+                                t.admin.onlyCrownAdminCanDemote || "Alleen de hoofdbeheerder kan admins depromoveren naar leden"
+                              );
+                            }
+                          }} 
                           testID={`make-member-${item.id}`}
                         >
-                          <Text style={[styles.actionButtonText, item.role === "member" && styles.actionButtonTextActive]}>
+                          <Text style={[
+                            styles.actionButtonText, 
+                            item.role === "member" && styles.actionButtonTextActive,
+                            (item.role === "admin" && !currentUser?.isCrownAdmin) && styles.actionButtonTextDisabled
+                          ]}>
                             {t.admin.member}
                           </Text>
                         </Pressable>
@@ -917,6 +941,12 @@ const styles = StyleSheet.create({
   },
   actionButtonTextActive: {
     color: Colors.light.text,
+  },
+  actionButtonDisabled: {
+    opacity: 0.4,
+  },
+  actionButtonTextDisabled: {
+    color: Colors.light.muted,
   },
   userPassword: {
     color: Colors.light.muted,

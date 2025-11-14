@@ -1080,11 +1080,26 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const setRole = useCallback(async (userId: string, role: Role) => {
     console.log('💾 Updating user role in Supabase...');
+    
+    const targetUser = users.find(u => u.id === userId);
+    
+    if (!currentUser) {
+      console.log('❌ No current user');
+      return;
+    }
+    
+    if (targetUser?.role === 'admin' && role === 'member') {
+      if (!currentUser.isCrownAdmin) {
+        console.log('❌ Only crown admin can demote admins');
+        throw new Error('Only crown admin can demote admins to members');
+      }
+    }
+    
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
     const updateData: Database['public']['Tables']['users']['Update'] = { role };
     await supabase.from('users').update(updateData).eq('id', userId);
     console.log('✅ User role updated');
-  }, []);
+  }, [users, currentUser]);
 
   const login = useCallback((username: string, password: string) => {
     const user = users.find(u => u.username === username && u.password === password);
