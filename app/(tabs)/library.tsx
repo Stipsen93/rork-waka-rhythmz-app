@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, Touchabl
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause, Download, Gauge, Maximize } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, Edit3, Play, Pause, Download, Gauge, Maximize, RefreshCw } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -55,6 +55,7 @@ export default function LibraryScreen() {
   const [renameValue, setRenameValue] = useState("");
   const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const folders = useMemo<FolderItem[]>(() => {
     const creatingFoldersList = Array.from(creatingFolders.values());
@@ -521,6 +522,23 @@ export default function LibraryScreen() {
     }
   };
 
+  const handleRefreshData = async () => {
+    if (isRefreshing) return;
+    
+    console.log('🔄 [LIBRARY] Manual refresh triggered');
+    setIsRefreshing(true);
+    try {
+      await appState.syncAllData();
+      console.log('✅ [LIBRARY] Manual refresh completed');
+    } catch (error) {
+      console.error('❌ [LIBRARY] Manual refresh error:', error);
+      setErrorMessage('Fout bij vernieuwen van data');
+      setTimeout(() => setErrorMessage(null), 3000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleCreateFolder = async () => {
     if (!folderName.trim()) return;
     
@@ -591,11 +609,28 @@ export default function LibraryScreen() {
         />
         
         <View style={styles.header}>
-          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
-          <Text style={styles.title}>{t.library.title}</Text>
-          {breadcrumbText ? (
-            <Text style={styles.breadcrumb}>{breadcrumbText}</Text>
-          ) : null}
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+              <Text style={styles.title}>{t.library.title}</Text>
+              {breadcrumbText ? (
+                <Text style={styles.breadcrumb}>{breadcrumbText}</Text>
+              ) : null}
+            </View>
+            <Pressable 
+              onPress={handleRefreshData}
+              style={[styles.refreshButton, isRefreshing && styles.refreshButtonActive]}
+              disabled={isRefreshing}
+              testID="refresh-library-button"
+            >
+              <RefreshCw 
+                color={Colors.light.primary} 
+                size={22} 
+                strokeWidth={2.5}
+                style={isRefreshing && styles.refreshIcon}
+              />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.storageCard}>
@@ -2112,5 +2147,26 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 14,
     fontWeight: '700' as const,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshButtonActive: {
+    backgroundColor: Colors.light.darkGray,
+  },
+  refreshIcon: {
+    opacity: 0.5,
   },
 });

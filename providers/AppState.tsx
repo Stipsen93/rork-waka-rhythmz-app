@@ -983,12 +983,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
     const mediaLibrarySubscription = supabase
       .channel('media-library-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_library' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_library' }, async (payload) => {
         console.log('🔄 Media library changed:', payload.eventType, payload);
-        supabase.from('media_library').select('*').then(res => {
+        console.log('🔄 Payload new data:', payload.new);
+        console.log('🔄 Payload old data:', payload.old);
+        
+        try {
+          const res = await supabase.from('media_library').select('*');
           if (res.data) {
             console.log('✅ Reloaded media library:', res.data.length, 'items');
-            setMediaLibrary(res.data.map(m => ({
+            const mapped = res.data.map(m => ({
               id: m.id,
               name: m.name,
               path: m.path,
@@ -999,9 +1003,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               storage_path: m.storage_path,
               uploaded_by: m.uploaded_by,
               created_at: m.created_at,
-            })));
+            }));
+            console.log('✅ Mapped items:', mapped);
+            setMediaLibrary(mapped);
           }
-        });
+        } catch (error) {
+          console.error('❌ Error reloading media library:', error);
+        }
       })
       .subscribe();
 
