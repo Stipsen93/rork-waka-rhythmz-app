@@ -5,9 +5,10 @@ import { useRouter } from "expo-router";
 import Colors from "@/constants/colors";
 import { Group, Role, useAppState } from "@/providers/AppState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X, CheckCircle, XCircle, Crown } from "lucide-react-native";
+import { UserPlus, Shield, User, RotateCcw, Copy, Trash2, X, CheckCircle, XCircle, Crown, AlertCircle } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { translations } from "@/constants/translations";
+import { trpc } from "@/lib/trpc";
 
 
 const CreateUserSection = memo(({ onUserCreated, language }: { onUserCreated: () => void; language: 'nl' | 'en' }) => {
@@ -308,6 +309,11 @@ export default function AdminScreen() {
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  const resetRequestsQuery = trpc.auth.getPasswordResetRequests.useQuery();
+  const clearResetRequestMutation = trpc.auth.clearPasswordResetRequest.useMutation();
+
+  const resetRequests = resetRequestsQuery.data || [];
 
   const handleUserCreated = useCallback(() => {
   }, []);
@@ -331,6 +337,8 @@ export default function AdminScreen() {
           style: "destructive",
           onPress: async () => {
             const newPassword = await resetPassword(userId);
+            await clearResetRequestMutation.mutateAsync({ userId });
+            await resetRequestsQuery.refetch();
             Alert.alert(
               t.admin.passwordReset,
               `${t.admin.newPasswordFor} ${userName}:\n${newPassword}\n\n${t.admin.savePassword}`
@@ -554,6 +562,16 @@ export default function AdminScreen() {
                     <Text style={styles.userPassword}>
                       {item.passwordChangedByUser ? "••••••••" : item.password}
                     </Text>
+                  )}
+                  {resetRequests.find(req => req.user_id === item.id) && (
+                    <View style={styles.resetRequestBadge}>
+                      <AlertCircle color="#f59e0b" size={12} strokeWidth={2.5} />
+                      <Text style={styles.resetRequestText}>
+                        {resetRequests.find(req => req.user_id === item.id)?.device_last_login
+                          ? `Laatste inlog als: ${resetRequests.find(req => req.user_id === item.id)?.device_last_login} doet verzoek voor wachtwoord reset.`
+                          : 'Doet verzoek voor wachtwoord reset.'}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -1141,5 +1159,21 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     fontSize: 12,
     fontWeight: "700" as const,
+  },
+  resetRequestBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  resetRequestText: {
+    color: "#f59e0b",
+    fontSize: 11,
+    fontWeight: "600" as const,
+    flex: 1,
   },
 });

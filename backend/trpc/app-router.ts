@@ -14,6 +14,9 @@ import { registerTokenProcedure } from "@/backend/trpc/routes/notifications/regi
 import { unregisterTokenProcedure } from "@/backend/trpc/routes/notifications/unregister-token/route";
 import { getUserTokensProcedure } from "@/backend/trpc/routes/notifications/get-user-tokens/route";
 import { sendNotificationProcedure } from "@/backend/trpc/routes/notifications/send-notification/route";
+import { requestPasswordResetProcedure } from "@/backend/trpc/routes/auth/request-password-reset/route";
+import { getPasswordResetRequestsProcedure } from "@/backend/trpc/routes/auth/get-password-reset-requests/route";
+import { clearPasswordResetRequestProcedure } from "@/backend/trpc/routes/auth/clear-password-reset-request/route";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -38,6 +41,11 @@ export const appRouter = createTRPCRouter({
     unregisterToken: unregisterTokenProcedure,
     getUserTokens: getUserTokensProcedure,
     sendNotification: sendNotificationProcedure,
+  }),
+  auth: createTRPCRouter({
+    requestPasswordReset: requestPasswordResetProcedure,
+    getPasswordResetRequests: getPasswordResetRequestsProcedure,
+    clearPasswordResetRequest: clearPasswordResetRequestProcedure,
   }),
 });
 
