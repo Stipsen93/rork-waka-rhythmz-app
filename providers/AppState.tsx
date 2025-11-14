@@ -401,8 +401,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       try {
         await trpcClient.media.syncStorage.mutate();
         console.log('✅ [AUTO-SYNC] Storage synced successfully');
-      } catch (syncError) {
-        console.error('⚠️ [AUTO-SYNC] Storage sync error (non-fatal):', syncError);
+      } catch (syncError: any) {
+        const errorMsg = syncError?.message || String(syncError);
+        console.error('⚠️ [AUTO-SYNC] Storage sync error (non-fatal):', errorMsg);
       }
       
       const [usersRes, assignmentsRes, announcementsRes, appointmentsRes, trainingsRes, scheduleRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
