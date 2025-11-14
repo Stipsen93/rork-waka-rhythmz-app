@@ -404,6 +404,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       } catch (syncError: any) {
         const errorMsg = syncError?.message || String(syncError);
         console.error('⚠️ [AUTO-SYNC] Storage sync error (non-fatal):', errorMsg);
+        
+        // If backend is not available, files uploaded to Supabase storage won't be synced
+        // but files uploaded through the app will still work
+        if (errorMsg.includes('Backend server is not available') || errorMsg.includes('404') || errorMsg.includes('Server did not start')) {
+          console.warn('⚠️ [AUTO-SYNC] Backend is not running. Files uploaded directly to Supabase storage will not appear in the library.');
+          console.warn('⚠️ [AUTO-SYNC] Files uploaded through the app will still work normally.');
+        }
       }
       
       const [usersRes, assignmentsRes, announcementsRes, appointmentsRes, trainingsRes, scheduleRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
