@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
+import { useNotifications } from "@/providers/NotificationProvider";
 import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X, Users } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
@@ -14,6 +15,7 @@ type TimeOption = { label: string; hours: number };
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
   const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences, language } = useAppState();
+  const { isRegistered, expoPushToken } = useNotifications();
   const t = translations[language];
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
@@ -117,6 +119,13 @@ export default function MeldingenScreen() {
           <Text style={styles.appName}>WAKA RHYTHMZ</Text>
           <Text style={styles.title}>{t.notifications.title}</Text>
           <Text style={styles.subtitle}>{t.notifications.subtitle}</Text>
+          
+          <View style={styles.statusBanner}>
+            <View style={[styles.statusDot, isRegistered && styles.statusDotActive]} />
+            <Text style={styles.statusText}>
+              {isRegistered ? '✓ Push notificaties actief' : '○ Push notificaties niet actief'}
+            </Text>
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -755,6 +764,32 @@ const styles = StyleSheet.create({
     color: Colors.light.muted,
   },
   memberChipTextActive: {
+    color: Colors.light.text,
+  },
+  statusBanner: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.darkGray,
+  },
+  statusDotActive: {
+    backgroundColor: "#4CAF50" as const,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
     color: Colors.light.text,
   },
 });

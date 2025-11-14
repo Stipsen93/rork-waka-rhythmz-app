@@ -9,6 +9,10 @@ import { createFolderRoute } from "@/backend/trpc/routes/media/create-folder/rou
 import { deleteAccountProcedure } from "@/backend/trpc/routes/users/delete-account/route";
 import { reactivateAccountProcedure } from "@/backend/trpc/routes/users/reactivate-account/route";
 import { permanentDeleteAccountProcedure } from "@/backend/trpc/routes/users/permanent-delete-account/route";
+import { registerTokenProcedure } from "@/backend/trpc/routes/notifications/register-token/route";
+import { unregisterTokenProcedure } from "@/backend/trpc/routes/notifications/unregister-token/route";
+import { getUserTokensProcedure } from "@/backend/trpc/routes/notifications/get-user-tokens/route";
+import { sendNotificationProcedure } from "@/backend/trpc/routes/notifications/send-notification/route";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -26,6 +30,12 @@ export const appRouter = createTRPCRouter({
     deleteAccount: deleteAccountProcedure,
     reactivateAccount: reactivateAccountProcedure,
     permanentDeleteAccount: permanentDeleteAccountProcedure,
+  }),
+  notifications: createTRPCRouter({
+    registerToken: registerTokenProcedure,
+    unregisterToken: unregisterTokenProcedure,
+    getUserTokens: getUserTokensProcedure,
+    sendNotification: sendNotificationProcedure,
   }),
 });
 
