@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform, PanResponder, GestureResponderEvent, Dimensions } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform, PanResponder, GestureResponderEvent, Dimensions, RefreshControl } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -699,6 +699,14 @@ export default function LibraryScreen() {
             item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.id}`
           }
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefreshData}
+              tintColor={Colors.light.primary}
+              colors={[Colors.light.primary]}
+            />
+          }
           renderItem={({ item }) => {
             if (item.kind === "folder") {
               const itemId = `folder-${item.folder.path}`;

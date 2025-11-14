@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment } from "@/providers/AppState";
@@ -23,7 +23,7 @@ const parseDateString = (dateStr: string): Date => {
 };
 
 export default function CalendarScreen() {
-  const { appointments, addAppointment, updateAppointment, deleteAppointments, performances, practiceSchedule, users, currentUser } = useAppState();
+  const { appointments, addAppointment, updateAppointment, deleteAppointments, performances, practiceSchedule, users, currentUser, syncAllData } = useAppState();
   const insets = useSafeAreaInsets();
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -51,6 +51,7 @@ export default function CalendarScreen() {
   const [showForUserDropdown, setShowForUserDropdown] = useState<boolean>(false);
   const [showEditForUserDropdown, setShowEditForUserDropdown] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [showHourPicker, setShowHourPicker] = useState<boolean>(false);
   const [showMinutePicker, setShowMinutePicker] = useState<boolean>(false);
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
@@ -350,6 +351,21 @@ export default function CalendarScreen() {
 
   const today = formatDateToLocal(new Date());
 
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    console.log('🔄 [CALENDAR] Pull-to-refresh triggered');
+    setIsRefreshing(true);
+    try {
+      await syncAllData();
+      console.log('✅ [CALENDAR] Refresh completed');
+    } catch (error) {
+      console.error('❌ [CALENDAR] Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const getDatePickerDays = (baseDate: Date) => {
     const year = baseDate.getFullYear();
     const month = baseDate.getMonth();
@@ -404,6 +420,14 @@ export default function CalendarScreen() {
         <ScrollView 
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={Colors.light.primary}
+              colors={[Colors.light.primary]}
+            />
+          }
         >
           <View style={styles.header}>
             <Text style={styles.appName}>WAKA RHYTHMZ</Text>
