@@ -381,13 +381,21 @@ export default function LibraryScreen() {
       console.log('[UPLOAD] Storage path:', storagePath);
       console.log('[UPLOAD] File size:', fileSize);
 
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      let fileToUpload: Blob | ArrayBuffer;
+
+      if (Platform.OS === 'web') {
+        const response = await fetch(uri);
+        fileToUpload = await response.arrayBuffer();
+      } else {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        fileToUpload = blob;
+      }
 
       console.log('[UPLOAD] Uploading to Supabase Storage...');
       const { error: uploadError } = await supabase.storage
         .from('media-library')
-        .upload(storagePath, blob, {
+        .upload(storagePath, fileToUpload, {
           contentType: mimeType || 'application/octet-stream',
           upsert: false,
         });
