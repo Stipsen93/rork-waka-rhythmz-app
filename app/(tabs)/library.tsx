@@ -8,6 +8,7 @@ import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
 import { Image } from 'expo-image';
+import VideoPlayerModal from '@/components/VideoPlayerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAppState } from "@/providers/AppState";
 
@@ -63,6 +64,8 @@ export default function LibraryScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [videoPlayerVisible, setVideoPlayerVisible] = useState(false);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState('');
 
   const loadItems = useCallback(async () => {
     try {
@@ -325,6 +328,10 @@ export default function LibraryScreen() {
     } else {
       if (item.type === 'folder') {
         setCurrentPath(item.path);
+      } else if (item.type === 'file' && item.mimeType.startsWith('video/')) {
+        // Open video player
+        setCurrentVideoUrl(item.url);
+        setVideoPlayerVisible(true);
       } else {
         // Open file in new tab
         if (Platform.OS === 'web') {
@@ -658,6 +665,15 @@ export default function LibraryScreen() {
         <MenuModal 
           visible={showMenuModal} 
           onClose={() => setShowMenuModal(false)}
+        />
+
+        <VideoPlayerModal
+          visible={videoPlayerVisible}
+          videoUrl={currentVideoUrl}
+          onClose={() => {
+            setVideoPlayerVisible(false);
+            setCurrentVideoUrl('');
+          }}
         />
 
         <Modal

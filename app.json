@@ -24,7 +24,8 @@
           "audio"
         ]
       },
-      "usesIcloudStorage": true
+      "usesIcloudStorage": true,
+      "requireFullScreen": true
     },
     "android": {
       "adaptiveIcon": {
@@ -83,6 +84,12 @@
             "./local/assets/notification_sound.wav"
           ],
           "enableBackgroundRemoteNotifications": false
+        }
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
         }
       ]
     ],
