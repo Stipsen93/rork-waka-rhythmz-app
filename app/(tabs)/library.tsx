@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { Image } from 'expo-image';
 import VideoPlayerModal from '@/components/VideoPlayerModal';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useAppState } from "@/providers/AppState";
 
 type StorageFile = {
@@ -251,39 +252,156 @@ export default function LibraryScreen() {
     setErrorMessage(null);
 
     try {
-      console.log('[UPLOAD] Opening document picker...');
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['video/*', 'image/*', 'audio/*', 'application/pdf'],
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled) {
-        console.log('[UPLOAD] Canceled');
-        return;
+      console.log('[UPLOAD] Opening media picker...');
+      
+      if (Platform.OS === 'web') {
+        Alert.alert(
+          'Media Type',
+          'Selecteer het type media dat je wilt uploaden',
+          [
+            { text: 'Video', onPress: () => handleMediaSelection('video') },
+            { text: 'Foto', onPress: () => handleMediaSelection('photo') },
+            { text: 'Document', onPress: () => handleMediaSelection('document') },
+            { text: 'Annuleren', style: 'cancel' }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Media Type',
+          'Selecteer het type media dat je wilt uploaden',
+          [
+            { text: 'Video', onPress: () => handleMediaSelection('video') },
+            { text: 'Foto', onPress: () => handleMediaSelection('photo') },
+            { text: 'Document', onPress: () => handleMediaSelection('document') },
+            { text: 'Annuleren', style: 'cancel' }
+          ]
+        );
       }
+    } catch (error: any) {
+      console.error('[UPLOAD] Error:', error);
+      const message = error?.message || 'Onbekende fout';
+      setErrorMessage(`Upload mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
 
-      const file = result.assets[0];
-      console.log('[UPLOAD] File selected:', file.name, file.mimeType, file.size);
+  const handleMediaSelection = async (type: 'video' | 'photo' | 'document') => {
+    try {
+      setErrorMessage(null);
 
+      if (type === 'video' || type === 'photo') {
+        console.log('[UPLOAD] Requesting media permissions...');
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (status !== 'granted') {
+          setErrorMessage('Je moet toegang geven tot je media bibliotheek');
+          setTimeout(() => setErrorMessage(null), 5000);
+          return;
+        }
+
+        console.log('[UPLOAD] Opening image picker for:', type);
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: type === 'video' ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+          videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+          videoMaxDuration: 600,
+          allowsEditing: false,
+        });
+
+        if (result.canceled) {
+          console.log('[UPLOAD] Canceled');
+          return;
+        }
+
+        const asset = result.assets[0];
+        console.log('[UPLOAD] Media selected:', asset.uri, asset.fileSize);
+
+        if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024 && type === 'video') {
+          console.log('[UPLOAD] Large video detected, trying to compress...');
+          
+          if (Platform.OS !== 'web') {
+            const confirmCompress = await new Promise<boolean>((resolve) => {
+              Alert.alert(
+                'Groot bestand',
+                'Deze video is groter dan 50MB. We kunnen proberen het te comprimeren, maar dit kan wat tijd kosten.',
+                [
+                  { text: 'Annuleren', style: 'cancel', onPress: () => resolve(false) },
+                  { text: 'Comprimeren', onPress: () => resolve(true) }
+                ]
+              );
+            });
+
+            if (!confirmCompress) {
+              return;
+            }
+
+            setErrorMessage('Video wordt gecomprimeerd... Dit kan even duren.');
+            
+            const compressedResult = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              quality: 0.5,
+              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+              videoMaxDuration: 600,
+              allowsEditing: false,
+            });
+
+            if (!compressedResult.canceled) {
+              const compressedAsset = compressedResult.assets[0];
+              console.log('[UPLOAD] Video compressed from', asset.fileSize, 'to', compressedAsset.fileSize);
+              await uploadFile(compressedAsset.uri, compressedAsset.fileName || 'video.mp4', compressedAsset.mimeType, compressedAsset.fileSize);
+              return;
+            }
+          }
+        }
+
+        await uploadFile(asset.uri, asset.fileName || (type === 'video' ? 'video.mp4' : 'image.jpg'), asset.mimeType, asset.fileSize);
+      } else {
+        console.log('[UPLOAD] Opening document picker...');
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ['audio/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+          copyToCacheDirectory: true,
+        });
+
+        if (result.canceled) {
+          console.log('[UPLOAD] Canceled');
+          return;
+        }
+
+        const file = result.assets[0];
+        console.log('[UPLOAD] Document selected:', file.name, file.mimeType, file.size);
+
+        await uploadFile(file.uri, file.name, file.mimeType, file.size);
+      }
+    } catch (error: any) {
+      console.error('[UPLOAD] Selection error:', error);
+      const message = error?.message || 'Onbekende fout';
+      setErrorMessage(`Upload mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  const uploadFile = async (uri: string, fileName: string | undefined, mimeType: string | undefined, fileSize: number | undefined) => {
+    try {
       setIsUploading(true);
+      setErrorMessage(null);
 
       const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const sanitizedName = (fileName || 'file').replace(/[^a-zA-Z0-9.-]/g, '_');
       const storagePath = currentPath 
         ? `${currentPath}/${timestamp}_${sanitizedName}`
         : `${timestamp}_${sanitizedName}`;
 
       console.log('[UPLOAD] Storage path:', storagePath);
+      console.log('[UPLOAD] File size:', fileSize);
 
-      // Read file
-      const response = await fetch(file.uri);
+      const response = await fetch(uri);
       const blob = await response.blob();
 
       console.log('[UPLOAD] Uploading to Supabase Storage...');
       const { error: uploadError } = await supabase.storage
         .from('media-library')
         .upload(storagePath, blob, {
-          contentType: file.mimeType || 'application/octet-stream',
+          contentType: mimeType || 'application/octet-stream',
           upsert: false,
         });
 
@@ -295,13 +413,16 @@ export default function LibraryScreen() {
       console.log('[UPLOAD] Success!');
       
       setIsUploading(false);
+      setErrorMessage('Upload succesvol!');
+      setTimeout(() => setErrorMessage(null), 3000);
       await Promise.all([loadItems(), loadStorageUsage()]);
     } catch (error: any) {
-      console.error('[UPLOAD] Error:', error);
+      console.error('[UPLOAD] Upload error:', error);
       setIsUploading(false);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
+      throw error;
     }
   };
 
