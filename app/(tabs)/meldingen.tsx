@@ -35,6 +35,7 @@ export default function MeldingenScreen() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [localNotificationSettings, setLocalNotificationSettings] = useState({
     newsHoursAdvance: notificationSettings.newsHoursAdvance,
+    assignmentsHoursAdvance: notificationSettings.assignmentsHoursAdvance,
     trainingHoursAdvance: notificationSettings.trainingHoursAdvance,
     performancesHoursAdvance: notificationSettings.performancesHoursAdvance,
   });
@@ -111,12 +112,13 @@ export default function MeldingenScreen() {
     await updateUserNotificationPreferences(currentUser.id, newSettings);
   };
 
-  const updateAdminNotificationHours = async (category: 'news' | 'trainings' | 'performances', hours: number) => {
+  const updateAdminNotificationHours = async (category: 'news' | 'assignments' | 'trainings' | 'performances', hours: number) => {
     if (!isAdmin) return;
     
     const newSettings = { ...notificationSettings };
     switch(category) {
       case 'news': newSettings.newsHoursAdvance = hours; break;
+      case 'assignments': newSettings.assignmentsHoursAdvance = hours; break;
       case 'trainings': newSettings.trainingHoursAdvance = hours; break;
       case 'performances': newSettings.performancesHoursAdvance = hours; break;
     }
@@ -167,6 +169,7 @@ export default function MeldingenScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* NIEUWS */}
           <TouchableOpacity 
             style={styles.notificationCard}
             onPress={() => setExpandedCategory(expandedCategory === 'news' ? null : 'news')}
@@ -189,6 +192,7 @@ export default function MeldingenScreen() {
               <View style={styles.cardContent}>
                 {isAdmin && (
                   <>
+                    {/* Direct Melding Toggle */}
                     <View style={styles.settingRow}>
                       <View style={styles.toggleRow}>
                         <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuw bericht is toegevoegd</Text>
@@ -206,18 +210,39 @@ export default function MeldingenScreen() {
                       </View>
                     </View>
                     
+                    {/* Herinnering Toggle */}
                     <View style={styles.settingRow}>
-                      <View style={styles.timeRow}>
-                        <Text style={styles.toggleLabel}>Hoeveel uur van tevoren melding</Text>
-                        <TouchableOpacity 
-                          style={styles.timeSelector}
-                          onPress={() => setShowDropdown('news')}
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Herinnering sturen voor datum in nieuws</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.newsReminderEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              newsReminderEnabled: !notificationSettings.newsReminderEnabled,
+                            });
+                          }}
                         >
-                          <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.newsHoursAdvance)}</Text>
-                          <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          <View style={[styles.toggleThumb, notificationSettings.newsReminderEnabled && styles.toggleThumbActive]} />
                         </TouchableOpacity>
                       </View>
                     </View>
+                    
+                    {/* Hoeveel Uur van Tevoren */}
+                    {notificationSettings.newsReminderEnabled && (
+                      <View style={styles.settingRow}>
+                        <View style={styles.timeRow}>
+                          <Text style={styles.toggleLabel}>Hoeveel uur van tevoren</Text>
+                          <TouchableOpacity 
+                            style={styles.timeSelector}
+                            onPress={() => setShowDropdown('news')}
+                          >
+                            <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.newsHoursAdvance)}</Text>
+                            <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
 
                     <TouchableOpacity 
                       style={styles.membersSection}
@@ -271,6 +296,7 @@ export default function MeldingenScreen() {
             )}
           </TouchableOpacity>
 
+          {/* HUISWERK */}
           <TouchableOpacity 
             style={styles.notificationCard}
             onPress={() => setExpandedCategory(expandedCategory === 'assignments' ? null : 'assignments')}
@@ -293,6 +319,7 @@ export default function MeldingenScreen() {
               <View style={styles.cardContent}>
                 {isAdmin && (
                   <>
+                    {/* Direct Melding Toggle */}
                     <View style={styles.settingRow}>
                       <View style={styles.toggleRow}>
                         <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuw huiswerk item is toegevoegd</Text>
@@ -309,6 +336,40 @@ export default function MeldingenScreen() {
                         </TouchableOpacity>
                       </View>
                     </View>
+
+                    {/* Herinnering Toggle */}
+                    <View style={styles.settingRow}>
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Herinnering sturen voor deadline huiswerk</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.assignmentsReminderEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              assignmentsReminderEnabled: !notificationSettings.assignmentsReminderEnabled,
+                            });
+                          }}
+                        >
+                          <View style={[styles.toggleThumb, notificationSettings.assignmentsReminderEnabled && styles.toggleThumbActive]} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Hoeveel Uur van Tevoren */}
+                    {notificationSettings.assignmentsReminderEnabled && (
+                      <View style={styles.settingRow}>
+                        <View style={styles.timeRow}>
+                          <Text style={styles.toggleLabel}>Hoeveel uur van tevoren</Text>
+                          <TouchableOpacity 
+                            style={styles.timeSelector}
+                            onPress={() => setShowDropdown('assignments')}
+                          >
+                            <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.assignmentsHoursAdvance)}</Text>
+                            <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
 
                     <TouchableOpacity 
                       style={styles.membersSection}
@@ -362,6 +423,7 @@ export default function MeldingenScreen() {
             )}
           </TouchableOpacity>
 
+          {/* TRAININGEN */}
           <TouchableOpacity 
             style={styles.notificationCard}
             onPress={() => setExpandedCategory(expandedCategory === 'trainings' ? null : 'trainings')}
@@ -384,6 +446,7 @@ export default function MeldingenScreen() {
               <View style={styles.cardContent}>
                 {isAdmin && (
                   <>
+                    {/* Direct Melding Toggle */}
                     <View style={styles.settingRow}>
                       <View style={styles.toggleRow}>
                         <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuwe training is toegevoegd</Text>
@@ -401,18 +464,39 @@ export default function MeldingenScreen() {
                       </View>
                     </View>
                     
+                    {/* Herinnering Toggle */}
                     <View style={styles.settingRow}>
-                      <View style={styles.timeRow}>
-                        <Text style={styles.toggleLabel}>Hoeveel uur van tevoren melding</Text>
-                        <TouchableOpacity 
-                          style={styles.timeSelector}
-                          onPress={() => setShowDropdown('trainings')}
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Herinnering sturen voor training</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.trainingsReminderEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              trainingsReminderEnabled: !notificationSettings.trainingsReminderEnabled,
+                            });
+                          }}
                         >
-                          <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.trainingHoursAdvance)}</Text>
-                          <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          <View style={[styles.toggleThumb, notificationSettings.trainingsReminderEnabled && styles.toggleThumbActive]} />
                         </TouchableOpacity>
                       </View>
                     </View>
+                    
+                    {/* Hoeveel Uur van Tevoren */}
+                    {notificationSettings.trainingsReminderEnabled && (
+                      <View style={styles.settingRow}>
+                        <View style={styles.timeRow}>
+                          <Text style={styles.toggleLabel}>Hoeveel uur van tevoren</Text>
+                          <TouchableOpacity 
+                            style={styles.timeSelector}
+                            onPress={() => setShowDropdown('trainings')}
+                          >
+                            <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.trainingHoursAdvance)}</Text>
+                            <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
 
                     <TouchableOpacity 
                       style={styles.membersSection}
@@ -466,6 +550,7 @@ export default function MeldingenScreen() {
             )}
           </TouchableOpacity>
 
+          {/* OPTREDENS */}
           <TouchableOpacity 
             style={styles.notificationCard}
             onPress={() => setExpandedCategory(expandedCategory === 'performances' ? null : 'performances')}
@@ -488,6 +573,7 @@ export default function MeldingenScreen() {
               <View style={styles.cardContent}>
                 {isAdmin && (
                   <>
+                    {/* Direct Melding Toggle */}
                     <View style={styles.settingRow}>
                       <View style={styles.toggleRow}>
                         <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuw optreden is toegevoegd</Text>
@@ -505,18 +591,39 @@ export default function MeldingenScreen() {
                       </View>
                     </View>
                     
+                    {/* Herinnering Toggle */}
                     <View style={styles.settingRow}>
-                      <View style={styles.timeRow}>
-                        <Text style={styles.toggleLabel}>Hoeveel uur van tevoren melding</Text>
-                        <TouchableOpacity 
-                          style={styles.timeSelector}
-                          onPress={() => setShowDropdown('performances')}
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Herinnering sturen voor optreden</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.performancesReminderEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              performancesReminderEnabled: !notificationSettings.performancesReminderEnabled,
+                            });
+                          }}
                         >
-                          <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.performancesHoursAdvance)}</Text>
-                          <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          <View style={[styles.toggleThumb, notificationSettings.performancesReminderEnabled && styles.toggleThumbActive]} />
                         </TouchableOpacity>
                       </View>
                     </View>
+                    
+                    {/* Hoeveel Uur van Tevoren */}
+                    {notificationSettings.performancesReminderEnabled && (
+                      <View style={styles.settingRow}>
+                        <View style={styles.timeRow}>
+                          <Text style={styles.toggleLabel}>Hoeveel uur van tevoren</Text>
+                          <TouchableOpacity 
+                            style={styles.timeSelector}
+                            onPress={() => setShowDropdown('performances')}
+                          >
+                            <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.performancesHoursAdvance)}</Text>
+                            <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
 
                     <TouchableOpacity 
                       style={styles.membersSection}
@@ -570,8 +677,6 @@ export default function MeldingenScreen() {
             )}
           </TouchableOpacity>
 
-
-
           <TouchableOpacity style={styles.saveButton} onPress={saveSettings}>
             <LinearGradient
               colors={[Colors.light.primary, Colors.light.primaryDark]}
@@ -606,6 +711,8 @@ export default function MeldingenScreen() {
                     onPress={() => {
                       if (showDropdown === 'news') {
                         updateAdminNotificationHours('news', option.hours);
+                      } else if (showDropdown === 'assignments') {
+                        updateAdminNotificationHours('assignments', option.hours);
                       } else if (showDropdown === 'trainings') {
                         updateAdminNotificationHours('trainings', option.hours);
                       } else if (showDropdown === 'performances') {
@@ -635,7 +742,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   headerBg: {
-    position: "absolute",
+    position: "absolute" as const,
     top: 0,
     left: 0,
     right: 0,
@@ -679,13 +786,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.surfaceLight,
   },
   cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
   },
   cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: 12,
     flex: 1,
   },
@@ -700,7 +807,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: Colors.light.darkGray,
     padding: 2,
-    justifyContent: "center",
+    justifyContent: "center" as const,
   },
   toggleActive: {
     backgroundColor: Colors.light.primary,
@@ -712,7 +819,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   toggleThumbActive: {
-    alignSelf: "flex-end",
+    alignSelf: "flex-end" as const,
   },
   cardContent: {
     marginTop: 16,
@@ -724,9 +831,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   timeSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
     backgroundColor: Colors.light.darkGray,
     borderRadius: 12,
     padding: 14,
@@ -757,8 +864,8 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
   dropdownModal: {
     backgroundColor: Colors.light.surface,
@@ -798,9 +905,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     gap: 10,
     paddingVertical: 16,
   },

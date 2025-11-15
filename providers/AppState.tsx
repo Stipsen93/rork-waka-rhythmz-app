@@ -149,11 +149,16 @@ export interface Appointment {
 
 export interface NotificationSettings {
   newsEnabled: boolean;
+  newsReminderEnabled: boolean;
   newsHoursAdvance: number;
   assignmentsEnabled: boolean;
+  assignmentsReminderEnabled: boolean;
+  assignmentsHoursAdvance: number;
   trainingCancellationEnabled: boolean;
+  trainingsReminderEnabled: boolean;
   trainingHoursAdvance: number;
   performancesEnabled: boolean;
+  performancesReminderEnabled: boolean;
   performancesHoursAdvance: number;
 }
 
@@ -331,11 +336,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     newsEnabled: true,
+    newsReminderEnabled: true,
     newsHoursAdvance: 24,
     assignmentsEnabled: true,
+    assignmentsReminderEnabled: false,
+    assignmentsHoursAdvance: 24,
     trainingCancellationEnabled: true,
+    trainingsReminderEnabled: true,
     trainingHoursAdvance: 2,
     performancesEnabled: true,
+    performancesReminderEnabled: true,
     performancesHoursAdvance: 48,
   });
 
