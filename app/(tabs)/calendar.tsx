@@ -632,7 +632,7 @@ export default function CalendarScreen() {
           >
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nieuwe Afspraak</Text>
+                <Text style={styles.modalTitle}>Nieuwe optreden</Text>
                 <Pressable onPress={() => setShowAddModal(false)} testID="close-modal">
                   <X color={Colors.light.muted} size={24} />
                 </Pressable>
@@ -644,7 +644,7 @@ export default function CalendarScreen() {
                   style={styles.input}
                   value={formData.name}
                   onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="Naam van de afspraak"
+                  placeholder="Optreden klantnaam/promotie/cursus"
                   placeholderTextColor={Colors.light.muted}
                   testID="name-input"
                 />
