@@ -7,7 +7,6 @@ import { deleteMediaRoute } from "@/backend/trpc/routes/media/delete-media/route
 import { uploadMediaRoute } from "@/backend/trpc/routes/media/upload-media/route";
 import { createFolderRoute } from "@/backend/trpc/routes/media/create-folder/route";
 import { deleteFolderRoute } from "@/backend/trpc/routes/media/delete-folder/route";
-import { syncStorageRoute } from "@/backend/trpc/routes/media/sync-storage/route";
 import { deleteAccountProcedure } from "@/backend/trpc/routes/users/delete-account/route";
 import { reactivateAccountProcedure } from "@/backend/trpc/routes/users/reactivate-account/route";
 import { permanentDeleteAccountProcedure } from "@/backend/trpc/routes/users/permanent-delete-account/route";
@@ -15,9 +14,6 @@ import { registerTokenProcedure } from "@/backend/trpc/routes/notifications/regi
 import { unregisterTokenProcedure } from "@/backend/trpc/routes/notifications/unregister-token/route";
 import { getUserTokensProcedure } from "@/backend/trpc/routes/notifications/get-user-tokens/route";
 import { sendNotificationProcedure } from "@/backend/trpc/routes/notifications/send-notification/route";
-import { requestPasswordResetProcedure } from "@/backend/trpc/routes/auth/request-password-reset/route";
-import { getPasswordResetRequestsProcedure } from "@/backend/trpc/routes/auth/get-password-reset-requests/route";
-import { clearPasswordResetRequestProcedure } from "@/backend/trpc/routes/auth/clear-password-reset-request/route";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -31,7 +27,6 @@ export const appRouter = createTRPCRouter({
     uploadMedia: uploadMediaRoute,
     createFolder: createFolderRoute,
     deleteFolder: deleteFolderRoute,
-    syncStorage: syncStorageRoute,
   }),
   users: createTRPCRouter({
     deleteAccount: deleteAccountProcedure,
@@ -43,11 +38,6 @@ export const appRouter = createTRPCRouter({
     unregisterToken: unregisterTokenProcedure,
     getUserTokens: getUserTokensProcedure,
     sendNotification: sendNotificationProcedure,
-  }),
-  auth: createTRPCRouter({
-    requestPasswordReset: requestPasswordResetProcedure,
-    getPasswordResetRequests: getPasswordResetRequestsProcedure,
-    clearPasswordResetRequest: clearPasswordResetRequestProcedure,
   }),
 });
 

@@ -5,7 +5,6 @@ import type { Database } from "@/lib/database.types";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from "@/constants/translations";
 import { translations } from "@/constants/translations";
-import { trpcClient } from "@/lib/trpc";
 
 export type Role = "admin" | "member";
 
@@ -396,23 +395,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const syncAllData = useCallback(async () => {
     try {
       console.log('🔄 [AUTO-SYNC] Syncing all data from Supabase...');
-      
-      console.log('🔄 [AUTO-SYNC] Syncing storage with database...');
-      try {
-        await trpcClient.media.syncStorage.mutate();
-        console.log('✅ [AUTO-SYNC] Storage synced successfully');
-      } catch (syncError: any) {
-        const errorMsg = syncError?.message || String(syncError);
-        console.error('⚠️ [AUTO-SYNC] Storage sync error (non-fatal):', errorMsg);
-        
-        // If backend is not available, files uploaded to Supabase storage won't be synced
-        // but files uploaded through the app will still work
-        if (errorMsg.includes('Backend server is not available') || errorMsg.includes('404') || errorMsg.includes('Server did not start')) {
-          console.warn('⚠️ [AUTO-SYNC] Backend is not running. Files uploaded directly to Supabase storage will not appear in the library.');
-          console.warn('⚠️ [AUTO-SYNC] Files uploaded through the app will still work normally.');
-        }
-      }
-      
       const [usersRes, assignmentsRes, announcementsRes, appointmentsRes, trainingsRes, scheduleRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('assignments').select('*'),
@@ -1765,10 +1747,11 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     for (let i = 0; i < byteCharacters.length; i++) {
       byteArray[i] = byteCharacters.charCodeAt(i);
     }
+    const binaryData = new Blob([byteArray], { type: input.mimeType });
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('media-library')
-      .upload(storagePath, byteArray, {
+      .upload(storagePath, binaryData, {
         contentType: input.mimeType,
         upsert: false,
       });
@@ -2038,22 +2021,63 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [mediaLibrary]);
 
   const createFolder = useCallback(async (folderPath: string) => {
-    console.log('💾 Creating folder via tRPC...');
+    console.log('💾 Creating folder placeholder...');
     
-    try {
-      const result = await trpcClient.media.createFolder.mutate({
-        folderPath,
-        createdBy: currentUser?.id,
+    const placeholderPath = `${folderPath}/.emptyFolderPlaceholder`;
+    const placeholderData = new Blob([''], { type: 'text/plain' });
+    
+    const { error: uploadError } = await supabase.storage
+      .from('media-library')
+      .upload(placeholderPath, placeholderData, {
+        contentType: 'text/plain',
+        upsert: true,
       });
-      
-      console.log('✅ Folder created via tRPC:', result);
-      
-      await syncAllData();
-    } catch (error: any) {
-      console.error('❌ Folder creation error:', error);
-      throw error;
+    
+    if (uploadError && !uploadError.message.includes('already exists')) {
+      console.error('❌ Folder creation error:', uploadError);
+      throw new Error(`Folder aanmaken mislukt: ${uploadError.message}`);
     }
-  }, [currentUser, syncAllData]);
+    
+    const insertData: Database['public']['Tables']['media_library']['Insert'] = {
+      name: '.emptyFolderPlaceholder',
+      path: placeholderPath,
+      folder_path: folderPath,
+      file_type: 'other',
+      file_size: 0,
+      mime_type: 'text/plain',
+      storage_path: placeholderPath,
+      uploaded_by: currentUser?.id ?? null,
+    };
+    
+    const { data: mediaData, error: dbError } = await supabase
+      .from('media_library')
+      .insert(insertData)
+      .select()
+      .single();
+    
+    if (dbError && !dbError.message.includes('duplicate')) {
+      console.error('❌ Database insert error:', dbError);
+      throw new Error(`Database fout: ${dbError.message}`);
+    }
+    
+    if (mediaData) {
+      const placeholderItem: MediaLibraryItem = {
+        id: mediaData.id,
+        name: mediaData.name,
+        path: mediaData.path,
+        folder_path: mediaData.folder_path,
+        file_type: mediaData.file_type,
+        file_size: mediaData.file_size,
+        mime_type: mediaData.mime_type,
+        storage_path: mediaData.storage_path,
+        uploaded_by: mediaData.uploaded_by,
+        created_at: mediaData.created_at,
+      };
+      
+      setMediaLibrary(prev => [...prev, placeholderItem]);
+    }
+    console.log('✅ Folder created');
+  }, [currentUser]);
 
   const addGroup = useCallback(async (name: string, memberIds: string[]) => {
     console.log('💾 Adding group to Supabase...');

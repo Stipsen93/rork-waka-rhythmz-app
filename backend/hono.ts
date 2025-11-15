@@ -5,8 +5,6 @@ import { appRouter } from "@/backend/trpc/app-router";
 import { createContext } from "@/backend/trpc/create-context";
 import superjson from "superjson";
 
-console.log('[BACKEND] Initializing Hono server...');
-
 const app = new Hono();
 
 app.use("*", async (c, next) => {

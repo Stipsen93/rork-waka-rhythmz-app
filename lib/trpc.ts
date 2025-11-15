@@ -7,16 +7,13 @@ import { supabase } from "@/lib/supabase";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-  console.log('[TRPC] Base URL:', baseUrl);
-  
-  if (!baseUrl) {
-    throw new Error(
-      "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
-    );
+  if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
+    return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
-  
-  return baseUrl;
+
+  throw new Error(
+    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
+  );
 };
 
 export const trpcClient = trpc.createClient({
@@ -40,20 +37,11 @@ export const trpcClient = trpc.createClient({
           if (!response.ok) {
             const text = await response.clone().text();
             console.error('[TRPC RESPONSE] Error body:', text.substring(0, 500));
-            
-            // Return error response that can be handled by tRPC
-            if (text.includes('Server did not start') || text.includes('404 Not Found') || response.status === 404) {
-              throw new Error('Backend server is not available. Please try again later.');
-            }
           }
           
           return response;
         }).catch((error) => {
           console.error('[TRPC FETCH ERROR]:', error);
-          // Re-throw with a more user-friendly message if it's a network error
-          if (error.message === 'Failed to fetch') {
-            throw new Error('Cannot connect to server. Please check your internet connection.');
-          }
           throw error;
         });
       },

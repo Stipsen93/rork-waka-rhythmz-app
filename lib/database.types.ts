@@ -245,29 +245,6 @@ export type Database = {
           created_at?: string
         }
       }
-      password_reset_requests: {
-        Row: {
-          id: string
-          user_id: string | null
-          requested_username: string
-          device_last_login: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id?: string | null
-          requested_username: string
-          device_last_login?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string | null
-          requested_username?: string
-          device_last_login?: string | null
-          created_at?: string
-        }
-      }
       notification_settings: {
         Row: {
           id: string
