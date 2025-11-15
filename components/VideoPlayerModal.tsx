@@ -352,8 +352,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   video: {
-    width: '100%',
-    height: '100%',
+    width: '90%',
+    height: '70%',
   },
   controlsOverlay: {
     position: 'absolute',
