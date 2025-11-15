@@ -385,7 +385,8 @@ export default function LibraryScreen() {
 
       if (Platform.OS === 'web') {
         const response = await fetch(uri);
-        fileToUpload = await response.arrayBuffer();
+        const blob = await response.blob();
+        fileToUpload = blob;
       } else {
         const response = await fetch(uri);
         const blob = await response.blob();
