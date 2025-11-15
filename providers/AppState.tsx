@@ -1722,6 +1722,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Notification settings updated');
   }, []);
 
+  const getBaseUrl = useCallback(() => {
+    if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
+      return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    }
+    if (typeof window !== 'undefined') {
+      return `${window.location.protocol}//${window.location.host}`;
+    }
+    throw new Error('No base URL available');
+  }, []);
+
   const uploadMedia = useCallback(async (input: { 
     name: string; 
     folderPath: string; 
@@ -1733,7 +1743,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('💾 Uploading media via backend...');
     
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_RORK_API_BASE_URL}/api/trpc/media.uploadMedia`, {
+      const baseUrl = getBaseUrl();
+      console.log('[UPLOAD] Using base URL:', baseUrl);
+      const response = await fetch(`${baseUrl}/api/trpc/media.uploadMedia`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1785,7 +1797,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       console.error('❌ Upload error:', error);
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, []);
+  }, [getBaseUrl]);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
     console.log('💾 [DELETE_MEDIA] Starting delete for IDs:', ids);
@@ -2007,7 +2019,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('💾 Creating folder via backend...');
     
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_RORK_API_BASE_URL}/api/trpc/media.createFolder`, {
+      const baseUrl = getBaseUrl();
+      console.log('[CREATE_FOLDER] Using base URL:', baseUrl);
+      const response = await fetch(`${baseUrl}/api/trpc/media.createFolder`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2033,7 +2047,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       console.error('❌ Folder creation error:', error);
       throw new Error(`Folder aanmaken mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, [currentUser]);
+  }, [currentUser, getBaseUrl]);
 
   const addGroup = useCallback(async (name: string, memberIds: string[]) => {
     console.log('💾 Adding group to Supabase...');

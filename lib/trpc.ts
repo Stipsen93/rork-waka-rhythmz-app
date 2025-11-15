@@ -8,11 +8,20 @@ export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
+    console.log('[TRPC] Using RORK API URL:', process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
     return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
 
+  console.warn('[TRPC] EXPO_PUBLIC_RORK_API_BASE_URL not set, trying alternative methods...');
+  
+  if (typeof window !== 'undefined') {
+    const baseUrl = `${window.location.protocol}//${window.location.host}`;
+    console.log('[TRPC] Using window location as base URL:', baseUrl);
+    return baseUrl;
+  }
+
   throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
+    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL or run in a web environment"
   );
 };
 
