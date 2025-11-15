@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder } from 'react-native';
+import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder, Dimensions, useWindowDimensions } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
 import { Pause, Play, Maximize, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ type VideoPlayerModalProps = {
 
 export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPlayerModalProps) {
   const videoRef = useRef<Video>(null);
+  const progressBarRef = useRef<View>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1.0);
@@ -21,8 +22,10 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [progressBarLayout, setProgressBarLayout] = useState({ x: 0, width: 0 });
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const controlsTimeout = useRef<NodeJS.Timeout | null>(null);
+  const dimensions = useWindowDimensions();
 
   const hideControls = useCallback(() => {
     Animated.timing(fadeAnim, {
@@ -159,15 +162,18 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
   };
 
   const handleProgressBarPress = (evt: any) => {
-    const { locationX, nativeEvent } = evt;
-    const barWidth = nativeEvent.target?.offsetWidth || 300;
-    const newPosition = (locationX / barWidth) * duration;
+    if (!progressBarLayout.width || duration === 0) return;
+    
+    const { locationX } = evt.nativeEvent;
+    const progress = Math.max(0, Math.min(1, locationX / progressBarLayout.width));
+    const newPosition = progress * duration;
+    
     setPosition(newPosition);
     videoRef.current?.setPositionAsync(newPosition);
     showControlsTemporarily();
   };
 
-  const panResponder = useRef(
+  const progressPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
@@ -175,9 +181,11 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
         handleSeekStart();
       },
       onPanResponderMove: (evt, gestureState) => {
-        const barWidth = 300;
-        const relativeX = Math.max(0, Math.min(barWidth, gestureState.moveX - 40));
-        const newPosition = (relativeX / barWidth) * duration;
+        if (!progressBarLayout.width || duration === 0) return;
+        
+        const relativeX = gestureState.moveX - progressBarLayout.x;
+        const progress = Math.max(0, Math.min(1, relativeX / progressBarLayout.width));
+        const newPosition = progress * duration;
         handleSeek(newPosition);
       },
       onPanResponderRelease: () => {
@@ -248,26 +256,37 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
               <View style={styles.bottomControls}>
                 <View style={styles.progressContainer}>
                   <Text style={styles.timeText}>{formatTime(position)}</Text>
-                  <Pressable 
+                  <View 
+                    ref={progressBarRef}
                     style={styles.progressBar}
-                    onPress={handleProgressBarPress}
+                    onLayout={(event) => {
+                      const layout = event.nativeEvent.layout;
+                      progressBarRef.current?.measureInWindow((x, y, width, height) => {
+                        setProgressBarLayout({ x, width });
+                      });
+                    }}
                   >
-                    <View style={styles.progressTrack}>
-                      <View 
-                        style={[
-                          styles.progressFill,
-                          { width: `${duration > 0 ? (position / duration) * 100 : 0}%` }
-                        ]} 
-                      />
-                      <View 
-                        {...panResponder.panHandlers}
-                        style={[
-                          styles.progressThumb,
-                          { left: `${duration > 0 ? (position / duration) * 100 : 0}%` }
-                        ]}
-                      />
-                    </View>
-                  </Pressable>
+                    <Pressable 
+                      style={styles.progressBarTouchable}
+                      onPress={handleProgressBarPress}
+                      {...progressPanResponder.panHandlers}
+                    >
+                      <View style={styles.progressTrack}>
+                        <View 
+                          style={[
+                            styles.progressFill,
+                            { width: `${duration > 0 ? (position / duration) * 100 : 0}%` }
+                          ]} 
+                        />
+                        <View 
+                          style={[
+                            styles.progressThumb,
+                            { left: `${duration > 0 ? (position / duration) * 100 : 0}%` }
+                          ]}
+                        />
+                      </View>
+                    </Pressable>
+                  </View>
                   <Text style={styles.timeText}>{formatTime(duration)}</Text>
                 </View>
                 
@@ -334,7 +353,7 @@ const styles = StyleSheet.create({
   },
   video: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    height: '100%',
   },
   controlsOverlay: {
     position: 'absolute',
@@ -393,18 +412,21 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     flex: 1,
-    height: 40,
+    justifyContent: 'center',
+  },
+  progressBarTouchable: {
+    height: 44,
     justifyContent: 'center',
   },
   progressTrack: {
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 2,
     position: 'relative',
   },
   progressFill: {
     height: 4,
-    backgroundColor: Colors.light.text,
+    backgroundColor: '#ffffff',
     borderRadius: 2,
   },
   progressThumb: {
@@ -413,11 +435,11 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: Colors.light.text,
+    backgroundColor: '#ffffff',
     marginLeft: -8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.5,
     shadowRadius: 4,
     elevation: 4,
   },
