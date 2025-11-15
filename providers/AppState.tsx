@@ -1730,79 +1730,62 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     mimeType: string; 
     base64Data: string 
   }): Promise<MediaLibraryItem> => {
-    console.log('💾 Uploading media to Supabase...');
+    console.log('💾 Uploading media via backend...');
     
-    const timestamp = Date.now();
-    const sanitizedName = input.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = input.folderPath 
-      ? `${input.folderPath}/${timestamp}_${sanitizedName}`
-      : `${timestamp}_${sanitizedName}`;
-    
-    const base64Data = input.base64Data.includes(',') 
-      ? input.base64Data.split(',')[1] 
-      : input.base64Data;
-    
-    const byteCharacters = atob(base64Data);
-    const byteArray = new Uint8Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteArray[i] = byteCharacters.charCodeAt(i);
-    }
-    const binaryData = new Blob([byteArray], { type: input.mimeType });
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('media-library')
-      .upload(storagePath, binaryData, {
-        contentType: input.mimeType,
-        upsert: false,
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_RORK_API_BASE_URL}/api/trpc/media.uploadMedia`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          0: {
+            json: {
+              name: input.name,
+              folderPath: input.folderPath,
+              fileType: input.fileType,
+              fileSize: input.fileSize,
+              mimeType: input.mimeType,
+              base64Data: input.base64Data,
+            }
+          }
+        }),
       });
-    
-    if (uploadError) {
-      throw new Error(`Storage upload mislukt: ${uploadError.message}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Upload error:', errorText);
+        throw new Error(`Upload mislukt: ${errorText}`);
+      }
+      
+      const responseData = await response.json();
+      const result = responseData.result?.data || responseData[0]?.result?.data;
+      
+      if (!result) {
+        throw new Error('Geen data ontvangen van server');
+      }
+      
+      const mediaItem: MediaLibraryItem = {
+        id: result.id,
+        name: result.name,
+        path: result.path,
+        folder_path: result.folder_path,
+        file_type: result.file_type,
+        file_size: result.file_size,
+        mime_type: result.mime_type,
+        storage_path: result.storage_path,
+        uploaded_by: result.uploaded_by,
+        created_at: result.created_at,
+      };
+      
+      setMediaLibrary(prev => [mediaItem, ...prev]);
+      console.log('✅ Media uploaded');
+      return mediaItem;
+    } catch (error: any) {
+      console.error('❌ Upload error:', error);
+      throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-    
-    const insertData: Database['public']['Tables']['media_library']['Insert'] = {
-      name: input.name,
-      path: storagePath,
-      folder_path: input.folderPath || '',
-      file_type: input.fileType,
-      file_size: input.fileSize,
-      mime_type: input.mimeType,
-      storage_path: storagePath,
-      uploaded_by: currentUser?.id ?? null,
-    };
-    
-    const { data: mediaData, error: dbError } = await supabase
-      .from('media_library')
-      .insert(insertData)
-      .select()
-      .single();
-    
-    if (dbError) {
-      await supabase.storage.from('media-library').remove([storagePath]);
-      throw new Error(`Database fout: ${dbError.message}`);
-    }
-    
-    if (!mediaData) {
-      throw new Error('Geen data ontvangen van database');
-    }
-    
-    const result: MediaLibraryItem = {
-      id: mediaData.id,
-      name: mediaData.name,
-      path: mediaData.path,
-      folder_path: mediaData.folder_path,
-      file_type: mediaData.file_type,
-      file_size: mediaData.file_size,
-      mime_type: mediaData.mime_type,
-      storage_path: mediaData.storage_path,
-      uploaded_by: mediaData.uploaded_by,
-      created_at: mediaData.created_at,
-    };
-    
-    setMediaLibrary(prev => [result, ...prev]);
-    console.log('✅ Media uploaded');
-    return result;
-  }, [currentUser]);
+  }, []);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
     console.log('💾 [DELETE_MEDIA] Starting delete for IDs:', ids);
@@ -2021,62 +2004,35 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [mediaLibrary]);
 
   const createFolder = useCallback(async (folderPath: string) => {
-    console.log('💾 Creating folder placeholder...');
+    console.log('💾 Creating folder via backend...');
     
-    const placeholderPath = `${folderPath}/.emptyFolderPlaceholder`;
-    const placeholderData = new Blob([''], { type: 'text/plain' });
-    
-    const { error: uploadError } = await supabase.storage
-      .from('media-library')
-      .upload(placeholderPath, placeholderData, {
-        contentType: 'text/plain',
-        upsert: true,
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_RORK_API_BASE_URL}/api/trpc/media.createFolder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          0: {
+            json: {
+              folderPath,
+              createdBy: currentUser?.id,
+            }
+          }
+        }),
       });
-    
-    if (uploadError && !uploadError.message.includes('already exists')) {
-      console.error('❌ Folder creation error:', uploadError);
-      throw new Error(`Folder aanmaken mislukt: ${uploadError.message}`);
-    }
-    
-    const insertData: Database['public']['Tables']['media_library']['Insert'] = {
-      name: '.emptyFolderPlaceholder',
-      path: placeholderPath,
-      folder_path: folderPath,
-      file_type: 'other',
-      file_size: 0,
-      mime_type: 'text/plain',
-      storage_path: placeholderPath,
-      uploaded_by: currentUser?.id ?? null,
-    };
-    
-    const { data: mediaData, error: dbError } = await supabase
-      .from('media_library')
-      .insert(insertData)
-      .select()
-      .single();
-    
-    if (dbError && !dbError.message.includes('duplicate')) {
-      console.error('❌ Database insert error:', dbError);
-      throw new Error(`Database fout: ${dbError.message}`);
-    }
-    
-    if (mediaData) {
-      const placeholderItem: MediaLibraryItem = {
-        id: mediaData.id,
-        name: mediaData.name,
-        path: mediaData.path,
-        folder_path: mediaData.folder_path,
-        file_type: mediaData.file_type,
-        file_size: mediaData.file_size,
-        mime_type: mediaData.mime_type,
-        storage_path: mediaData.storage_path,
-        uploaded_by: mediaData.uploaded_by,
-        created_at: mediaData.created_at,
-      };
       
-      setMediaLibrary(prev => [...prev, placeholderItem]);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Folder creation error:', errorText);
+        throw new Error(`Folder aanmaken mislukt: ${errorText}`);
+      }
+      
+      console.log('✅ Folder created');
+    } catch (error: any) {
+      console.error('❌ Folder creation error:', error);
+      throw new Error(`Folder aanmaken mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-    console.log('✅ Folder created');
   }, [currentUser]);
 
   const addGroup = useCallback(async (name: string, memberIds: string[]) => {
