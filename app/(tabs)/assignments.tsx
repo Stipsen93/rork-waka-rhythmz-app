@@ -217,52 +217,33 @@ export default function AssignmentsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.widgetFullHuiswerk}
+            style={[styles.widget, styles.widgetHalf]}
             onPress={() => router.push("/huiswerk")}
             testID="huiswerk-widget"
           >
             <View style={styles.widgetHeader}>
               <View style={styles.widgetIconContainer}>
-                <Clock color={Colors.light.primary} size={22} strokeWidth={2.5} />
+                <Clock color={Colors.light.primary} size={20} strokeWidth={2.5} />
               </View>
               <Text style={styles.widgetTitle}>Huiswerk</Text>
             </View>
             <View style={styles.widgetContent}>
               {nextAssignment ? (
-                <View style={styles.huiswerkCard}>
-                  <Text style={styles.huiswerkTitle} numberOfLines={3}>{nextAssignment.title}</Text>
-                  {nextAssignment.description && (
-                    <Text style={styles.huiswerkDescription} numberOfLines={2}>
-                      {nextAssignment.description}
-                    </Text>
+                <>
+                  <Text style={styles.assignmentTitle} numberOfLines={2}>{nextAssignment.title}</Text>
+                  {nextAssignment.dueDate && (
+                    <View style={styles.deadlineContainer}>
+                      <Calendar color={Colors.light.muted} size={16} strokeWidth={2} />
+                      <Text style={styles.deadlineText}>
+                        {new Date(nextAssignment.dueDate).toLocaleDateString('nl-NL', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </Text>
+                    </View>
                   )}
-                  <View style={styles.huiswerkFooter}>
-                    {nextAssignment.dueDate && (
-                      <View style={styles.huiswerkDeadline}>
-                        <Calendar color={Colors.light.text} size={18} strokeWidth={2} />
-                        <View style={styles.deadlineTextContainer}>
-                          <Text style={styles.deadlineLabel}>Deadline</Text>
-                          <Text style={styles.deadlineDate}>
-                            {new Date(nextAssignment.dueDate).toLocaleDateString('nl-NL', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                    {nextAssignment.assignedUserIds.length > 0 && (
-                      <View style={styles.assignedBadge}>
-                        <Text style={styles.assignedBadgeText}>
-                          {nextAssignment.assignedUserIds.length} {nextAssignment.assignedUserIds.length === 1 ? 'lid' : 'leden'}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
+                </>
               ) : (
                 <Text style={styles.emptyText}>Geen huiswerk</Text>
               )}
@@ -439,18 +420,6 @@ const styles = StyleSheet.create({
   widgetHalf: {
     flex: 1,
   },
-  widgetFullHuiswerk: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    minHeight: 200,
-  },
   widgetHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -516,69 +485,6 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 13,
     fontWeight: "600" as const,
-  },
-  huiswerkCard: {
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
-  },
-  huiswerkTitle: {
-    color: Colors.light.text,
-    fontSize: 18,
-    fontWeight: "800" as const,
-    lineHeight: 24,
-  },
-  huiswerkDescription: {
-    color: Colors.light.muted,
-    fontSize: 14,
-    fontWeight: "500" as const,
-    lineHeight: 20,
-  },
-  huiswerkFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingTop: 8,
-  },
-  huiswerkDeadline: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: Colors.light.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flex: 1,
-  },
-  deadlineTextContainer: {
-    flex: 1,
-  },
-  deadlineLabel: {
-    color: Colors.light.text,
-    fontSize: 11,
-    fontWeight: "700" as const,
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.5,
-    opacity: 0.8,
-    marginBottom: 2,
-  },
-  deadlineDate: {
-    color: Colors.light.text,
-    fontSize: 14,
-    fontWeight: "700" as const,
-  },
-  assignedBadge: {
-    backgroundColor: Colors.light.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  assignedBadgeText: {
-    color: Colors.light.text,
-    fontSize: 12,
-    fontWeight: "700" as const,
   },
   performanceRow: {
     flexDirection: "row",
