@@ -214,9 +214,13 @@ export default function LibraryScreen() {
 
       // Upload a .keep file to create the folder
       const keepPath = `${newFolderPath}/.keep`;
+      
+      // Create empty content - use ArrayBuffer for cross-platform compatibility
+      const emptyContent = new Uint8Array(0);
+      
       const { error } = await supabase.storage
         .from('media-library')
-        .upload(keepPath, new Blob([]), {
+        .upload(keepPath, emptyContent, {
           contentType: 'application/octet-stream',
           upsert: false,
         });
