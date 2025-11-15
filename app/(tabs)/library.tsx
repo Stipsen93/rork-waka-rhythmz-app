@@ -403,17 +403,18 @@ export default function LibraryScreen() {
 
       console.log('[UPLOAD NATIVE] Storage path:', storagePath);
 
+      // Read file as ArrayBuffer for React Native compatibility
       const response = await fetch(uri);
       if (!response.ok) {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
       }
       
-      const blob = await response.blob();
-      console.log('[UPLOAD NATIVE] Blob size:', blob.size);
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('[UPLOAD NATIVE] File size:', arrayBuffer.byteLength);
 
       const { data, error } = await supabase.storage
         .from('media-library')
-        .upload(storagePath, blob, {
+        .upload(storagePath, arrayBuffer, {
           contentType: mimeType || 'application/octet-stream',
           upsert: false,
         });
