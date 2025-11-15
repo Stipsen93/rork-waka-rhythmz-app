@@ -254,29 +254,16 @@ export default function LibraryScreen() {
     try {
       console.log('[UPLOAD] Opening media picker...');
       
-      if (Platform.OS === 'web') {
-        Alert.alert(
-          'Media Type',
-          'Selecteer het type media dat je wilt uploaden',
-          [
-            { text: 'Video', onPress: () => handleMediaSelection('video') },
-            { text: 'Foto', onPress: () => handleMediaSelection('photo') },
-            { text: 'Document', onPress: () => handleMediaSelection('document') },
-            { text: 'Annuleren', style: 'cancel' }
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Media Type',
-          'Selecteer het type media dat je wilt uploaden',
-          [
-            { text: 'Video', onPress: () => handleMediaSelection('video') },
-            { text: 'Foto', onPress: () => handleMediaSelection('photo') },
-            { text: 'Document', onPress: () => handleMediaSelection('document') },
-            { text: 'Annuleren', style: 'cancel' }
-          ]
-        );
-      }
+      Alert.alert(
+        'Media Type',
+        'Selecteer het type media dat je wilt uploaden',
+        [
+          { text: 'Video', onPress: () => handleMediaSelection('video') },
+          { text: 'Foto', onPress: () => handleMediaSelection('photo') },
+          { text: 'Document', onPress: () => handleMediaSelection('document') },
+          { text: 'Annuleren', style: 'cancel' }
+        ]
+      );
     } catch (error: any) {
       console.error('[UPLOAD] Error:', error);
       const message = error?.message || 'Onbekende fout';
