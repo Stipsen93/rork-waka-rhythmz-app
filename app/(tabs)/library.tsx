@@ -304,20 +304,41 @@ export default function LibraryScreen() {
         console.log('[UPLOAD] Media selected:', asset.uri, asset.fileSize);
 
         if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024 && type === 'video') {
-          console.log('[UPLOAD] Large video detected (>50MB)');
+          console.log('[UPLOAD] Large video detected, trying to compress...');
           
-          if (Platform.OS === 'web') {
-            setErrorMessage('Video is te groot. Probeer een kleiner bestand (<50MB) te uploaden.');
-            setTimeout(() => setErrorMessage(null), 5000);
-            return;
-          }
+          if (Platform.OS !== 'web') {
+            const confirmCompress = await new Promise<boolean>((resolve) => {
+              Alert.alert(
+                'Groot bestand',
+                'Deze video is groter dan 50MB. We kunnen proberen het te comprimeren, maar dit kan wat tijd kosten.',
+                [
+                  { text: 'Annuleren', style: 'cancel', onPress: () => resolve(false) },
+                  { text: 'Comprimeren', onPress: () => resolve(true) }
+                ]
+              );
+            });
 
-          Alert.alert(
-            'Video te groot',
-            'Deze video is groter dan 50MB. Helaas kunnen we op dit moment geen automatische compressie uitvoeren. Gebruik een externe app om de video te comprimeren voordat je het uploadt.',
-            [{ text: 'OK' }]
-          );
-          return;
+            if (!confirmCompress) {
+              return;
+            }
+
+            setErrorMessage('Video wordt gecomprimeerd... Dit kan even duren.');
+            
+            const compressedResult = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              quality: 0.5,
+              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+              videoMaxDuration: 600,
+              allowsEditing: false,
+            });
+
+            if (!compressedResult.canceled) {
+              const compressedAsset = compressedResult.assets[0];
+              console.log('[UPLOAD] Video compressed from', asset.fileSize, 'to', compressedAsset.fileSize);
+              await uploadFile(compressedAsset.uri, compressedAsset.fileName || 'video.mp4', compressedAsset.mimeType, compressedAsset.fileSize);
+              return;
+            }
+          }
         }
 
         await uploadFile(asset.uri, asset.fileName || (type === 'video' ? 'video.mp4' : 'image.jpg'), asset.mimeType, asset.fileSize);
@@ -359,44 +380,17 @@ export default function LibraryScreen() {
 
       console.log('[UPLOAD] Storage path:', storagePath);
       console.log('[UPLOAD] File size:', fileSize);
-      console.log('[UPLOAD] URI:', uri);
-      console.log('[UPLOAD] MimeType:', mimeType);
 
-      let fileToUpload: any;
-
-      if (Platform.OS === 'web') {
-        // Web: use blob
-        const response = await fetch(uri);
-        fileToUpload = await response.blob();
-        console.log('[UPLOAD] Web blob size:', fileToUpload.size);
-        
-        if (fileToUpload.size === 0) {
-          throw new Error('Bestand is leeg. Probeer een ander bestand.');
-        }
-      } else {
-        // Mobile: use the URI directly with FormData-style upload
-        // Create a file object that Supabase expects
-        const uriParts = uri.split('.');
-        const fileType = uriParts[uriParts.length - 1];
-        
-        fileToUpload = {
-          uri: uri,
-          name: sanitizedName,
-          type: mimeType || 'application/octet-stream',
-        };
-        
-        console.log('[UPLOAD] Mobile file object:', fileToUpload);
-      }
+      const response = await fetch(uri);
+      const blob = await response.blob();
 
       console.log('[UPLOAD] Uploading to Supabase Storage...');
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('media-library')
-        .upload(storagePath, fileToUpload, {
+        .upload(storagePath, blob, {
           contentType: mimeType || 'application/octet-stream',
           upsert: false,
         });
-      
-      console.log('[UPLOAD] Upload response:', uploadData, uploadError);
 
       if (uploadError) {
         console.error('[UPLOAD] Error:', uploadError);
