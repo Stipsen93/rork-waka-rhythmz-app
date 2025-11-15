@@ -64,9 +64,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       }
 
       console.log('📱 [PUSH] Getting Expo push token...');
-      const token = (await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PUBLIC_PROJECT_ID || 'yswc89nvctysbh5ay03im',
-      })).data;
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
       
       console.log('✅ [PUSH] Expo push token received:', token);
 

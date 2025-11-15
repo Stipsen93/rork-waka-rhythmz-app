@@ -47,7 +47,7 @@ export const createFolderRoute = publicProcedure
       }
       
       const placeholderPath = `${input.folderPath}/.keep`;
-      const placeholderContent = new Uint8Array(0);
+      const placeholderContent = Buffer.from('');
       
       console.log('[FOLDER] Uploading placeholder:', placeholderPath);
       
