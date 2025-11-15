@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Modal, Pressable, Animated } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder } from 'react-native';
+import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
 import { Pause, Play, Maximize, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
@@ -18,6 +18,9 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
   const [showControls, setShowControls] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const controlsTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -43,12 +46,19 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
 
   useEffect(() => {
     if (visible) {
+      Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
       setShowControls(true);
       setIsPlaying(true);
       startControlsTimer();
     } else {
       setIsPlaying(false);
       setIsFullscreen(false);
+      setPosition(0);
+      setDuration(0);
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     }
 
@@ -117,8 +127,64 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsPlaying(status.isPlaying);
+      if (!isSeeking) {
+        setPosition(status.positionMillis);
+        setDuration(status.durationMillis || 0);
+      }
     }
   };
+
+  const formatTime = (millis: number) => {
+    const totalSeconds = Math.floor(millis / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleSeekStart = () => {
+    setIsSeeking(true);
+    if (controlsTimeout.current) {
+      clearTimeout(controlsTimeout.current);
+    }
+  };
+
+  const handleSeekEnd = async () => {
+    setIsSeeking(false);
+    await videoRef.current?.setPositionAsync(position);
+    showControlsTemporarily();
+  };
+
+  const handleSeek = (newPosition: number) => {
+    setPosition(newPosition);
+  };
+
+  const handleProgressBarPress = (evt: any) => {
+    const { locationX, nativeEvent } = evt;
+    const barWidth = nativeEvent.target?.offsetWidth || 300;
+    const newPosition = (locationX / barWidth) * duration;
+    setPosition(newPosition);
+    videoRef.current?.setPositionAsync(newPosition);
+    showControlsTemporarily();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        handleSeekStart();
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const barWidth = 300;
+        const relativeX = Math.max(0, Math.min(barWidth, gestureState.moveX - 40));
+        const newPosition = (relativeX / barWidth) * duration;
+        handleSeek(newPosition);
+      },
+      onPanResponderRelease: () => {
+        handleSeekEnd();
+      },
+    })
+  ).current;
 
   return (
     <Modal
@@ -180,43 +246,70 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
               </Pressable>
 
               <View style={styles.bottomControls}>
-                <Pressable 
-                  style={[
-                    styles.controlButton,
-                    playbackRate === 0.5 && styles.controlButtonActive
-                  ]}
-                  onPress={handleSlowMotion}
-                >
-                  <LinearGradient
-                    colors={playbackRate === 0.5 
-                      ? [Colors.light.primary, '#B91C1C']
-                      : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']
-                    }
-                    style={styles.controlButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                <View style={styles.progressContainer}>
+                  <Text style={styles.timeText}>{formatTime(position)}</Text>
+                  <Pressable 
+                    style={styles.progressBar}
+                    onPress={handleProgressBarPress}
                   >
-                    <View style={styles.slowMotionIcon}>
-                      <View style={[styles.slowMotionBar, { height: 8 }]} />
-                      <View style={[styles.slowMotionBar, { height: 12 }]} />
-                      <View style={[styles.slowMotionBar, { height: 16 }]} />
+                    <View style={styles.progressTrack}>
+                      <View 
+                        style={[
+                          styles.progressFill,
+                          { width: `${duration > 0 ? (position / duration) * 100 : 0}%` }
+                        ]} 
+                      />
+                      <View 
+                        {...panResponder.panHandlers}
+                        style={[
+                          styles.progressThumb,
+                          { left: `${duration > 0 ? (position / duration) * 100 : 0}%` }
+                        ]}
+                      />
                     </View>
-                  </LinearGradient>
-                </Pressable>
-
-                <Pressable 
-                  style={styles.controlButton}
-                  onPress={handleFullscreen}
-                >
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                    style={styles.controlButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                  </Pressable>
+                  <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                </View>
+                
+                <View style={styles.buttonRow}>
+                  <Pressable 
+                    style={[
+                      styles.controlButton,
+                      playbackRate === 0.5 && styles.controlButtonActive
+                    ]}
+                    onPress={handleSlowMotion}
                   >
-                    <Maximize color={Colors.light.text} size={24} strokeWidth={2.5} />
-                  </LinearGradient>
-                </Pressable>
+                    <LinearGradient
+                      colors={playbackRate === 0.5 
+                        ? [Colors.light.primary, '#B91C1C']
+                        : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']
+                      }
+                      style={styles.controlButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={styles.slowMotionIcon}>
+                        <View style={[styles.slowMotionBar, { height: 8 }]} />
+                        <View style={[styles.slowMotionBar, { height: 12 }]} />
+                        <View style={[styles.slowMotionBar, { height: 16 }]} />
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+
+                  <Pressable 
+                    style={styles.controlButton}
+                    onPress={handleFullscreen}
+                  >
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                      style={styles.controlButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Maximize color={Colors.light.text} size={24} strokeWidth={2.5} />
+                    </LinearGradient>
+                  </Pressable>
+                </View>
               </View>
             </Animated.View>
           )}
@@ -288,8 +381,56 @@ const styles = StyleSheet.create({
   bottomControls: {
     position: 'absolute',
     bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'column',
+    gap: 20,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressBar: {
+    flex: 1,
+    height: 40,
+    justifyContent: 'center',
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2,
+    position: 'relative',
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: Colors.light.text,
+    borderRadius: 2,
+  },
+  progressThumb: {
+    position: 'absolute',
+    top: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.light.text,
+    marginLeft: -8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  timeText: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: '600' as const,
+    minWidth: 40,
+  },
+  buttonRow: {
     flexDirection: 'row',
     gap: 16,
+    justifyContent: 'center',
   },
   controlButton: {
     width: 56,
