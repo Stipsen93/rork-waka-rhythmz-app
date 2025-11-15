@@ -1206,6 +1206,21 @@ export default function HuiswerkScreen() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [detailAssignment, setDetailAssignment] = useState<Assignment | undefined>(undefined);
 
+  const filteredAssignments = useMemo(() => {
+    if (!currentUser) return [];
+    
+    if (currentUser.role === 'admin') {
+      return assignments;
+    }
+    
+    return assignments.filter(assignment => {
+      if (assignment.assignedUserIds.length === 0) {
+        return true;
+      }
+      return assignment.assignedUserIds.includes(currentUser.id);
+    });
+  }, [assignments, currentUser]);
+
   return (
     <>
       <Stack.Screen 
@@ -1228,13 +1243,13 @@ export default function HuiswerkScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {assignments.length === 0 ? (
+          {filteredAssignments.length === 0 ? (
             <View style={styles.emptyState}>
               <FileText color={Colors.light.muted} size={48} strokeWidth={1.5} />
               <Text style={styles.emptyText}>Nog geen huiswerk opdrachten</Text>
             </View>
           ) : (
-            assignments.map(assignment => {
+            filteredAssignments.map(assignment => {
               const isSelected = selectedIds.has(assignment.id);
               return (
                 <AssignmentCard 
