@@ -328,12 +328,21 @@ export default function AdminScreen() {
         { text: t.common.cancel, style: "cancel" },
         {
           text: t.admin.reset,
-          style: "destructive",
           onPress: async () => {
             const newPassword = await resetPassword(userId);
             Alert.alert(
               t.admin.passwordReset,
-              `${t.admin.newPasswordFor} ${userName}:\n${newPassword}\n\n${t.admin.savePassword}`
+              `${t.admin.newPasswordFor} ${userName}:\n\n${newPassword}\n\n${t.admin.savePassword}`,
+              [
+                {
+                  text: t.admin.copyPassword || 'Kopieer wachtwoord',
+                  onPress: () => handleCopyPassword(newPassword, userName)
+                },
+                {
+                  text: 'OK',
+                  style: 'default'
+                }
+              ]
             );
           },
         },
