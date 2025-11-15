@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder, Dimensions, useWindowDimensions } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
-import { Pause, Play, Maximize, X } from 'lucide-react-native';
+import { Pause, Play, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -231,7 +231,7 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
                 onPress={handleClose}
               >
                 <View style={styles.closeButtonInner}>
-                  <X color={Colors.light.text} size={24} strokeWidth={2.5} />
+                  <X color="#ffffff" size={24} strokeWidth={2.5} />
                 </View>
               </Pressable>
 
@@ -312,20 +312,6 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
                         <View style={[styles.slowMotionBar, { height: 12 }]} />
                         <View style={[styles.slowMotionBar, { height: 16 }]} />
                       </View>
-                    </LinearGradient>
-                  </Pressable>
-
-                  <Pressable 
-                    style={styles.controlButton}
-                    onPress={handleFullscreen}
-                  >
-                    <LinearGradient
-                      colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                      style={styles.controlButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
-                      <Maximize color={Colors.light.text} size={24} strokeWidth={2.5} />
                     </LinearGradient>
                   </Pressable>
                 </View>
@@ -484,7 +470,7 @@ const styles = StyleSheet.create({
   },
   slowMotionBar: {
     width: 3,
-    backgroundColor: Colors.light.text,
+    backgroundColor: '#ffffff',
     borderRadius: 1.5,
   },
 });
