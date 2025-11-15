@@ -133,22 +133,20 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
             </TouchableOpacity>
           )}
 
-          {currentUser?.role === "admin" && (
-            <TouchableOpacity
-              style={localStyles.menuItem}
-              onPress={() => {
-                onClose();
-                router.push("/meldingen");
-              }}
-              testID="menu-meldingen"
-            >
-              <View style={localStyles.menuIconContainer}>
-                <Bell color={Colors.light.primary} size={22} strokeWidth={2.5} />
-              </View>
-              <Text style={localStyles.menuItemText}>{t.tabs.meldingen}</Text>
-              <ChevronRight color={Colors.light.muted} size={20} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={localStyles.menuItem}
+            onPress={() => {
+              onClose();
+              router.push("/meldingen");
+            }}
+            testID="menu-meldingen"
+          >
+            <View style={localStyles.menuIconContainer}>
+              <Bell color={Colors.light.primary} size={22} strokeWidth={2.5} />
+            </View>
+            <Text style={localStyles.menuItemText}>{t.tabs.meldingen}</Text>
+            <ChevronRight color={Colors.light.muted} size={20} />
+          </TouchableOpacity>
 
           {currentUser?.role === "admin" && (
             <TouchableOpacity

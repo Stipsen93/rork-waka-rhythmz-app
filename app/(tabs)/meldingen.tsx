@@ -19,25 +19,17 @@ export default function MeldingenScreen() {
   const t = translations[language];
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
-  const [newsPostEnabled, setNewsPostEnabled] = useState<boolean>(true);
-  const [newsEventEnabled, setNewsEventEnabled] = useState<boolean>(true);
-  const [newsEventHours, setNewsEventHours] = useState<number>(24);
+  const currentUser = useAppState().currentUser;
   
-  const [assignmentsAddedEnabled, setAssignmentsAddedEnabled] = useState<boolean>(true);
-  const [assignmentsDeadlineEnabled, setAssignmentsDeadlineEnabled] = useState<boolean>(true);
-  const [assignmentsDeadlineHours, setAssignmentsDeadlineHours] = useState<number>(24);
-  
-  const [trainingChangedEnabled, setTrainingChangedEnabled] = useState<boolean>(true);
-  const [trainingReminderEnabled, setTrainingReminderEnabled] = useState<boolean>(true);
-  const [trainingReminderHours, setTrainingReminderHours] = useState<number>(2);
-  
-  const [performancesAddedEnabled, setPerformancesAddedEnabled] = useState<boolean>(true);
-  const [performancesReminderEnabled, setPerformancesReminderEnabled] = useState<boolean>(true);
-  const [performancesReminderHours, setPerformancesReminderHours] = useState<number>(48);
+  const isAdmin = currentUser?.role === 'admin';
+  const isMember = currentUser?.role === 'member';
 
-  const [birthdayEnabled, setBirthdayEnabled] = useState<boolean>(true);
-  const [birthdayReminderEnabled, setBirthdayReminderEnabled] = useState<boolean>(true);
-  const [birthdayReminderHours, setBirthdayReminderHours] = useState<number>(24);
+  const [localSettings, setLocalSettings] = useState({
+    newsEnabled: currentUser?.notificationPreferences.newsEnabled ?? true,
+    assignmentsEnabled: currentUser?.notificationPreferences.assignmentsEnabled ?? true,
+    trainingsEnabled: currentUser?.notificationPreferences.trainingsEnabled ?? true,
+    performancesEnabled: currentUser?.notificationPreferences.performancesEnabled ?? true,
+  });
 
   const [showDropdown, setShowDropdown] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -88,8 +80,30 @@ export default function MeldingenScreen() {
     return option ? option.label : `${hours} ${t.notifications.timeOptions.hour1.split(' ')[1]}`;
   };
 
-  const saveSettings = () => {
-    Alert.alert(t.notifications.saved, t.notifications.settingsUpdated);
+  const saveSettings = async () => {
+    if (!currentUser) return;
+    
+    if (isMember) {
+      await updateUserNotificationPreferences(currentUser.id, localSettings);
+      Alert.alert(t.notifications.saved, t.notifications.settingsUpdated);
+    } else if (isAdmin) {
+      Alert.alert(t.notifications.saved, 'Admin instellingen worden centraal beheerd');
+    }
+  };
+
+  const toggleLocalSetting = async (category: 'news' | 'assignments' | 'trainings' | 'performances') => {
+    if (!currentUser || !isMember) return;
+    
+    const newSettings = { ...localSettings };
+    switch(category) {
+      case 'news': newSettings.newsEnabled = !newSettings.newsEnabled; break;
+      case 'assignments': newSettings.assignmentsEnabled = !newSettings.assignmentsEnabled; break;
+      case 'trainings': newSettings.trainingsEnabled = !newSettings.trainingsEnabled; break;
+      case 'performances': newSettings.performancesEnabled = !newSettings.performancesEnabled; break;
+    }
+    
+    setLocalSettings(newSettings);
+    await updateUserNotificationPreferences(currentUser.id, newSettings);
   };
 
   return (
@@ -150,7 +164,7 @@ export default function MeldingenScreen() {
                 </View>
               </TouchableOpacity>
               
-              {expandedCategory === 'news' && (
+              {isAdmin && expandedCategory === 'news' && (
                 <View style={styles.membersList}>
                   {members.map(member => {
                     const isEnabled = member.notificationPreferences.newsEnabled;
@@ -169,37 +183,22 @@ export default function MeldingenScreen() {
                 </View>
               )}
 
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnNewPost}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, newsPostEnabled && styles.toggleActive]}
-                    onPress={() => setNewsPostEnabled(!newsPostEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, newsPostEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
+              {isMember && (
+                <View style={styles.toggleSection}>
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleLabel}>{t.notifications.receiveNewsNotifications}</Text>
+                    <TouchableOpacity
+                      style={[styles.toggle, localSettings.newsEnabled && styles.toggleActive]}
+                      onPress={() => toggleLocalSetting('news')}
+                    >
+                      <View style={[styles.toggleThumb, localSettings.newsEnabled && styles.toggleThumbActive]} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.settingDescription}>
+                    {localSettings.newsEnabled ? 'Je ontvangt nieuws meldingen op dit apparaat' : 'Je ontvangt geen nieuws meldingen op dit apparaat'}
+                  </Text>
                 </View>
-              </View>
-
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.eventReminder}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, newsEventEnabled && styles.toggleActive]}
-                    onPress={() => setNewsEventEnabled(!newsEventEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, newsEventEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-                {newsEventEnabled && (
-                  <TouchableOpacity
-                    style={styles.timeSelector}
-                    onPress={() => setShowDropdown('news-event')}
-                  >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(newsEventHours)} {t.notifications.inAdvance}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              )}
             </View>
           </View>
 
@@ -224,7 +223,7 @@ export default function MeldingenScreen() {
                 </View>
               </TouchableOpacity>
               
-              {expandedCategory === 'assignments' && (
+              {isAdmin && expandedCategory === 'assignments' && (
                 <View style={styles.membersList}>
                   {members.map(member => {
                     const isEnabled = member.notificationPreferences.assignmentsEnabled;
@@ -243,37 +242,22 @@ export default function MeldingenScreen() {
                 </View>
               )}
 
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnNewHomework}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, assignmentsAddedEnabled && styles.toggleActive]}
-                    onPress={() => setAssignmentsAddedEnabled(!assignmentsAddedEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, assignmentsAddedEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
+              {isMember && (
+                <View style={styles.toggleSection}>
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleLabel}>{t.notifications.receiveHomeworkNotifications}</Text>
+                    <TouchableOpacity
+                      style={[styles.toggle, localSettings.assignmentsEnabled && styles.toggleActive]}
+                      onPress={() => toggleLocalSetting('assignments')}
+                    >
+                      <View style={[styles.toggleThumb, localSettings.assignmentsEnabled && styles.toggleThumbActive]} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.settingDescription}>
+                    {localSettings.assignmentsEnabled ? 'Je ontvangt huiswerk meldingen op dit apparaat' : 'Je ontvangt geen huiswerk meldingen op dit apparaat'}
+                  </Text>
                 </View>
-              </View>
-
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.deadlineReminder}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, assignmentsDeadlineEnabled && styles.toggleActive]}
-                    onPress={() => setAssignmentsDeadlineEnabled(!assignmentsDeadlineEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, assignmentsDeadlineEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-                {assignmentsDeadlineEnabled && (
-                  <TouchableOpacity
-                    style={styles.timeSelector}
-                    onPress={() => setShowDropdown('assignments-deadline')}
-                  >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(assignmentsDeadlineHours)} {t.notifications.inAdvance}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              )}
             </View>
           </View>
 
@@ -298,7 +282,7 @@ export default function MeldingenScreen() {
                 </View>
               </TouchableOpacity>
               
-              {expandedCategory === 'trainings' && (
+              {isAdmin && expandedCategory === 'trainings' && (
                 <View style={styles.membersList}>
                   {members.map(member => {
                     const isEnabled = member.notificationPreferences.trainingsEnabled;
@@ -317,37 +301,22 @@ export default function MeldingenScreen() {
                 </View>
               )}
 
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnChange}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, trainingChangedEnabled && styles.toggleActive]}
-                    onPress={() => setTrainingChangedEnabled(!trainingChangedEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, trainingChangedEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
+              {isMember && (
+                <View style={styles.toggleSection}>
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleLabel}>{t.notifications.receiveTrainingNotifications}</Text>
+                    <TouchableOpacity
+                      style={[styles.toggle, localSettings.trainingsEnabled && styles.toggleActive]}
+                      onPress={() => toggleLocalSetting('trainings')}
+                    >
+                      <View style={[styles.toggleThumb, localSettings.trainingsEnabled && styles.toggleThumbActive]} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.settingDescription}>
+                    {localSettings.trainingsEnabled ? 'Je ontvangt training meldingen op dit apparaat' : 'Je ontvangt geen training meldingen op dit apparaat'}
+                  </Text>
                 </View>
-              </View>
-
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.trainingReminder}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, trainingReminderEnabled && styles.toggleActive]}
-                    onPress={() => setTrainingReminderEnabled(!trainingReminderEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, trainingReminderEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-                {trainingReminderEnabled && (
-                  <TouchableOpacity
-                    style={styles.timeSelector}
-                    onPress={() => setShowDropdown('training-reminder')}
-                  >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(trainingReminderHours)} {t.notifications.inAdvance}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              )}
             </View>
           </View>
 
@@ -372,7 +341,7 @@ export default function MeldingenScreen() {
                 </View>
               </TouchableOpacity>
               
-              {expandedCategory === 'performances' && (
+              {isAdmin && expandedCategory === 'performances' && (
                 <View style={styles.membersList}>
                   {members.map(member => {
                     const isEnabled = member.notificationPreferences.performancesEnabled;
@@ -391,94 +360,26 @@ export default function MeldingenScreen() {
                 </View>
               )}
 
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnNewPerformance}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, performancesAddedEnabled && styles.toggleActive]}
-                    onPress={() => setPerformancesAddedEnabled(!performancesAddedEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, performancesAddedEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.performanceReminder}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, performancesReminderEnabled && styles.toggleActive]}
-                    onPress={() => setPerformancesReminderEnabled(!performancesReminderEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, performancesReminderEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-                {performancesReminderEnabled && (
-                  <TouchableOpacity
-                    style={styles.timeSelector}
-                    onPress={() => setShowDropdown('performances-reminder')}
-                  >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(performancesReminderHours)} {t.notifications.inAdvance}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.notificationCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderLeft}>
-                <Calendar color={Colors.light.primary} size={22} strokeWidth={2.5} />
-                <Text style={styles.cardTitle}>{t.notifications.birthdays}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.cardContent}>
-              <TouchableOpacity 
-                style={styles.membersSection}
-                onPress={() => setExpandedCategory(expandedCategory === 'birthdays' ? null : 'birthdays')}
-              >
-                <View style={styles.membersSectionHeader}>
-                  <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                  <Text style={styles.membersSectionTitle}>
-                    {t.notifications.allMembersReceiving}
+              {isMember && (
+                <View style={styles.toggleSection}>
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleLabel}>{t.notifications.receivePerformanceNotifications}</Text>
+                    <TouchableOpacity
+                      style={[styles.toggle, localSettings.performancesEnabled && styles.toggleActive]}
+                      onPress={() => toggleLocalSetting('performances')}
+                    >
+                      <View style={[styles.toggleThumb, localSettings.performancesEnabled && styles.toggleThumbActive]} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.settingDescription}>
+                    {localSettings.performancesEnabled ? 'Je ontvangt optreden meldingen op dit apparaat' : 'Je ontvangt geen optreden meldingen op dit apparaat'}
                   </Text>
                 </View>
-              </TouchableOpacity>
-
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.notificationOnBirthday}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, birthdayEnabled && styles.toggleActive]}
-                    onPress={() => setBirthdayEnabled(!birthdayEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, birthdayEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.toggleSection}>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{t.notifications.birthdayReminder}</Text>
-                  <TouchableOpacity
-                    style={[styles.toggle, birthdayReminderEnabled && styles.toggleActive]}
-                    onPress={() => setBirthdayReminderEnabled(!birthdayReminderEnabled)}
-                  >
-                    <View style={[styles.toggleThumb, birthdayReminderEnabled && styles.toggleThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-                {birthdayReminderEnabled && (
-                  <TouchableOpacity
-                    style={styles.timeSelector}
-                    onPress={() => setShowDropdown('birthday-reminder')}
-                  >
-                    <Text style={styles.timeSelectorText}>{getTimeLabel(birthdayReminderHours)} {t.notifications.inAdvance}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              )}
             </View>
           </View>
+
+
 
           <TouchableOpacity style={styles.saveButton} onPress={saveSettings}>
             <LinearGradient
@@ -507,28 +408,7 @@ export default function MeldingenScreen() {
             <View style={styles.dropdownModal}>
               <Text style={styles.dropdownTitle}>{t.notifications.selectTime}</Text>
               <ScrollView style={styles.dropdownScroll}>
-                {TIME_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.hours}
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      if (showDropdown === 'news-event') {
-                        setNewsEventHours(option.hours);
-                      } else if (showDropdown === 'assignments-deadline') {
-                        setAssignmentsDeadlineHours(option.hours);
-                      } else if (showDropdown === 'training-reminder') {
-                        setTrainingReminderHours(option.hours);
-                      } else if (showDropdown === 'performances-reminder') {
-                        setPerformancesReminderHours(option.hours);
-                      } else if (showDropdown === 'birthday-reminder') {
-                        setBirthdayReminderHours(option.hours);
-                      }
-                      setShowDropdown(null);
-                    }}
-                  >
-                    <Text style={styles.dropdownOptionText}>{option.label}</Text>
-                  </TouchableOpacity>
-                ))}
+
               </ScrollView>
             </View>
           </TouchableOpacity>
@@ -791,5 +671,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600" as const,
     color: Colors.light.text,
+  },
+  settingDescription: {
+    fontSize: 13,
+    color: Colors.light.muted,
+    marginTop: 8,
+    fontWeight: "500" as const,
+    fontStyle: "italic" as const,
   },
 });

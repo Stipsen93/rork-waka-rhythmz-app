@@ -182,6 +182,10 @@ export const translations = {
       saved: 'Opgeslagen',
       settingsUpdated: 'Notificatie-instellingen zijn bijgewerkt',
       selectTime: 'Selecteer tijd',
+      receiveNewsNotifications: 'Ontvang nieuws meldingen',
+      receiveHomeworkNotifications: 'Ontvang huiswerk meldingen',
+      receiveTrainingNotifications: 'Ontvang training meldingen',
+      receivePerformanceNotifications: 'Ontvang optreden meldingen',
       timeOptions: {
         hour1: '1 uur',
         hour2: '2 uur',
@@ -501,6 +505,10 @@ export const translations = {
       saved: 'Saved',
       settingsUpdated: 'Notification settings have been updated',
       selectTime: 'Select time',
+      receiveNewsNotifications: 'Receive news notifications',
+      receiveHomeworkNotifications: 'Receive homework notifications',
+      receiveTrainingNotifications: 'Receive training notifications',
+      receivePerformanceNotifications: 'Receive performance notifications',
       timeOptions: {
         hour1: '1 hour',
         hour2: '2 hours',
