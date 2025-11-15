@@ -1455,7 +1455,26 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     
     setAssignments((prev) => [newAssignment, ...prev]);
     console.log('✅ Assignment added:', newAssignment.id, newAssignment.title);
-  }, []);
+
+    if (notificationSettings.assignmentsEnabled && currentUser) {
+      const { notifyNewAssignment } = await import('@/lib/notification-service');
+      const usersToNotify = users.filter(u => 
+        u.role === 'member' && 
+        u.notificationPreferences.assignmentsEnabled &&
+        newAssignment.assignedUserIds.includes(u.id) &&
+        u.id !== currentUser.id
+      );
+      const userIds = usersToNotify.map(u => u.id);
+      if (userIds.length > 0) {
+        await notifyNewAssignment(
+          newAssignment.title,
+          newAssignment.description,
+          newAssignment.id,
+          userIds
+        );
+      }
+    }
+  }, [notificationSettings, currentUser, users]);
 
   const updateAssignment = useCallback(async (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>>) => {
     console.log('💾 Updating assignment in Supabase...', id);
@@ -1547,7 +1566,25 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       new Date(a.date).getTime() - new Date(b.date).getTime()
     ));
     console.log('✅ Announcement added');
-  }, []);
+
+    if (notificationSettings.newsEnabled && currentUser) {
+      const { notifyNewAnnouncement } = await import('@/lib/notification-service');
+      const usersToNotify = users.filter(u => 
+        u.role === 'member' && 
+        u.notificationPreferences.newsEnabled &&
+        u.id !== currentUser.id
+      );
+      const userIds = usersToNotify.map(u => u.id);
+      if (userIds.length > 0) {
+        await notifyNewAnnouncement(
+          newAnnouncement.name,
+          newAnnouncement.description,
+          newAnnouncement.id,
+          userIds
+        );
+      }
+    }
+  }, [notificationSettings, currentUser, users]);
 
   const updateAnnouncement = useCallback(async (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => {
     console.log('💾 Updating announcement in Supabase...');
@@ -1594,7 +1631,28 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
     ));
     console.log('✅ Appointment added');
-  }, [currentUser]);
+
+    if (notificationSettings.performancesEnabled && currentUser) {
+      const { sendNotificationToUsers } = await import('@/lib/notification-service');
+      const usersToNotify = users.filter(u => 
+        newAppointment.memberIds.includes(u.id) &&
+        u.notificationPreferences.performancesEnabled &&
+        u.id !== currentUser.id
+      );
+      const userIds = usersToNotify.map(u => u.id);
+      if (userIds.length > 0) {
+        await sendNotificationToUsers({
+          userIds,
+          title: `📅 Nieuwe afspraak: ${newAppointment.name}`,
+          body: `${newAppointment.date} om ${newAppointment.time} in ${newAppointment.location}`,
+          data: {
+            type: 'performance',
+            id: newAppointment.id,
+          },
+        });
+      }
+    }
+  }, [currentUser, notificationSettings, users]);
 
   const updateAppointment = useCallback(async (id: string, appointment: Partial<Omit<Appointment, 'id' | 'createdAt'>>) => {
     console.log('💾 Updating appointment in Supabase...');

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
 import { useNotifications } from "@/providers/NotificationProvider";
-import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X, Users } from "lucide-react-native";
+import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X, Users, ChevronDown } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { translations } from "@/constants/translations";
@@ -33,6 +33,11 @@ export default function MeldingenScreen() {
 
   const [showDropdown, setShowDropdown] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [localNotificationSettings, setLocalNotificationSettings] = useState({
+    newsHoursAdvance: notificationSettings.newsHoursAdvance,
+    trainingHoursAdvance: notificationSettings.trainingHoursAdvance,
+    performancesHoursAdvance: notificationSettings.performancesHoursAdvance,
+  });
 
   const members = useMemo(() => users.filter(u => u.role === 'member'), [users]);
 
@@ -106,6 +111,25 @@ export default function MeldingenScreen() {
     await updateUserNotificationPreferences(currentUser.id, newSettings);
   };
 
+  const updateAdminNotificationHours = async (category: 'news' | 'trainings' | 'performances', hours: number) => {
+    if (!isAdmin) return;
+    
+    const newSettings = { ...notificationSettings };
+    switch(category) {
+      case 'news': newSettings.newsHoursAdvance = hours; break;
+      case 'trainings': newSettings.trainingHoursAdvance = hours; break;
+      case 'performances': newSettings.performancesHoursAdvance = hours; break;
+    }
+    
+    setLocalNotificationSettings(prev => ({
+      ...prev,
+      [`${category}HoursAdvance`]: hours,
+    }));
+    
+    await updateNotificationSettings(newSettings);
+    setShowDropdown(null);
+  };
+
   return (
     <>
       <Stack.Screen 
@@ -143,241 +167,408 @@ export default function MeldingenScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.notificationCard}>
+          <TouchableOpacity 
+            style={styles.notificationCard}
+            onPress={() => setExpandedCategory(expandedCategory === 'news' ? null : 'news')}
+            activeOpacity={0.7}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <Newspaper color={Colors.light.primary} size={22} strokeWidth={2.5} />
                 <Text style={styles.cardTitle}>{t.notifications.news}</Text>
               </View>
+              <ChevronDown 
+                color={Colors.light.muted} 
+                size={20} 
+                strokeWidth={2.5}
+                style={[styles.chevron, expandedCategory === 'news' && styles.chevronExpanded]}
+              />
             </View>
             
-            <View style={styles.cardContent}>
-              <TouchableOpacity 
-                style={styles.membersSection}
-                onPress={() => setExpandedCategory(expandedCategory === 'news' ? null : 'news')}
-              >
-                <View style={styles.membersSectionHeader}>
-                  <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                  <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('news').length} / {members.length} {t.notifications.membersReceiving}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              
-              {isAdmin && expandedCategory === 'news' && (
-                <View style={styles.membersList}>
-                  {members.map(member => {
-                    const isEnabled = member.notificationPreferences.newsEnabled;
-                    return (
-                      <TouchableOpacity
-                        key={member.id}
-                        style={[styles.memberChip, isEnabled && styles.memberChipActive]}
-                        onPress={() => toggleMemberNotification(member.id, 'news')}
-                      >
-                        <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
-                          {member.username}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+            {expandedCategory === 'news' && (
+              <View style={styles.cardContent}>
+                {isAdmin && (
+                  <>
+                    <View style={styles.settingRow}>
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuw bericht is toegevoegd</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.newsEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              newsEnabled: !notificationSettings.newsEnabled,
+                            });
+                          }}
+                        >
+                          <View style={[styles.toggleThumb, notificationSettings.newsEnabled && styles.toggleThumbActive]} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.settingRow}>
+                      <View style={styles.timeRow}>
+                        <Text style={styles.toggleLabel}>Hoeveel uur van tevoren melding</Text>
+                        <TouchableOpacity 
+                          style={styles.timeSelector}
+                          onPress={() => setShowDropdown('news')}
+                        >
+                          <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.newsHoursAdvance)}</Text>
+                          <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
-              {isMember && (
-                <View style={styles.toggleSection}>
-                  <View style={styles.toggleRow}>
-                    <Text style={styles.toggleLabel}>{t.notifications.receiveNewsNotifications}</Text>
-                    <TouchableOpacity
-                      style={[styles.toggle, localSettings.newsEnabled && styles.toggleActive]}
-                      onPress={() => toggleLocalSetting('news')}
+                    <TouchableOpacity 
+                      style={styles.membersSection}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                      }}
                     >
-                      <View style={[styles.toggleThumb, localSettings.newsEnabled && styles.toggleThumbActive]} />
+                      <View style={styles.membersSectionHeader}>
+                        <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                        <Text style={styles.membersSectionTitle}>
+                          {getMembersForCategory('news').length} / {members.length} {t.notifications.membersReceiving}
+                        </Text>
+                      </View>
+                      <View style={styles.membersList}>
+                        {members.map(member => {
+                          const isEnabled = member.notificationPreferences.newsEnabled;
+                          return (
+                            <TouchableOpacity
+                              key={member.id}
+                              style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                              onPress={() => toggleMemberNotification(member.id, 'news')}
+                            >
+                              <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                                {member.username}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </TouchableOpacity>
-                  </View>
-                  <Text style={styles.settingDescription}>
-                    {localSettings.newsEnabled ? 'Je ontvangt nieuws meldingen op dit apparaat' : 'Je ontvangt geen nieuws meldingen op dit apparaat'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+                  </>
+                )}
 
-          <View style={styles.notificationCard}>
+                {isMember && (
+                  <View style={styles.toggleSection}>
+                    <View style={styles.toggleRow}>
+                      <Text style={styles.toggleLabel}>{t.notifications.receiveNewsNotifications}</Text>
+                      <TouchableOpacity
+                        style={[styles.toggle, localSettings.newsEnabled && styles.toggleActive]}
+                        onPress={() => toggleLocalSetting('news')}
+                      >
+                        <View style={[styles.toggleThumb, localSettings.newsEnabled && styles.toggleThumbActive]} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.settingDescription}>
+                      {localSettings.newsEnabled ? 'Je ontvangt nieuws meldingen op dit apparaat' : 'Je ontvangt geen nieuws meldingen op dit apparaat'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.notificationCard}
+            onPress={() => setExpandedCategory(expandedCategory === 'assignments' ? null : 'assignments')}
+            activeOpacity={0.7}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <FileText color={Colors.light.primary} size={22} strokeWidth={2.5} />
                 <Text style={styles.cardTitle}>{t.notifications.homework}</Text>
               </View>
+              <ChevronDown 
+                color={Colors.light.muted} 
+                size={20} 
+                strokeWidth={2.5}
+                style={[styles.chevron, expandedCategory === 'assignments' && styles.chevronExpanded]}
+              />
             </View>
             
-            <View style={styles.cardContent}>
-              <TouchableOpacity 
-                style={styles.membersSection}
-                onPress={() => setExpandedCategory(expandedCategory === 'assignments' ? null : 'assignments')}
-              >
-                <View style={styles.membersSectionHeader}>
-                  <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                  <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('assignments').length} / {members.length} {t.notifications.membersReceiving}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              
-              {isAdmin && expandedCategory === 'assignments' && (
-                <View style={styles.membersList}>
-                  {members.map(member => {
-                    const isEnabled = member.notificationPreferences.assignmentsEnabled;
-                    return (
-                      <TouchableOpacity
-                        key={member.id}
-                        style={[styles.memberChip, isEnabled && styles.memberChipActive]}
-                        onPress={() => toggleMemberNotification(member.id, 'assignments')}
-                      >
-                        <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
-                          {member.username}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+            {expandedCategory === 'assignments' && (
+              <View style={styles.cardContent}>
+                {isAdmin && (
+                  <>
+                    <View style={styles.settingRow}>
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuw huiswerk item is toegevoegd</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.assignmentsEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              assignmentsEnabled: !notificationSettings.assignmentsEnabled,
+                            });
+                          }}
+                        >
+                          <View style={[styles.toggleThumb, notificationSettings.assignmentsEnabled && styles.toggleThumbActive]} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
-              {isMember && (
-                <View style={styles.toggleSection}>
-                  <View style={styles.toggleRow}>
-                    <Text style={styles.toggleLabel}>{t.notifications.receiveHomeworkNotifications}</Text>
-                    <TouchableOpacity
-                      style={[styles.toggle, localSettings.assignmentsEnabled && styles.toggleActive]}
-                      onPress={() => toggleLocalSetting('assignments')}
+                    <TouchableOpacity 
+                      style={styles.membersSection}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                      }}
                     >
-                      <View style={[styles.toggleThumb, localSettings.assignmentsEnabled && styles.toggleThumbActive]} />
+                      <View style={styles.membersSectionHeader}>
+                        <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                        <Text style={styles.membersSectionTitle}>
+                          {getMembersForCategory('assignments').length} / {members.length} {t.notifications.membersReceiving}
+                        </Text>
+                      </View>
+                      <View style={styles.membersList}>
+                        {members.map(member => {
+                          const isEnabled = member.notificationPreferences.assignmentsEnabled;
+                          return (
+                            <TouchableOpacity
+                              key={member.id}
+                              style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                              onPress={() => toggleMemberNotification(member.id, 'assignments')}
+                            >
+                              <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                                {member.username}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </TouchableOpacity>
-                  </View>
-                  <Text style={styles.settingDescription}>
-                    {localSettings.assignmentsEnabled ? 'Je ontvangt huiswerk meldingen op dit apparaat' : 'Je ontvangt geen huiswerk meldingen op dit apparaat'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+                  </>
+                )}
 
-          <View style={styles.notificationCard}>
+                {isMember && (
+                  <View style={styles.toggleSection}>
+                    <View style={styles.toggleRow}>
+                      <Text style={styles.toggleLabel}>{t.notifications.receiveHomeworkNotifications}</Text>
+                      <TouchableOpacity
+                        style={[styles.toggle, localSettings.assignmentsEnabled && styles.toggleActive]}
+                        onPress={() => toggleLocalSetting('assignments')}
+                      >
+                        <View style={[styles.toggleThumb, localSettings.assignmentsEnabled && styles.toggleThumbActive]} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.settingDescription}>
+                      {localSettings.assignmentsEnabled ? 'Je ontvangt huiswerk meldingen op dit apparaat' : 'Je ontvangt geen huiswerk meldingen op dit apparaat'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.notificationCard}
+            onPress={() => setExpandedCategory(expandedCategory === 'trainings' ? null : 'trainings')}
+            activeOpacity={0.7}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <AlertCircle color={Colors.light.primary} size={22} strokeWidth={2.5} />
                 <Text style={styles.cardTitle}>{t.notifications.trainings}</Text>
               </View>
+              <ChevronDown 
+                color={Colors.light.muted} 
+                size={20} 
+                strokeWidth={2.5}
+                style={[styles.chevron, expandedCategory === 'trainings' && styles.chevronExpanded]}
+              />
             </View>
             
-            <View style={styles.cardContent}>
-              <TouchableOpacity 
-                style={styles.membersSection}
-                onPress={() => setExpandedCategory(expandedCategory === 'trainings' ? null : 'trainings')}
-              >
-                <View style={styles.membersSectionHeader}>
-                  <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                  <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('trainings').length} / {members.length} {t.notifications.membersReceiving}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              
-              {isAdmin && expandedCategory === 'trainings' && (
-                <View style={styles.membersList}>
-                  {members.map(member => {
-                    const isEnabled = member.notificationPreferences.trainingsEnabled;
-                    return (
-                      <TouchableOpacity
-                        key={member.id}
-                        style={[styles.memberChip, isEnabled && styles.memberChipActive]}
-                        onPress={() => toggleMemberNotification(member.id, 'trainings')}
-                      >
-                        <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
-                          {member.username}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+            {expandedCategory === 'trainings' && (
+              <View style={styles.cardContent}>
+                {isAdmin && (
+                  <>
+                    <View style={styles.settingRow}>
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuwe training is toegevoegd</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.trainingCancellationEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              trainingCancellationEnabled: !notificationSettings.trainingCancellationEnabled,
+                            });
+                          }}
+                        >
+                          <View style={[styles.toggleThumb, notificationSettings.trainingCancellationEnabled && styles.toggleThumbActive]} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.settingRow}>
+                      <View style={styles.timeRow}>
+                        <Text style={styles.toggleLabel}>Hoeveel uur van tevoren melding</Text>
+                        <TouchableOpacity 
+                          style={styles.timeSelector}
+                          onPress={() => setShowDropdown('trainings')}
+                        >
+                          <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.trainingHoursAdvance)}</Text>
+                          <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
-              {isMember && (
-                <View style={styles.toggleSection}>
-                  <View style={styles.toggleRow}>
-                    <Text style={styles.toggleLabel}>{t.notifications.receiveTrainingNotifications}</Text>
-                    <TouchableOpacity
-                      style={[styles.toggle, localSettings.trainingsEnabled && styles.toggleActive]}
-                      onPress={() => toggleLocalSetting('trainings')}
+                    <TouchableOpacity 
+                      style={styles.membersSection}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                      }}
                     >
-                      <View style={[styles.toggleThumb, localSettings.trainingsEnabled && styles.toggleThumbActive]} />
+                      <View style={styles.membersSectionHeader}>
+                        <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                        <Text style={styles.membersSectionTitle}>
+                          {getMembersForCategory('trainings').length} / {members.length} {t.notifications.membersReceiving}
+                        </Text>
+                      </View>
+                      <View style={styles.membersList}>
+                        {members.map(member => {
+                          const isEnabled = member.notificationPreferences.trainingsEnabled;
+                          return (
+                            <TouchableOpacity
+                              key={member.id}
+                              style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                              onPress={() => toggleMemberNotification(member.id, 'trainings')}
+                            >
+                              <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                                {member.username}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </TouchableOpacity>
-                  </View>
-                  <Text style={styles.settingDescription}>
-                    {localSettings.trainingsEnabled ? 'Je ontvangt training meldingen op dit apparaat' : 'Je ontvangt geen training meldingen op dit apparaat'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+                  </>
+                )}
 
-          <View style={styles.notificationCard}>
+                {isMember && (
+                  <View style={styles.toggleSection}>
+                    <View style={styles.toggleRow}>
+                      <Text style={styles.toggleLabel}>{t.notifications.receiveTrainingNotifications}</Text>
+                      <TouchableOpacity
+                        style={[styles.toggle, localSettings.trainingsEnabled && styles.toggleActive]}
+                        onPress={() => toggleLocalSetting('trainings')}
+                      >
+                        <View style={[styles.toggleThumb, localSettings.trainingsEnabled && styles.toggleThumbActive]} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.settingDescription}>
+                      {localSettings.trainingsEnabled ? 'Je ontvangt training meldingen op dit apparaat' : 'Je ontvangt geen training meldingen op dit apparaat'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.notificationCard}
+            onPress={() => setExpandedCategory(expandedCategory === 'performances' ? null : 'performances')}
+            activeOpacity={0.7}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <Calendar color={Colors.light.primary} size={22} strokeWidth={2.5} />
                 <Text style={styles.cardTitle}>{t.notifications.performances}</Text>
               </View>
+              <ChevronDown 
+                color={Colors.light.muted} 
+                size={20} 
+                strokeWidth={2.5}
+                style={[styles.chevron, expandedCategory === 'performances' && styles.chevronExpanded]}
+              />
             </View>
             
-            <View style={styles.cardContent}>
-              <TouchableOpacity 
-                style={styles.membersSection}
-                onPress={() => setExpandedCategory(expandedCategory === 'performances' ? null : 'performances')}
-              >
-                <View style={styles.membersSectionHeader}>
-                  <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                  <Text style={styles.membersSectionTitle}>
-                    {getMembersForCategory('performances').length} / {members.length} {t.notifications.membersReceiving}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              
-              {isAdmin && expandedCategory === 'performances' && (
-                <View style={styles.membersList}>
-                  {members.map(member => {
-                    const isEnabled = member.notificationPreferences.performancesEnabled;
-                    return (
-                      <TouchableOpacity
-                        key={member.id}
-                        style={[styles.memberChip, isEnabled && styles.memberChipActive]}
-                        onPress={() => toggleMemberNotification(member.id, 'performances')}
-                      >
-                        <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
-                          {member.username}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+            {expandedCategory === 'performances' && (
+              <View style={styles.cardContent}>
+                {isAdmin && (
+                  <>
+                    <View style={styles.settingRow}>
+                      <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Melding ontvangen als er een nieuw optreden is toegevoegd</Text>
+                        <TouchableOpacity
+                          style={[styles.toggle, notificationSettings.performancesEnabled && styles.toggleActive]}
+                          onPress={async () => {
+                            await updateNotificationSettings({
+                              ...notificationSettings,
+                              performancesEnabled: !notificationSettings.performancesEnabled,
+                            });
+                          }}
+                        >
+                          <View style={[styles.toggleThumb, notificationSettings.performancesEnabled && styles.toggleThumbActive]} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.settingRow}>
+                      <View style={styles.timeRow}>
+                        <Text style={styles.toggleLabel}>Hoeveel uur van tevoren melding</Text>
+                        <TouchableOpacity 
+                          style={styles.timeSelector}
+                          onPress={() => setShowDropdown('performances')}
+                        >
+                          <Text style={styles.timeSelectorText}>{getTimeLabel(localNotificationSettings.performancesHoursAdvance)}</Text>
+                          <ChevronDown color={Colors.light.text} size={18} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
-              {isMember && (
-                <View style={styles.toggleSection}>
-                  <View style={styles.toggleRow}>
-                    <Text style={styles.toggleLabel}>{t.notifications.receivePerformanceNotifications}</Text>
-                    <TouchableOpacity
-                      style={[styles.toggle, localSettings.performancesEnabled && styles.toggleActive]}
-                      onPress={() => toggleLocalSetting('performances')}
+                    <TouchableOpacity 
+                      style={styles.membersSection}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                      }}
                     >
-                      <View style={[styles.toggleThumb, localSettings.performancesEnabled && styles.toggleThumbActive]} />
+                      <View style={styles.membersSectionHeader}>
+                        <Users color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                        <Text style={styles.membersSectionTitle}>
+                          {getMembersForCategory('performances').length} / {members.length} {t.notifications.membersReceiving}
+                        </Text>
+                      </View>
+                      <View style={styles.membersList}>
+                        {members.map(member => {
+                          const isEnabled = member.notificationPreferences.performancesEnabled;
+                          return (
+                            <TouchableOpacity
+                              key={member.id}
+                              style={[styles.memberChip, isEnabled && styles.memberChipActive]}
+                              onPress={() => toggleMemberNotification(member.id, 'performances')}
+                            >
+                              <Text style={[styles.memberChipText, isEnabled && styles.memberChipTextActive]}>
+                                {member.username}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </TouchableOpacity>
+                  </>
+                )}
+
+                {isMember && (
+                  <View style={styles.toggleSection}>
+                    <View style={styles.toggleRow}>
+                      <Text style={styles.toggleLabel}>{t.notifications.receivePerformanceNotifications}</Text>
+                      <TouchableOpacity
+                        style={[styles.toggle, localSettings.performancesEnabled && styles.toggleActive]}
+                        onPress={() => toggleLocalSetting('performances')}
+                      >
+                        <View style={[styles.toggleThumb, localSettings.performancesEnabled && styles.toggleThumbActive]} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.settingDescription}>
+                      {localSettings.performancesEnabled ? 'Je ontvangt optreden meldingen op dit apparaat' : 'Je ontvangt geen optreden meldingen op dit apparaat'}
+                    </Text>
                   </View>
-                  <Text style={styles.settingDescription}>
-                    {localSettings.performancesEnabled ? 'Je ontvangt optreden meldingen op dit apparaat' : 'Je ontvangt geen optreden meldingen op dit apparaat'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
 
 
 
@@ -408,7 +599,23 @@ export default function MeldingenScreen() {
             <View style={styles.dropdownModal}>
               <Text style={styles.dropdownTitle}>{t.notifications.selectTime}</Text>
               <ScrollView style={styles.dropdownScroll}>
-
+                {TIME_OPTIONS.map(option => (
+                  <TouchableOpacity
+                    key={option.hours}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      if (showDropdown === 'news') {
+                        updateAdminNotificationHours('news', option.hours);
+                      } else if (showDropdown === 'trainings') {
+                        updateAdminNotificationHours('trainings', option.hours);
+                      } else if (showDropdown === 'performances') {
+                        updateAdminNotificationHours('performances', option.hours);
+                      }
+                    }}
+                  >
+                    <Text style={styles.dropdownOptionText}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             </View>
           </TouchableOpacity>
@@ -609,11 +816,13 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 8,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     backgroundColor: Colors.light.darkGray,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
+    marginBottom: 12,
   },
   membersSectionTitle: {
     fontSize: 14,
@@ -678,5 +887,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: "500" as const,
     fontStyle: "italic" as const,
+  },
+  chevron: {
+    transform: [{ rotate: '0deg' }],
+  },
+  chevronExpanded: {
+    transform: [{ rotate: '180deg' }],
+  },
+  settingRow: {
+    marginBottom: 16,
+  },
+  timeRow: {
+    flexDirection: "column" as const,
+    gap: 8,
   },
 });
