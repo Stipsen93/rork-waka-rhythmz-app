@@ -365,6 +365,7 @@ export default function LibraryScreen() {
       let fileToUpload: any;
 
       if (Platform.OS === 'web') {
+        // Web: use blob
         const response = await fetch(uri);
         fileToUpload = await response.blob();
         console.log('[UPLOAD] Web blob size:', fileToUpload.size);
@@ -373,17 +374,18 @@ export default function LibraryScreen() {
           throw new Error('Bestand is leeg. Probeer een ander bestand.');
         }
       } else {
-        // For mobile, read the file properly
-        const response = await fetch(uri);
-        const blob = await response.blob();
+        // Mobile: use the URI directly with FormData-style upload
+        // Create a file object that Supabase expects
+        const uriParts = uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
         
-        console.log('[UPLOAD] Mobile blob size:', blob.size);
+        fileToUpload = {
+          uri: uri,
+          name: sanitizedName,
+          type: mimeType || 'application/octet-stream',
+        };
         
-        if (blob.size === 0) {
-          throw new Error('Bestand is leeg. Probeer een ander bestand.');
-        }
-        
-        fileToUpload = blob;
+        console.log('[UPLOAD] Mobile file object:', fileToUpload);
       }
 
       console.log('[UPLOAD] Uploading to Supabase Storage...');
