@@ -306,6 +306,9 @@ export default function LibraryScreen() {
   };
 
   const handleLongPress = (itemPath: string) => {
+    if (appState.currentUser?.role !== 'admin') {
+      return;
+    }
     if (!selectionMode) {
       setSelectionMode(true);
       setSelectedItems(new Set([itemPath]));
