@@ -304,41 +304,20 @@ export default function LibraryScreen() {
         console.log('[UPLOAD] Media selected:', asset.uri, asset.fileSize);
 
         if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024 && type === 'video') {
-          console.log('[UPLOAD] Large video detected, trying to compress...');
+          console.log('[UPLOAD] Large video detected (>50MB)');
           
-          if (Platform.OS !== 'web') {
-            const confirmCompress = await new Promise<boolean>((resolve) => {
-              Alert.alert(
-                'Groot bestand',
-                'Deze video is groter dan 50MB. We kunnen proberen het te comprimeren, maar dit kan wat tijd kosten.',
-                [
-                  { text: 'Annuleren', style: 'cancel', onPress: () => resolve(false) },
-                  { text: 'Comprimeren', onPress: () => resolve(true) }
-                ]
-              );
-            });
-
-            if (!confirmCompress) {
-              return;
-            }
-
-            setErrorMessage('Video wordt gecomprimeerd... Dit kan even duren.');
-            
-            const compressedResult = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 0.5,
-              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
-              videoMaxDuration: 600,
-              allowsEditing: false,
-            });
-
-            if (!compressedResult.canceled) {
-              const compressedAsset = compressedResult.assets[0];
-              console.log('[UPLOAD] Video compressed from', asset.fileSize, 'to', compressedAsset.fileSize);
-              await uploadFile(compressedAsset.uri, compressedAsset.fileName || 'video.mp4', compressedAsset.mimeType, compressedAsset.fileSize);
-              return;
-            }
+          if (Platform.OS === 'web') {
+            setErrorMessage('Video is te groot. Probeer een kleiner bestand (<50MB) te uploaden.');
+            setTimeout(() => setErrorMessage(null), 5000);
+            return;
           }
+
+          Alert.alert(
+            'Video te groot',
+            'Deze video is groter dan 50MB. Helaas kunnen we op dit moment geen automatische compressie uitvoeren. Gebruik een externe app om de video te comprimeren voordat je het uploadt.',
+            [{ text: 'OK' }]
+          );
+          return;
         }
 
         await uploadFile(asset.uri, asset.fileName || (type === 'video' ? 'video.mp4' : 'image.jpg'), asset.mimeType, asset.fileSize);
@@ -380,30 +359,42 @@ export default function LibraryScreen() {
 
       console.log('[UPLOAD] Storage path:', storagePath);
       console.log('[UPLOAD] File size:', fileSize);
+      console.log('[UPLOAD] URI:', uri);
+      console.log('[UPLOAD] MimeType:', mimeType);
 
       let fileToUpload: any;
 
       if (Platform.OS === 'web') {
         const response = await fetch(uri);
         fileToUpload = await response.blob();
-      } else {
-        const uriParts = uri.split('.');
-        const fileType = uriParts[uriParts.length - 1];
+        console.log('[UPLOAD] Web blob size:', fileToUpload.size);
         
-        fileToUpload = {
-          uri,
-          name: sanitizedName,
-          type: mimeType || `application/${fileType}`,
-        };
+        if (fileToUpload.size === 0) {
+          throw new Error('Bestand is leeg. Probeer een ander bestand.');
+        }
+      } else {
+        // For mobile, read the file properly
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        
+        console.log('[UPLOAD] Mobile blob size:', blob.size);
+        
+        if (blob.size === 0) {
+          throw new Error('Bestand is leeg. Probeer een ander bestand.');
+        }
+        
+        fileToUpload = blob;
       }
 
       console.log('[UPLOAD] Uploading to Supabase Storage...');
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('media-library')
-        .upload(storagePath, fileToUpload as any, {
+        .upload(storagePath, fileToUpload, {
           contentType: mimeType || 'application/octet-stream',
           upsert: false,
         });
+      
+      console.log('[UPLOAD] Upload response:', uploadData, uploadError);
 
       if (uploadError) {
         console.error('[UPLOAD] Error:', uploadError);
