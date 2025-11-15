@@ -247,13 +247,25 @@ export default function LibraryScreen() {
     }
   };
 
-  const handleUploadMedia = async () => {
+  const handleUploadMedia = () => {
     setShowActionSheet(false);
-    setErrorMessage(null);
-
-    try {
-      console.log('[UPLOAD] Opening media picker...');
+    
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*,video/*,audio/*,application/pdf,.doc,.docx';
+      input.multiple = false;
       
+      input.onchange = async (e: any) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        console.log('[UPLOAD WEB] Selected file:', file.name, file.type, file.size);
+        await uploadFileWeb(file);
+      };
+      
+      input.click();
+    } else {
       Alert.alert(
         'Media Type',
         'Selecteer het type media dat je wilt uploaden',
@@ -264,8 +276,45 @@ export default function LibraryScreen() {
           { text: 'Annuleren', style: 'cancel' }
         ]
       );
+    }
+  };
+
+  const uploadFileWeb = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setErrorMessage(null);
+
+      console.log('[UPLOAD WEB] Starting upload...', file.name);
+      
+      const timestamp = Date.now();
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = currentPath 
+        ? `${currentPath}/${timestamp}_${sanitizedName}`
+        : `${timestamp}_${sanitizedName}`;
+
+      console.log('[UPLOAD WEB] Storage path:', storagePath);
+
+      const { data, error } = await supabase.storage
+        .from('media-library')
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (error) {
+        console.error('[UPLOAD WEB] Error:', error);
+        throw error;
+      }
+
+      console.log('[UPLOAD WEB] Success!', data);
+      
+      setIsUploading(false);
+      setErrorMessage('Upload succesvol!');
+      setTimeout(() => setErrorMessage(null), 3000);
+      await Promise.all([loadItems(), loadStorageUsage()]);
     } catch (error: any) {
-      console.error('[UPLOAD] Error:', error);
+      console.error('[UPLOAD WEB] Error:', error);
+      setIsUploading(false);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
@@ -277,7 +326,7 @@ export default function LibraryScreen() {
       setErrorMessage(null);
 
       if (type === 'video' || type === 'photo') {
-        console.log('[UPLOAD] Requesting media permissions...');
+        console.log('[UPLOAD NATIVE] Requesting permissions...');
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         
         if (status !== 'granted') {
@@ -286,130 +335,106 @@ export default function LibraryScreen() {
           return;
         }
 
-        console.log('[UPLOAD] Opening image picker for:', type);
+        console.log('[UPLOAD NATIVE] Opening picker for:', type);
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: type === 'video' ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
           quality: 0.8,
-          videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-          videoMaxDuration: 600,
           allowsEditing: false,
         });
 
         if (result.canceled) {
-          console.log('[UPLOAD] Canceled');
+          console.log('[UPLOAD NATIVE] Canceled');
           return;
         }
 
         const asset = result.assets[0];
-        console.log('[UPLOAD] Media selected:', asset.uri, asset.fileSize);
+        console.log('[UPLOAD NATIVE] Selected:', asset.uri, asset.fileSize);
 
         if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024 && type === 'video') {
-          console.log('[UPLOAD] Large video detected, trying to compress...');
-          
-          if (Platform.OS !== 'web') {
-            const confirmCompress = await new Promise<boolean>((resolve) => {
-              Alert.alert(
-                'Groot bestand',
-                'Deze video is groter dan 50MB. We kunnen proberen het te comprimeren, maar dit kan wat tijd kosten.',
-                [
-                  { text: 'Annuleren', style: 'cancel', onPress: () => resolve(false) },
-                  { text: 'Comprimeren', onPress: () => resolve(true) }
-                ]
-              );
-            });
-
-            if (!confirmCompress) {
-              return;
-            }
-
-            setErrorMessage('Video wordt gecomprimeerd... Dit kan even duren.');
-            
-            const compressedResult = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 0.5,
-              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
-              videoMaxDuration: 600,
-              allowsEditing: false,
-            });
-
-            if (!compressedResult.canceled) {
-              const compressedAsset = compressedResult.assets[0];
-              console.log('[UPLOAD] Video compressed from', asset.fileSize, 'to', compressedAsset.fileSize);
-              await uploadFile(compressedAsset.uri, compressedAsset.fileName || 'video.mp4', compressedAsset.mimeType, compressedAsset.fileSize);
-              return;
-            }
-          }
+          Alert.alert(
+            'Bestand te groot',
+            'Video bestanden moeten kleiner zijn dan 50MB. Probeer de video te comprimeren voordat je het uploadt.',
+            [{ text: 'OK' }]
+          );
+          return;
         }
 
-        await uploadFile(asset.uri, asset.fileName || (type === 'video' ? 'video.mp4' : 'image.jpg'), asset.mimeType, asset.fileSize);
+        await uploadFileNative(asset.uri, asset.fileName || (type === 'video' ? 'video.mp4' : 'image.jpg'), asset.mimeType);
       } else {
-        console.log('[UPLOAD] Opening document picker...');
+        console.log('[UPLOAD NATIVE] Opening document picker...');
         const result = await DocumentPicker.getDocumentAsync({
-          type: ['audio/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+          type: '*/*',
           copyToCacheDirectory: true,
         });
 
         if (result.canceled) {
-          console.log('[UPLOAD] Canceled');
+          console.log('[UPLOAD NATIVE] Canceled');
           return;
         }
 
         const file = result.assets[0];
-        console.log('[UPLOAD] Document selected:', file.name, file.mimeType, file.size);
+        console.log('[UPLOAD NATIVE] Document selected:', file.name, file.mimeType, file.size);
 
-        await uploadFile(file.uri, file.name, file.mimeType, file.size);
+        await uploadFileNative(file.uri, file.name, file.mimeType || 'application/octet-stream');
       }
     } catch (error: any) {
-      console.error('[UPLOAD] Selection error:', error);
+      console.error('[UPLOAD NATIVE] Error:', error);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
     }
   };
 
-  const uploadFile = async (uri: string, fileName: string | undefined, mimeType: string | undefined, fileSize: number | undefined) => {
+  const uploadFileNative = async (uri: string, fileName: string, mimeType: string | undefined) => {
     try {
       setIsUploading(true);
       setErrorMessage(null);
 
+      console.log('[UPLOAD NATIVE] Starting upload...');
+      console.log('[UPLOAD NATIVE] URI:', uri);
+      console.log('[UPLOAD NATIVE] Name:', fileName);
+      console.log('[UPLOAD NATIVE] Type:', mimeType);
+
       const timestamp = Date.now();
-      const sanitizedName = (fileName || 'file').replace(/[^a-zA-Z0-9.-]/g, '_');
+      const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
       const storagePath = currentPath 
         ? `${currentPath}/${timestamp}_${sanitizedName}`
         : `${timestamp}_${sanitizedName}`;
 
-      console.log('[UPLOAD] Storage path:', storagePath);
-      console.log('[UPLOAD] File size:', fileSize);
+      console.log('[UPLOAD NATIVE] Storage path:', storagePath);
 
       const response = await fetch(uri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+      
       const blob = await response.blob();
+      console.log('[UPLOAD NATIVE] Blob size:', blob.size);
 
-      console.log('[UPLOAD] Uploading to Supabase Storage...');
-      const { error: uploadError } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from('media-library')
         .upload(storagePath, blob, {
           contentType: mimeType || 'application/octet-stream',
           upsert: false,
         });
 
-      if (uploadError) {
-        console.error('[UPLOAD] Error:', uploadError);
-        throw uploadError;
+      if (error) {
+        console.error('[UPLOAD NATIVE] Error:', error);
+        throw error;
       }
 
-      console.log('[UPLOAD] Success!');
+      console.log('[UPLOAD NATIVE] Success!', data);
       
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
       await Promise.all([loadItems(), loadStorageUsage()]);
     } catch (error: any) {
-      console.error('[UPLOAD] Upload error:', error);
+      console.error('[UPLOAD NATIVE] Error:', error);
       setIsUploading(false);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
-      throw error;
     }
   };
 
