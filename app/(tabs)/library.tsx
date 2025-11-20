@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, Touchabl
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, RefreshCw } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, RefreshCw, Edit2 } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -67,6 +67,10 @@ export default function LibraryScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [videoPlayerVisible, setVideoPlayerVisible] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameItem, setRenameItem] = useState<LibraryItem | null>(null);
+  const [newFileName, setNewFileName] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const loadItems = useCallback(async () => {
     try {
@@ -439,13 +443,13 @@ export default function LibraryScreen() {
     }
   };
 
-  const handleLongPress = (itemPath: string) => {
+  const handleLongPress = (item: LibraryItem) => {
     if (appState.currentUser?.role !== 'admin') {
       return;
     }
     if (!selectionMode) {
       setSelectionMode(true);
-      setSelectedItems(new Set([itemPath]));
+      setSelectedItems(new Set([item.path]));
     }
   };
 
@@ -481,6 +485,75 @@ export default function LibraryScreen() {
   const handleCancelSelection = () => {
     setSelectionMode(false);
     setSelectedItems(new Set());
+  };
+
+  const handleRenameSelected = () => {
+    if (selectedItems.size !== 1) return;
+    
+    const itemPath = Array.from(selectedItems)[0];
+    const item = items.find(i => i.path === itemPath);
+    if (!item) return;
+
+    setRenameItem(item);
+    setNewFileName(item.name);
+    setShowRenameModal(true);
+  };
+
+  const handleRename = async () => {
+    if (!renameItem || !newFileName.trim() || newFileName === renameItem.name) return;
+
+    try {
+      setIsRenaming(true);
+      setErrorMessage(null);
+
+      console.log('[RENAME] Starting rename...', renameItem.path, '->', newFileName);
+
+      const pathParts = renameItem.path.split('/');
+      pathParts[pathParts.length - 1] = newFileName.trim();
+      const newPath = pathParts.join('/');
+
+      // Copy the file to new location
+      const { data: copyData, error: copyError } = await supabase.storage
+        .from('media-library')
+        .copy(renameItem.path, newPath);
+
+      if (copyError) {
+        console.error('[RENAME] Copy error:', copyError);
+        throw copyError;
+      }
+
+      // Delete the old file
+      const { error: deleteError } = await supabase.storage
+        .from('media-library')
+        .remove([renameItem.path]);
+
+      if (deleteError) {
+        console.error('[RENAME] Delete error:', deleteError);
+        // Try to clean up the copied file
+        await supabase.storage.from('media-library').remove([newPath]);
+        throw deleteError;
+      }
+
+      console.log('[RENAME] Success!');
+
+      setShowRenameModal(false);
+      setRenameItem(null);
+      setNewFileName('');
+      setSelectionMode(false);
+      setSelectedItems(new Set());
+      
+      setErrorMessage('Bestand hernoemd!');
+      setTimeout(() => setErrorMessage(null), 3000);
+      
+      await loadItems();
+    } catch (error: any) {
+      console.error('[RENAME] Error:', error);
+      const message = error?.message || 'Onbekende fout';
+      setErrorMessage(`Hernoemen mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsRenaming(false);
+    }
   };
 
   const handleDeleteSelected = async () => {
@@ -700,7 +773,7 @@ export default function LibraryScreen() {
                 <TouchableOpacity 
                   style={[styles.card, isSelected && styles.cardSelected]} 
                   onPress={() => handleItemPress(item)}
-                  onLongPress={() => handleLongPress(item.path)}
+                  onLongPress={() => handleLongPress(item)}
                   testID={`item-${item.path}`}
                 >
                   {selectionMode && (
@@ -814,6 +887,79 @@ export default function LibraryScreen() {
         />
 
         <Modal
+          visible={showRenameModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowRenameModal(false);
+            setRenameItem(null);
+            setNewFileName('');
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Bestand hernoemen</Text>
+                <Pressable onPress={() => {
+                  setShowRenameModal(false);
+                  setRenameItem(null);
+                  setNewFileName('');
+                }} testID="close-rename-modal">
+                  <X color={Colors.light.muted} size={24} />
+                </Pressable>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Nieuwe naam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newFileName}
+                  onChangeText={setNewFileName}
+                  placeholder="Voer nieuwe naam in"
+                  placeholderTextColor={Colors.light.muted}
+                  autoFocus
+                  testID="rename-input"
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setShowRenameModal(false);
+                    setRenameItem(null);
+                    setNewFileName('');
+                  }}
+                  testID="cancel-rename-button"
+                >
+                  <Text style={styles.cancelButtonText}>{t.library.cancel}</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={[styles.actionButton, styles.createButton, (!newFileName.trim() || newFileName === renameItem?.name || isRenaming) && styles.disabledButton]}
+                  onPress={handleRename}
+                  disabled={!newFileName.trim() || newFileName === renameItem?.name || isRenaming}
+                  testID="confirm-rename-button"
+                >
+                  <LinearGradient
+                    colors={(newFileName.trim() && newFileName !== renameItem?.name && !isRenaming) ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
+                    style={styles.createButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    {isRenaming ? (
+                      <ActivityIndicator size="small" color={Colors.light.text} />
+                    ) : (
+                      <Text style={[styles.createButtonText, (!newFileName.trim() || newFileName === renameItem?.name) && styles.disabledButtonText]}>Hernoemen</Text>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
           visible={showActionSheet}
           transparent
           animationType="fade"
@@ -891,6 +1037,18 @@ export default function LibraryScreen() {
             </View>
             
             <View style={styles.toolbarBottomRow}>
+              {selectedItems.size === 1 && (
+                <Pressable 
+                  style={[styles.toolbarActionButton, isRenaming && styles.toolbarButtonDisabled]}
+                  onPress={handleRenameSelected}
+                  disabled={isRenaming}
+                  testID="rename-selected-button"
+                >
+                  <Edit2 color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                  <Text style={styles.toolbarButtonText}>{t.library.rename || 'Hernoemen'}</Text>
+                </Pressable>
+              )}
+              
               <Pressable 
                 style={[styles.toolbarActionButton, isDeleting && styles.toolbarButtonDisabled]}
                 onPress={handleDeleteSelected}
