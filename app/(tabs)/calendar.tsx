@@ -48,8 +48,6 @@ export default function CalendarScreen() {
     confirmed: false,
   });
   const [showCategoryDropdown, setShowCategoryDropdown] = useState<boolean>(false);
-  const [showForUserDropdown, setShowForUserDropdown] = useState<boolean>(false);
-  const [showEditForUserDropdown, setShowEditForUserDropdown] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [showHourPicker, setShowHourPicker] = useState<boolean>(false);
@@ -902,59 +900,45 @@ export default function CalendarScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Voor wie</Text>
-                <Pressable
-                  style={styles.dropdownButton}
-                  onPress={() => setShowForUserDropdown(!showForUserDropdown)}
-                >
-                  <Text style={styles.dropdownText}>
-                    {formData.forUserId ? users.find(u => u.id === formData.forUserId)?.username || 'Selecteer lid' : 'Selecteer lid'}
-                  </Text>
-                  <ChevronRight 
-                    color={Colors.light.muted} 
-                    size={20} 
-                    style={{ transform: [{ rotate: showForUserDropdown ? '90deg' : '0deg' }] }}
-                  />
-                </Pressable>
-                {showForUserDropdown && (
-                  <ScrollView
-                    style={styles.memberScrollView}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator={false}
+                <View style={styles.membersSectionHeader}>
+                  <Text style={styles.inputLabel}>Selecteer Leden</Text>
+                  <Pressable 
+                    onPress={() => {
+                      if (formData.memberIds.length === users.length) {
+                        setFormData({ ...formData, memberIds: [] });
+                      } else {
+                        setFormData({ ...formData, memberIds: users.map(u => u.id) });
+                      }
+                    }}
+                    style={styles.selectAllButton}
                   >
-                    <TouchableOpacity
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setFormData({ ...formData, forUserId: undefined });
-                        setShowForUserDropdown(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.dropdownItemText,
-                        !formData.forUserId && styles.dropdownItemTextActive
-                      ]}>
-                        Niemand
-                      </Text>
-                    </TouchableOpacity>
-                    {users.map((user) => (
-                      <TouchableOpacity
+                    <Text style={styles.selectAllText}>
+                      {formData.memberIds.length === users.length ? "Deselecteer Alles" : "Selecteer Alles"}
+                    </Text>
+                  </Pressable>
+                </View>
+                <View style={styles.membersList}>
+                  {users.map((user) => {
+                    const isSelected = formData.memberIds.includes(user.id);
+                    return (
+                      <Pressable
                         key={user.id}
-                        style={styles.dropdownItem}
+                        style={[styles.memberChip, isSelected && styles.memberChipSelected]}
                         onPress={() => {
-                          setFormData({ ...formData, forUserId: user.id });
-                          setShowForUserDropdown(false);
+                          if (isSelected) {
+                            setFormData({ ...formData, memberIds: formData.memberIds.filter(id => id !== user.id) });
+                          } else {
+                            setFormData({ ...formData, memberIds: [...formData.memberIds, user.id] });
+                          }
                         }}
                       >
-                        <Text style={[
-                          styles.dropdownItemText,
-                          formData.forUserId === user.id && styles.dropdownItemTextActive
-                        ]}>
+                        <Text style={[styles.memberChipText, isSelected && styles.memberChipTextSelected]}>
                           {user.username}
                         </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
@@ -972,31 +956,10 @@ export default function CalendarScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.modalActions}>
-                <Pressable
-                  style={[styles.actionButton, styles.cancelButton]}
-                  onPress={() => {
-                    setShowAddModal(false);
-                    setFormData({
-                      name: '',
-                      category: 'Feestje',
-                      date: formatDateToLocal(new Date()),
-                      time: '12:00',
-                      location: '',
-                      memberIds: [],
-                      forUserId: undefined,
-                      confirmed: false,
-                    });
-                  }}
-                  testID="cancel-button"
-                >
-                  <Text style={styles.cancelButtonText}>Annuleren</Text>
-                </Pressable>
-                
+              <View style={styles.bottomButtonsContainer}>
                 <Pressable
                   style={[
-                    styles.actionButton, 
-                    styles.createButton, 
+                    styles.primaryButton, 
                     (!formData.name.trim() || !formData.location.trim()) && styles.disabledButton
                   ]}
                   onPress={handleAddAppointment}
@@ -1008,12 +971,12 @@ export default function CalendarScreen() {
                       ? [Colors.light.primary, Colors.light.primaryDark] 
                       : [Colors.light.surfaceLight, Colors.light.surfaceLight]
                     }
-                    style={styles.createButtonGradient}
+                    style={styles.buttonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
                     <Text style={[
-                      styles.createButtonText, 
+                      styles.primaryButtonText, 
                       (!formData.name.trim() || !formData.location.trim()) && styles.disabledButtonText
                     ]}>
                       Toevoegen
@@ -1282,59 +1245,45 @@ export default function CalendarScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Voor wie</Text>
-                <Pressable
-                  style={styles.dropdownButton}
-                  onPress={() => setShowEditForUserDropdown(!showEditForUserDropdown)}
-                >
-                  <Text style={styles.dropdownText}>
-                    {editFormData.forUserId ? users.find(u => u.id === editFormData.forUserId)?.username || 'Selecteer lid' : 'Selecteer lid'}
-                  </Text>
-                  <ChevronRight 
-                    color={Colors.light.muted} 
-                    size={20} 
-                    style={{ transform: [{ rotate: showEditForUserDropdown ? '90deg' : '0deg' }] }}
-                  />
-                </Pressable>
-                {showEditForUserDropdown && (
-                  <ScrollView
-                    style={styles.memberScrollView}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator={false}
+                <View style={styles.membersSectionHeader}>
+                  <Text style={styles.inputLabel}>Selecteer Leden</Text>
+                  <Pressable 
+                    onPress={() => {
+                      if (editFormData.memberIds.length === users.length) {
+                        setEditFormData({ ...editFormData, memberIds: [] });
+                      } else {
+                        setEditFormData({ ...editFormData, memberIds: users.map(u => u.id) });
+                      }
+                    }}
+                    style={styles.selectAllButton}
                   >
-                    <TouchableOpacity
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setEditFormData({ ...editFormData, forUserId: undefined });
-                        setShowEditForUserDropdown(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.dropdownItemText,
-                        !editFormData.forUserId && styles.dropdownItemTextActive
-                      ]}>
-                        Niemand
-                      </Text>
-                    </TouchableOpacity>
-                    {users.map((user) => (
-                      <TouchableOpacity
+                    <Text style={styles.selectAllText}>
+                      {editFormData.memberIds.length === users.length ? "Deselecteer Alles" : "Selecteer Alles"}
+                    </Text>
+                  </Pressable>
+                </View>
+                <View style={styles.membersList}>
+                  {users.map((user) => {
+                    const isSelected = editFormData.memberIds.includes(user.id);
+                    return (
+                      <Pressable
                         key={user.id}
-                        style={styles.dropdownItem}
+                        style={[styles.memberChip, isSelected && styles.memberChipSelected]}
                         onPress={() => {
-                          setEditFormData({ ...editFormData, forUserId: user.id });
-                          setShowEditForUserDropdown(false);
+                          if (isSelected) {
+                            setEditFormData({ ...editFormData, memberIds: editFormData.memberIds.filter(id => id !== user.id) });
+                          } else {
+                            setEditFormData({ ...editFormData, memberIds: [...editFormData.memberIds, user.id] });
+                          }
                         }}
                       >
-                        <Text style={[
-                          styles.dropdownItemText,
-                          editFormData.forUserId === user.id && styles.dropdownItemTextActive
-                        ]}>
+                        <Text style={[styles.memberChipText, isSelected && styles.memberChipTextSelected]}>
                           {user.username}
                         </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
@@ -1352,20 +1301,10 @@ export default function CalendarScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.modalActions}>
-                <Pressable
-                  style={[styles.actionButton, styles.cancelButtonSecondary]}
-                  onPress={handleCancelAppointment}
-                >
-                  <Text style={styles.cancelButtonSecondaryText}>Afspraak annuleren</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.modalActionsRow}>
+              <View style={styles.bottomButtonsContainer}>
                 <Pressable
                   style={[
-                    styles.actionButtonHalf, 
-                    styles.createButton, 
+                    styles.primaryButton, 
                     (!editFormData.name.trim() || !editFormData.location.trim()) && styles.disabledButton
                   ]}
                   onPress={handleEditAppointment}
@@ -1376,12 +1315,12 @@ export default function CalendarScreen() {
                       ? [Colors.light.primary, Colors.light.primaryDark] 
                       : [Colors.light.surfaceLight, Colors.light.surfaceLight]
                     }
-                    style={styles.createButtonGradient}
+                    style={styles.buttonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
                     <Text style={[
-                      styles.createButtonText, 
+                      styles.primaryButtonText, 
                       (!editFormData.name.trim() || !editFormData.location.trim()) && styles.disabledButtonText
                     ]}>
                       Opslaan
@@ -1390,10 +1329,17 @@ export default function CalendarScreen() {
                 </Pressable>
                 
                 <Pressable
-                  style={[styles.actionButtonHalf, styles.deleteButton]}
+                  style={styles.secondaryButton}
+                  onPress={handleCancelAppointment}
+                >
+                  <Text style={styles.secondaryButtonText}>Afspraak annuleren</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={styles.dangerButton}
                   onPress={handleDeleteAppointment}
                 >
-                  <Text style={styles.deleteButtonText}>Afspraak verwijderen</Text>
+                  <Text style={styles.dangerButtonText}>Afspraak verwijderen</Text>
                 </Pressable>
               </View>
             </View>
@@ -1762,54 +1708,67 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     fontWeight: '700' as const,
   },
-  modalActions: {
-    flexDirection: 'row',
+  bottomButtonsContainer: {
     gap: 12,
     marginTop: 8,
   },
-  modalActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 12,
+  primaryButton: {
+    borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  actionButtonHalf: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  cancelButton: {
-    backgroundColor: Colors.light.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-    paddingVertical: 16,
+  buttonGradient: {
+    paddingVertical: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cancelButtonText: {
+  primaryButtonText: {
     color: Colors.light.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700' as const,
   },
-  createButton: {
-    overflow: 'hidden',
-  },
-  createButtonGradient: {
-    paddingVertical: 16,
+  secondaryButton: {
+    backgroundColor: '#F59E0B',
+    paddingVertical: 18,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  createButtonText: {
+  secondaryButtonText: {
     color: Colors.light.text,
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: '700' as const,
+  },
+  dangerButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 18,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dangerButtonText: {
+    color: Colors.light.text,
+    fontSize: 17,
     fontWeight: '700' as const,
   },
   disabledButton: {
     opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   disabledButtonText: {
     color: Colors.light.muted,
@@ -1972,28 +1931,49 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  deleteButton: {
-    backgroundColor: '#DC2626',
-    paddingVertical: 16,
-    justifyContent: 'center',
+  membersSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 12,
+    marginBottom: 8,
   },
-  deleteButtonText: {
-    color: Colors.light.text,
-    fontSize: 16,
+  selectAllButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  selectAllText: {
+    fontSize: 12,
     fontWeight: '700' as const,
+    color: Colors.light.primary,
   },
-  cancelButtonSecondary: {
-    backgroundColor: '#F59E0B',
-    paddingVertical: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  membersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  memberChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: Colors.light.darkGray,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
   },
-  cancelButtonSecondaryText: {
+  memberChipSelected: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  memberChipText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.muted,
+  },
+  memberChipTextSelected: {
     color: Colors.light.text,
-    fontSize: 16,
     fontWeight: '700' as const,
   },
   pickerScrollView: {
