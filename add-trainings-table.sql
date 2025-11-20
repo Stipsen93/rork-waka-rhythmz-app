@@ -1,5 +1,5 @@
 -- Create trainings table to store practice sessions
-DO $$
+DO $
 BEGIN
   -- Create table if not exists
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'trainings') THEN
@@ -20,7 +20,119 @@ BEGIN
     
     RAISE NOTICE 'Table trainings created';
   ELSE
-    -- Table exists, check if deleted_at column exists
+    -- Table exists, check and add missing columns
+    
+    -- Check and add training_id column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'training_id'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN training_id TEXT NOT NULL DEFAULT uuid_generate_v4()::text UNIQUE;
+      RAISE NOTICE 'Column training_id added to trainings table';
+    END IF;
+    
+    -- Check and add name column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'name'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN name TEXT NOT NULL DEFAULT '';
+      RAISE NOTICE 'Column name added to trainings table';
+    END IF;
+    
+    -- Check and add day_of_week column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'day_of_week'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN day_of_week INTEGER NOT NULL DEFAULT 0 CHECK (day_of_week >= 0 AND day_of_week <= 6);
+      RAISE NOTICE 'Column day_of_week added to trainings table';
+    END IF;
+    
+    -- Check and add time column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'time'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN time TEXT NOT NULL DEFAULT '';
+      RAISE NOTICE 'Column time added to trainings table';
+    END IF;
+    
+    -- Check and add location column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'location'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN location TEXT NOT NULL DEFAULT '';
+      RAISE NOTICE 'Column location added to trainings table';
+    END IF;
+    
+    -- Check and add is_one_time column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'is_one_time'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN is_one_time BOOLEAN DEFAULT false;
+      RAISE NOTICE 'Column is_one_time added to trainings table';
+    END IF;
+    
+    -- Check and add repeat_mode column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'repeat_mode'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN repeat_mode TEXT DEFAULT 'none' CHECK (repeat_mode IN ('none', '1x', '2x', 'custom'));
+      RAISE NOTICE 'Column repeat_mode added to trainings table';
+    END IF;
+    
+    -- Check and add custom_date column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'custom_date'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN custom_date DATE;
+      RAISE NOTICE 'Column custom_date added to trainings table';
+    END IF;
+    
+    -- Check and add created_at column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'created_at'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN created_at TIMESTAMPTZ DEFAULT NOW();
+      RAISE NOTICE 'Column created_at added to trainings table';
+    END IF;
+    
+    -- Check and add updated_at column
+    IF NOT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name = 'trainings' 
+      AND column_name = 'updated_at'
+    ) THEN
+      ALTER TABLE trainings ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+      RAISE NOTICE 'Column updated_at added to trainings table';
+    END IF;
+    
+    -- Check and add deleted_at column
     IF NOT EXISTS (
       SELECT 1 
       FROM information_schema.columns 
@@ -31,7 +143,7 @@ BEGIN
       RAISE NOTICE 'Column deleted_at added to trainings table';
     END IF;
   END IF;
-END $$;
+END $;
 
 -- Enable RLS if not already enabled
 DO $$
@@ -121,30 +233,67 @@ CREATE TRIGGER trainings_updated_at_trigger
   FOR EACH ROW
   EXECUTE FUNCTION update_trainings_updated_at();
 
--- Create indexes if they don't exist
-DO $$
+-- Create indexes if they don't exist and columns exist
+DO $
 BEGIN
-  IF NOT EXISTS (
+  -- Check and create index for deleted_at
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'trainings' 
+    AND column_name = 'deleted_at'
+  ) AND NOT EXISTS (
     SELECT 1 FROM pg_indexes 
     WHERE indexname = 'idx_trainings_deleted_at'
   ) THEN
     CREATE INDEX idx_trainings_deleted_at ON trainings(deleted_at);
+    RAISE NOTICE 'Index idx_trainings_deleted_at created';
   END IF;
   
-  IF NOT EXISTS (
+  -- Check and create index for training_id
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'trainings' 
+    AND column_name = 'training_id'
+  ) AND NOT EXISTS (
     SELECT 1 FROM pg_indexes 
     WHERE indexname = 'idx_trainings_training_id'
   ) THEN
     CREATE INDEX idx_trainings_training_id ON trainings(training_id);
+    RAISE NOTICE 'Index idx_trainings_training_id created';
   END IF;
   
-  IF NOT EXISTS (
+  -- Check and create index for day_of_week
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'trainings' 
+    AND column_name = 'day_of_week'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'trainings' 
+    AND column_name = 'deleted_at'
+  ) AND NOT EXISTS (
     SELECT 1 FROM pg_indexes 
     WHERE indexname = 'idx_trainings_day_of_week'
   ) THEN
     CREATE INDEX idx_trainings_day_of_week ON trainings(day_of_week) WHERE deleted_at IS NULL;
+    RAISE NOTICE 'Index idx_trainings_day_of_week created';
+  ELSIF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'trainings' 
+    AND column_name = 'day_of_week'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'trainings' 
+    AND column_name = 'deleted_at'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE indexname = 'idx_trainings_day_of_week'
+  ) THEN
+    -- Create index without WHERE clause if deleted_at doesn't exist
+    CREATE INDEX idx_trainings_day_of_week ON trainings(day_of_week);
+    RAISE NOTICE 'Index idx_trainings_day_of_week created (without deleted_at filter)';
   END IF;
-END $$;
+END $;
 
 -- Add comment
 COMMENT ON TABLE trainings IS 'Stores practice/training sessions for the organization';
