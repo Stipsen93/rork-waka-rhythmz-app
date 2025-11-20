@@ -25,7 +25,7 @@ BEGIN
       USING (
         EXISTS (
           SELECT 1 FROM users 
-          WHERE id = auth.uid() 
+          WHERE id = auth.uid()::uuid 
           AND role = 'admin'
           AND deleted_at IS NULL
         )
@@ -34,7 +34,7 @@ BEGIN
       WITH CHECK (
         EXISTS (
           SELECT 1 FROM users 
-          WHERE id = auth.uid() 
+          WHERE id = auth.uid()::uuid 
           AND role = 'admin'
           AND deleted_at IS NULL
         )
