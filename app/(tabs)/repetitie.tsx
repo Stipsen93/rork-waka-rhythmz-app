@@ -3,7 +3,7 @@ import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Training, CancelledPractice } from "@/providers/AppState";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2, ChevronDown, Clock, Plus, X, Check, Edit2, Undo2, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { translations } from "@/constants/translations";
@@ -11,7 +11,6 @@ import { translations } from "@/constants/translations";
 
 
 type CancelOption = "next1" | "next2" | "next3" | "custom";
-type RepeatMode = 'none' | '1x' | '2x' | 'custom';
 
 function genId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
@@ -50,6 +49,10 @@ export default function RepetitieScreen() {
   };
   
   const [trainings, setTrainings] = useState<Training[]>(filterOneTimeTrainings(practiceSchedule.trainings || []));
+  useEffect(() => {
+    const syncedTrainings = filterOneTimeTrainings(practiceSchedule.trainings || []);
+    setTrainings(syncedTrainings);
+  }, [practiceSchedule.trainings]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedCancelOption, setSelectedCancelOption] = useState<CancelOption | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);

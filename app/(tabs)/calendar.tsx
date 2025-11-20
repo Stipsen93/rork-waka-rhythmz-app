@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppState, Appointment } from "@/providers/AppState";
+import { useAppState, Appointment, Training } from "@/providers/AppState";
 import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight, Check } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -141,20 +141,39 @@ export default function CalendarScreen() {
     return dates;
   }, [performances]);
 
+  const resolvedTrainings = useMemo<Training[]>(() => {
+    if (practiceSchedule.trainings && practiceSchedule.trainings.length > 0) {
+      return practiceSchedule.trainings;
+    }
+    return (practiceSchedule.regularDays ?? []).map((day, index) => ({
+      id: `regular-${index}`,
+      name: `Training ${index + 1}`,
+      dayOfWeek: day.dayOfWeek,
+      time: day.time,
+      location: practiceSchedule.location,
+      isOneTime: false,
+      repeatMode: 'none',
+    }));
+  }, [practiceSchedule]);
+
   const practiceDates = useMemo(() => {
     const dates = new Set<string>();
+    if (resolvedTrainings.length === 0) {
+      return dates;
+    }
     
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
+    const cancelledDates = practiceSchedule.cancelledDates ?? [];
     
-    practiceSchedule.trainings.forEach((training) => {
+    resolvedTrainings.forEach((training) => {
       let currentDay = new Date(firstDay);
       while (currentDay <= lastDay) {
         if (currentDay.getDay() === training.dayOfWeek) {
           const dateStr = formatDateToLocal(currentDay);
-          const isCancelled = practiceSchedule.cancelledDates.some(
+          const isCancelled = cancelledDates.some(
             (cancelled) => cancelled.date === dateStr
           );
           if (!isCancelled) {
@@ -166,24 +185,28 @@ export default function CalendarScreen() {
     });
     
     return dates;
-  }, [practiceSchedule, currentDate]);
+  }, [resolvedTrainings, practiceSchedule.cancelledDates, currentDate]);
 
   const extraTrainingDates = useMemo(() => {
     const dates = new Set<string>();
+    if (resolvedTrainings.length === 0) {
+      return dates;
+    }
     
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
+    const cancelledDates = practiceSchedule.cancelledDates ?? [];
     
-    practiceSchedule.trainings.forEach((training) => {
+    resolvedTrainings.forEach((training) => {
       if (!training.isOneTime) return;
       
       let currentDay = new Date(firstDay);
       while (currentDay <= lastDay) {
         if (currentDay.getDay() === training.dayOfWeek) {
           const dateStr = formatDateToLocal(currentDay);
-          const isCancelled = practiceSchedule.cancelledDates.some(
+          const isCancelled = cancelledDates.some(
             (cancelled) => cancelled.date === dateStr
           );
           if (!isCancelled) {
@@ -195,7 +218,7 @@ export default function CalendarScreen() {
     });
     
     return dates;
-  }, [practiceSchedule, currentDate]);
+  }, [resolvedTrainings, practiceSchedule.cancelledDates, currentDate]);
 
   const birthdayDates = useMemo(() => {
     const dates = new Set<string>();
@@ -206,7 +229,7 @@ export default function CalendarScreen() {
     users.forEach((user) => {
       if (!user.age) return;
       
-      const [birthYear, birthMonth, birthDay] = user.age.split('-').map(Number);
+      const [, birthMonth, birthDay] = user.age.split('-').map(Number);
       if (birthMonth - 1 === month) {
         const birthdayThisYear = new Date(year, month, birthDay);
         dates.add(formatDateToLocal(birthdayThisYear));
