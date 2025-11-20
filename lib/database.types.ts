@@ -218,6 +218,8 @@ export type Database = {
           member_ids: string[] | null
           created_by: string
           status: 'active' | 'cancelled'
+          for_user_id: string | null
+          confirmed: boolean
           created_at: string
         }
         Insert: {
@@ -230,6 +232,8 @@ export type Database = {
           member_ids?: string[] | null
           created_by: string
           status?: 'active' | 'cancelled'
+          for_user_id?: string | null
+          confirmed?: boolean
           created_at?: string
         }
         Update: {
@@ -242,6 +246,8 @@ export type Database = {
           member_ids?: string[] | null
           created_by?: string
           status?: 'active' | 'cancelled'
+          for_user_id?: string | null
+          confirmed?: boolean
           created_at?: string
         }
       }

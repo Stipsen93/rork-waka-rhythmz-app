@@ -480,8 +480,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           createdAt: a.created_at,
           createdBy: a.created_by,
           status: a.status,
-          forUserId: (a as any).for_user_id ?? undefined,
-          confirmed: (a as any).confirmed ?? false,
+          forUserId: a.for_user_id ?? undefined,
+          confirmed: a.confirmed ?? false,
         })));
       }
 
@@ -1673,8 +1673,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       location: newAppointment.location,
       member_ids: newAppointment.memberIds,
       created_by: newAppointment.createdBy,
-      for_user_id: (newAppointment as any).forUserId ?? null,
-      confirmed: (newAppointment as any).confirmed ?? false,
+      for_user_id: newAppointment.forUserId ?? null,
+      confirmed: newAppointment.confirmed ?? false,
     };
     await supabase.from('appointments').insert(insertData);
     setAppointments((prev) => [...prev, newAppointment].sort((a, b) => 
@@ -1722,8 +1722,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (appointment.memberIds !== undefined) updateData.member_ids = appointment.memberIds;
     if (appointment.status !== undefined) updateData.status = appointment.status;
     if (appointment.createdBy !== undefined) updateData.created_by = appointment.createdBy;
-    if ((appointment as any).forUserId !== undefined) (updateData as any).for_user_id = (appointment as any).forUserId;
-    if ((appointment as any).confirmed !== undefined) (updateData as any).confirmed = (appointment as any).confirmed;
+    if (appointment.forUserId !== undefined) updateData.for_user_id = appointment.forUserId;
+    if (appointment.confirmed !== undefined) updateData.confirmed = appointment.confirmed;
     await supabase.from('appointments').update(updateData).eq('id', id);
     console.log('✅ Appointment updated');
 
