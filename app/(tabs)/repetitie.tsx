@@ -241,21 +241,24 @@ export default function RepetitieScreen() {
     });
   };
 
-  const saveTrainingChanges = () => {
+  const saveTrainingChanges = async () => {
     if (!isAdmin) return;
     
-    updatePracticeSchedule({
+    console.log('💾 Saving training changes to Supabase...', trainings);
+    
+    await updatePracticeSchedule({
       ...practiceSchedule,
       regularDays: trainings.map(t => ({ dayOfWeek: t.dayOfWeek, time: t.time })),
       location: trainings[0]?.location || "Zaal 3",
       trainings: trainings,
     });
     
+    console.log('✅ Training changes saved');
     const filtered = filterOneTimeTrainings(trainings);
     setTrainings(filtered);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isAdmin) return;
 
     const cancelledDates: CancelledPractice[] = selectedCancelDates.map(date => ({
@@ -270,7 +273,7 @@ export default function RepetitieScreen() {
       ...cancelledDates,
     ];
 
-    updatePracticeSchedule({
+    await updatePracticeSchedule({
       regularDays: trainings.map(t => ({ dayOfWeek: t.dayOfWeek, time: t.time })),
       location: trainings[0]?.location || "Zaal 3",
       cancelledDates: allCancelledDates,
@@ -683,9 +686,9 @@ export default function RepetitieScreen() {
                         <>
                           <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => {
+                            onPress={async () => {
                               toggleTrainingLock(training.id);
-                              saveTrainingChanges();
+                              await saveTrainingChanges();
                             }}
                           >
                             <Check color={Colors.light.success} size={20} />

@@ -670,8 +670,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           await supabase.from('practice_schedule').insert(defaultSchedule);
           
           const defaultTrainings: Database['public']['Tables']['trainings']['Insert'][] = [
-            { id: "t1", name: "Groep 1", day_of_week: 2, time: "18:30", location: "De Zaalon" },
-            { id: "t2", name: "Groep 2", day_of_week: 2, time: "19:30", location: "De Zaalon" },
+            { training_id: "t1", name: "Groep 1", day_of_week: 2, time: "18:30", location: "De Zaalon" },
+            { training_id: "t2", name: "Groep 2", day_of_week: 2, time: "19:30", location: "De Zaalon" },
           ];
           await supabase.from('trainings').insert(defaultTrainings);
           
@@ -681,12 +681,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             cancelledDates: (defaultSchedule.cancelled_dates as any) ?? [],
             isActive: defaultSchedule.is_active,
             trainings: defaultTrainings.map(t => ({
-              id: t.id ?? '',
+              id: t.training_id ?? '',
               name: t.name,
               dayOfWeek: t.day_of_week,
               time: t.time,
               location: t.location,
               isOneTime: false,
+              repeatMode: 'none',
             })),
           });
         }
@@ -929,14 +930,18 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               location: scheduleRes.data.location,
               cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
               isActive: scheduleRes.data.is_active,
-              trainings: trainingsRes.data.map(t => ({
-                id: t.id,
-                name: t.name,
-                dayOfWeek: t.day_of_week,
-                time: t.time,
-                location: t.location,
-                isOneTime: t.is_one_time ?? false,
-              })),
+              trainings: trainingsRes.data
+                .filter(t => !t.deleted_at)
+                .map(t => ({
+                  id: t.training_id,
+                  name: t.name,
+                  dayOfWeek: t.day_of_week,
+                  time: t.time,
+                  location: t.location,
+                  isOneTime: t.is_one_time ?? false,
+                  repeatMode: (t.repeat_mode as any) ?? 'none',
+                  customDate: t.custom_date ?? undefined,
+                })),
             });
           }
         });
@@ -957,14 +962,18 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               location: scheduleRes.data.location,
               cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
               isActive: scheduleRes.data.is_active,
-              trainings: trainingsRes.data.map(t => ({
-                id: t.id,
-                name: t.name,
-                dayOfWeek: t.day_of_week,
-                time: t.time,
-                location: t.location,
-                isOneTime: t.is_one_time ?? false,
-              })),
+              trainings: trainingsRes.data
+                .filter(t => !t.deleted_at)
+                .map(t => ({
+                  id: t.training_id,
+                  name: t.name,
+                  dayOfWeek: t.day_of_week,
+                  time: t.time,
+                  location: t.location,
+                  isOneTime: t.is_one_time ?? false,
+                  repeatMode: (t.repeat_mode as any) ?? 'none',
+                  customDate: t.custom_date ?? undefined,
+                })),
             });
           }
         });
@@ -1352,19 +1361,50 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     const scheduleIdRes = await supabase.from('practice_schedule').select('id').single();
     await supabase.from('practice_schedule').update(scheduleUpdateData).eq('id', scheduleIdRes.data?.id ?? '');
     
-    await supabase.from('trainings').delete().neq('id', '');
+    // Soft delete all existing trainings
+    await supabase.from('trainings').update({ deleted_at: new Date().toISOString() }).is('deleted_at', null);
     
     if (schedule.trainings.length > 0) {
-      const trainingsInsert: Database['public']['Tables']['trainings']['Insert'][] = schedule.trainings.map(t => ({
-        id: t.id,
-        name: t.name,
-        day_of_week: t.dayOfWeek,
-        time: t.time,
-        location: t.location,
-        is_one_time: t.isOneTime ?? false,
-      }));
-      
-      await supabase.from('trainings').insert(trainingsInsert);
+      // Check for existing trainings and update or insert
+      for (const training of schedule.trainings) {
+        const existingTraining = await supabase
+          .from('trainings')
+          .select('*')
+          .eq('training_id', training.id)
+          .single();
+        
+        if (existingTraining.data) {
+          // Update existing training and reactivate it
+          await supabase
+            .from('trainings')
+            .update({
+              name: training.name,
+              day_of_week: training.dayOfWeek,
+              time: training.time,
+              location: training.location,
+              is_one_time: training.isOneTime ?? false,
+              repeat_mode: training.repeatMode ?? 'none',
+              custom_date: training.customDate ?? null,
+              deleted_at: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('training_id', training.id);
+        } else {
+          // Insert new training
+          await supabase
+            .from('trainings')
+            .insert({
+              training_id: training.id,
+              name: training.name,
+              day_of_week: training.dayOfWeek,
+              time: training.time,
+              location: training.location,
+              is_one_time: training.isOneTime ?? false,
+              repeat_mode: training.repeatMode ?? 'none',
+              custom_date: training.customDate ?? null,
+            });
+        }
+      }
       
       const newOneTimeTrainings = schedule.trainings.filter(t => {
         const existedBefore = oldSchedule.trainings.find(old => old.id === t.id);
