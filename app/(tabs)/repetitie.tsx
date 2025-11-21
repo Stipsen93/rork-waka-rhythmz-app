@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,6 +12,96 @@ import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
 const MINUTES = [0, 15, 30, 45];
+const QUICK_TIMES = ["17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"];
+const WHEEL_ITEM_HEIGHT = 48;
+
+type WheelPickerColumnProps = {
+  label: string;
+  values: number[];
+  selected: number;
+  onSelect: (value: number) => void;
+  testID: string;
+};
+
+const WheelPickerColumn = ({ label, values, selected, onSelect, testID }: WheelPickerColumnProps) => {
+  const listRef = useRef<FlatList<number>>(null);
+
+  const scrollToValue = useCallback(
+    (value: number, animated = true) => {
+      const index = values.indexOf(value);
+      if (index >= 0) {
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToOffset({ offset: index * WHEEL_ITEM_HEIGHT, animated });
+        });
+      }
+    },
+    [values],
+  );
+
+  useEffect(() => {
+    scrollToValue(selected, false);
+  }, [scrollToValue, selected]);
+
+  const handleMomentumEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      const index = Math.round(offsetY / WHEEL_ITEM_HEIGHT);
+      const clampedIndex = Math.min(Math.max(index, 0), values.length - 1);
+      const value = values[clampedIndex];
+      if (value !== undefined) {
+        onSelect(value);
+        scrollToValue(value);
+      }
+    },
+    [onSelect, scrollToValue, values],
+  );
+
+  return (
+    <View style={styles.wheelColumn}>
+      <Text style={styles.wheelLabel}>{label}</Text>
+      <View style={styles.wheelListWrapper}>
+        <FlatList
+          ref={listRef}
+          data={values}
+          keyExtractor={(item) => `${testID}-${item}`}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={WHEEL_ITEM_HEIGHT}
+          decelerationRate="fast"
+          getItemLayout={(_, index) => ({ length: WHEEL_ITEM_HEIGHT, offset: WHEEL_ITEM_HEIGHT * index, index })}
+          contentContainerStyle={{ paddingVertical: WHEEL_ITEM_HEIGHT * 1.5 }}
+          onMomentumScrollEnd={handleMomentumEnd}
+          onScrollEndDrag={handleMomentumEnd}
+          renderItem={({ item }) => {
+            const isActive = item === selected;
+            return (
+              <TouchableOpacity
+                style={[styles.wheelItem, isActive && styles.wheelItemActive]}
+                onPress={() => {
+                  onSelect(item);
+                  scrollToValue(item);
+                }}
+                testID={`${testID}-option-${item}`}
+              >
+                <Text style={[styles.wheelItemText, isActive && styles.wheelItemTextActive]}>{String(item).padStart(2, "0")}</Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+        <View style={styles.wheelHighlight} pointerEvents="none" />
+        <LinearGradient
+          pointerEvents="none"
+          colors={["rgba(255,255,255,0.95)", "rgba(255,255,255,0)"]}
+          style={styles.pickerGradientTop}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.95)"]}
+          style={styles.pickerGradientBottom}
+        />
+      </View>
+    </View>
+  );
+};
 
 type TrainingDraftState = {
   name: string;
@@ -90,6 +180,14 @@ export default function RepetitieScreen() {
     closeTimePicker();
   };
 
+  const handleQuickTimeSelect = (value: string) => {
+    const [hour, minute] = value.split(":").map(Number);
+    if (Number.isFinite(hour) && Number.isFinite(minute)) {
+      setPickerHour(hour);
+      setPickerMinute(minute);
+    }
+  };
+
   const ensureDraft = (trainingId: string, defaults: TrainingDraftState) => {
     setEditingDrafts((prev) => {
       if (prev[trainingId]) return prev;
@@ -163,39 +261,28 @@ export default function RepetitieScreen() {
         <View style={styles.timePickerCard}>
           <Text style={styles.timePickerTitle}>{t.selectTime}</Text>
           <Text style={styles.timePreview}>{formatTime(pickerHour, pickerMinute)}</Text>
-          <View style={styles.timePickerColumns}>
-            <View style={styles.timePickerColumn}>
-              <Text style={styles.timePickerLabel}>{t.hour}</Text>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.pickerList}>
-                {HOURS.map((hour) => (
+          <View style={styles.wheelColumns}>
+            <WheelPickerColumn label={t.hour} values={HOURS} selected={pickerHour} onSelect={setPickerHour} testID="hour-picker" />
+            <WheelPickerColumn label={t.minute} values={MINUTES} selected={pickerMinute} onSelect={setPickerMinute} testID="minute-picker" />
+          </View>
+
+          <View style={styles.quickTimeRow}>
+            <Text style={styles.quickTimeLabel}>Snelle selectie</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickTimeChips}>
+              {QUICK_TIMES.map((time) => {
+                const isActive = time === formatTime(pickerHour, pickerMinute);
+                return (
                   <TouchableOpacity
-                    key={hour}
-                    style={[styles.pickerItem, pickerHour === hour && styles.pickerItemActive]}
-                    onPress={() => setPickerHour(hour)}
+                    key={time}
+                    style={[styles.quickTimeChip, isActive && styles.quickTimeChipActive]}
+                    onPress={() => handleQuickTimeSelect(time)}
+                    testID={`quick-time-${time}`}
                   >
-                    <Text style={[styles.pickerItemText, pickerHour === hour && styles.pickerItemTextActive]}>
-                      {String(hour).padStart(2, "0")}
-                    </Text>
+                    <Text style={[styles.quickTimeChipText, isActive && styles.quickTimeChipTextActive]}>{time}</Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-            <View style={styles.timePickerColumn}>
-              <Text style={styles.timePickerLabel}>{t.minute}</Text>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.pickerList}>
-                {MINUTES.map((minute) => (
-                  <TouchableOpacity
-                    key={minute}
-                    style={[styles.pickerItem, pickerMinute === minute && styles.pickerItemActive]}
-                    onPress={() => setPickerMinute(minute)}
-                  >
-                    <Text style={[styles.pickerItemText, pickerMinute === minute && styles.pickerItemTextActive]}>
-                      {String(minute).padStart(2, "0")}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+                );
+              })}
+            </ScrollView>
           </View>
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalButtonAlt} onPress={closeTimePicker} testID="time-picker-cancel">
@@ -740,41 +827,104 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: Colors.light.primary,
   },
-  timePickerColumns: {
+  wheelColumns: {
     flexDirection: "row",
     gap: 16,
   },
-  timePickerColumn: {
+  wheelColumn: {
     flex: 1,
+  },
+  wheelLabel: {
+    textAlign: "center",
+    fontSize: 12,
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+    color: Colors.light.muted,
+    marginBottom: 6,
+    fontWeight: "700" as const,
+  },
+  wheelListWrapper: {
+    height: WHEEL_ITEM_HEIGHT * 5,
+    borderRadius: 18,
     backgroundColor: Colors.light.surfaceLight,
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.light.border,
+    overflow: "hidden",
+    position: "relative",
   },
-  timePickerLabel: {
-    textAlign: "center",
-    paddingVertical: 8,
-    fontWeight: "700" as const,
-    color: Colors.light.muted,
-  },
-  pickerList: {
-    paddingVertical: 8,
-  },
-  pickerItem: {
-    paddingVertical: 10,
+  wheelItem: {
+    height: WHEEL_ITEM_HEIGHT,
+    justifyContent: "center",
     alignItems: "center",
   },
-  pickerItemActive: {
-    backgroundColor: Colors.light.primary + "22",
+  wheelItemActive: {},
+  wheelItemText: {
+    fontSize: 20,
+    color: Colors.light.muted,
+    fontWeight: "600" as const,
   },
-  pickerItemText: {
-    fontSize: 18,
+  wheelItemTextActive: {
+    color: Colors.light.text,
+    fontSize: 28,
+    fontWeight: "800" as const,
+  },
+  wheelHighlight: {
+    position: "absolute",
+    left: 8,
+    right: 8,
+    top: (WHEEL_ITEM_HEIGHT * 5 - WHEEL_ITEM_HEIGHT) / 2,
+    height: WHEEL_ITEM_HEIGHT,
+    borderRadius: 14,
+    backgroundColor: Colors.light.primary + "1A",
+    borderWidth: 1,
+    borderColor: Colors.light.primary + "55",
+  },
+  pickerGradientTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: WHEEL_ITEM_HEIGHT,
+  },
+  pickerGradientBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: WHEEL_ITEM_HEIGHT,
+  },
+  quickTimeRow: {
+    gap: 8,
+  },
+  quickTimeLabel: {
+    fontSize: 12,
+    letterSpacing: 0.8,
+    color: Colors.light.muted,
+    fontWeight: "700" as const,
+    textTransform: "uppercase" as const,
+  },
+  quickTimeChips: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  quickTimeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.surface,
+  },
+  quickTimeChipActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  quickTimeChipText: {
     fontWeight: "600" as const,
     color: Colors.light.text,
   },
-  pickerItemTextActive: {
-    color: Colors.light.primary,
-    fontWeight: "800" as const,
+  quickTimeChipTextActive: {
+    color: "#fff",
   },
   modalActions: {
     flexDirection: "row",
