@@ -1,78 +1,121 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import React, { useMemo } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
-import { Calendar, Clock, CheckCircle, XCircle, ArrowLeft, AlertCircle } from "lucide-react-native";
+import type { Training } from "@/providers/AppState";
+import { Calendar, Clock, CheckCircle, XCircle, ArrowLeft, AlertCircle, MapPin } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useTrainings } from "@/hooks/useTrainings";
+
+type PracticeInstance = {
+  date: Date;
+  training: Training;
+  cancelled: boolean;
+};
+
+const dayNames = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
+
+const formatDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function AllPracticesScreen() {
   const { practiceSchedule } = useAppState();
+  const { trainings, isLoading } = useTrainings();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const dayNames = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+  const cancelledDates = useMemo(() => new Set(practiceSchedule.cancelledDates.map((cd) => cd.date)), [practiceSchedule.cancelledDates]);
 
-  const getPastPractices = () => {
-    const pastDates: Array<{ date: Date; cancelled: boolean }> = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 30; i >= 1; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dayOfWeek = date.getDay();
-      
-      const hasPractice = practiceSchedule.regularDays.some(d => d.dayOfWeek === dayOfWeek);
-      if (hasPractice) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
-        const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === dateStr);
-        pastDates.push({ date, cancelled: isCancelled });
+  const sortedTrainings = useMemo(() => {
+    return [...trainings].sort((a, b) => {
+      if ((a.customDate ?? "") && (b.customDate ?? "")) {
+        return (a.customDate ?? "").localeCompare(b.customDate ?? "");
       }
-    }
-    
-    return pastDates.reverse();
-  };
+      if (a.dayOfWeek === b.dayOfWeek) {
+        return a.time.localeCompare(b.time);
+      }
+      return a.dayOfWeek - b.dayOfWeek;
+    });
+  }, [trainings]);
 
-  const getUpcomingPractices = () => {
-    const upcomingDates: Array<{ date: Date; cancelled: boolean; time: string }> = [];
+  const weeklyTrainings = useMemo(() => sortedTrainings.filter((training) => !training.customDate), [sortedTrainings]);
+  const customDateInstances = useMemo(() => sortedTrainings.filter((training) => training.customDate).map((training) => {
+    const date = training.customDate ? new Date(`${training.customDate}T00:00:00`) : new Date();
+    return {
+      date,
+      training,
+      cancelled: training.customDate ? cancelledDates.has(training.customDate) : false,
+    };
+  }), [cancelledDates, sortedTrainings]);
+
+  const upcomingPractices = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const futureInstances: PracticeInstance[] = [];
 
     for (let i = 1; i <= 30; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() + i);
       const dayOfWeek = date.getDay();
-      
-      const practiceDay = practiceSchedule.regularDays.find(d => d.dayOfWeek === dayOfWeek);
-      if (practiceDay) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
-        const isCancelled = practiceSchedule.cancelledDates.some(cd => cd.date === dateStr);
-        upcomingDates.push({ date, cancelled: isCancelled, time: practiceDay.time });
-      }
-    }
-    
-    return upcomingDates;
-  };
 
-  const pastPractices = getPastPractices();
-  const upcomingPractices = getUpcomingPractices();
+      weeklyTrainings.forEach((training) => {
+        if (training.dayOfWeek === dayOfWeek) {
+          const dateKey = formatDateKey(date);
+          futureInstances.push({
+            date: new Date(date),
+            training,
+            cancelled: cancelledDates.has(dateKey),
+          });
+        }
+      });
+    }
+
+    const upcomingCustom = customDateInstances.filter((instance) => instance.date.getTime() >= today.getTime());
+
+    return [...futureInstances, ...upcomingCustom].sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [cancelledDates, customDateInstances, weeklyTrainings]);
+
+  const pastPractices = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pastInstances: PracticeInstance[] = [];
+
+    for (let i = 1; i <= 30; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dayOfWeek = date.getDay();
+
+      weeklyTrainings.forEach((training) => {
+        if (training.dayOfWeek === dayOfWeek) {
+          const dateKey = formatDateKey(date);
+          pastInstances.push({
+            date: new Date(date),
+            training,
+            cancelled: cancelledDates.has(dateKey),
+          });
+        }
+      });
+    }
+
+    const pastCustom = customDateInstances.filter((instance) => instance.date.getTime() < today.getTime());
+
+    return [...pastInstances, ...pastCustom].sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [cancelledDates, customDateInstances, weeklyTrainings]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="all-practices-screen">
-      <LinearGradient 
-        colors={[Colors.light.primary, Colors.light.background, Colors.light.background]} 
-        style={styles.headerBg} 
+      <LinearGradient
+        colors={[Colors.light.primary, Colors.light.background, Colors.light.background]}
+        style={styles.headerBg}
         locations={[0, 0.3, 1]}
       />
-      
+
       <View style={styles.header}>
         <Pressable onPress={() => router.push("/(tabs)/assignments")} style={styles.backButton}>
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
@@ -86,28 +129,49 @@ export default function AllPracticesScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+        testID="all-practices-scroll"
+      >
         <View style={styles.scheduleSection}>
           <View style={styles.sectionHeader}>
             <Clock color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            <Text style={styles.sectionTitle}>Reguliere Dagen</Text>
+            <Text style={styles.sectionTitle}>Trainingsoverzicht</Text>
           </View>
-          <View style={styles.scheduleDaysList}>
-            {practiceSchedule.regularDays.map((day, idx) => (
-              <View key={idx} style={styles.scheduleDay}>
-                <View style={styles.scheduleDayIcon}>
-                  <Calendar color={Colors.light.primary} size={18} strokeWidth={2.5} />
+          {isLoading ? (
+            <ActivityIndicator color={Colors.light.primary} style={styles.loadingIndicator} />
+          ) : sortedTrainings.length > 0 ? (
+            <View style={styles.scheduleDaysList}>
+              {sortedTrainings.map((training) => (
+                <View key={training.id} style={styles.scheduleDay}>
+                  <View style={styles.scheduleDayIcon}>
+                    <Calendar color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.scheduleDayInfo}>
+                    <Text style={styles.scheduleDayName}>{training.name}</Text>
+                    <Text style={styles.scheduleDayText}>
+                      {training.customDate
+                        ? `${new Date(`${training.customDate}T00:00:00`).toLocaleDateString("nl-NL", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          })} • ${training.time}`
+                        : `${dayNames[training.dayOfWeek]} • ${training.time}`}
+                    </Text>
+                    <View style={styles.scheduleMetaRow}>
+                      <MapPin color={Colors.light.muted} size={14} />
+                      <Text style={styles.scheduleMetaText}>{training.location}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.statusBadge, styles.statusBadgeActive]}>
+                    <CheckCircle color={Colors.light.text} size={14} strokeWidth={2.5} />
+                    <Text style={styles.statusBadgeText}>Actief</Text>
+                  </View>
                 </View>
-                <Text style={styles.scheduleDayText}>
-                  {dayNames[day.dayOfWeek]} om {day.time}
-                </Text>
-                <View style={[styles.statusBadge, styles.statusBadgeActive]}>
-                  <CheckCircle color={Colors.light.text} size={14} strokeWidth={2.5} />
-                  <Text style={styles.statusBadgeText}>Actief</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>Geen trainingen ingesteld</Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -115,10 +179,12 @@ export default function AllPracticesScreen() {
             <Calendar color={Colors.light.primary} size={22} strokeWidth={2.5} />
             <Text style={styles.sectionTitle}>Aankomende Oefeningen</Text>
           </View>
-          {upcomingPractices.length > 0 ? (
+          {isLoading ? (
+            <ActivityIndicator color={Colors.light.primary} style={styles.loadingIndicator} />
+          ) : upcomingPractices.length > 0 ? (
             <View style={styles.practicesList}>
-              {upcomingPractices.map((practice, idx) => (
-                <View key={idx} style={styles.practiceCard}>
+              {upcomingPractices.map((practice) => (
+                <View key={`${practice.training.id}-${formatDateKey(practice.date)}`} style={styles.practiceCard}>
                   <View style={styles.practiceCardLeft}>
                     <View style={[styles.practiceIconContainer, practice.cancelled && styles.practiceIconCancelled]}>
                       {practice.cancelled ? (
@@ -128,20 +194,25 @@ export default function AllPracticesScreen() {
                       )}
                     </View>
                     <View style={styles.practiceInfo}>
+                      <Text style={styles.practiceName}>{practice.training.name}</Text>
                       <Text style={styles.practiceDate}>
-                        {practice.date.toLocaleDateString('nl-NL', {
-                          weekday: 'long',
-                          day: 'numeric',
-                          month: 'long'
+                        {practice.date.toLocaleDateString("nl-NL", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
                         })}
                       </Text>
-                      <Text style={styles.practiceTime}>om {practice.time}</Text>
+                      <Text style={styles.practiceTime}>
+                        {practice.training.time} • {practice.training.location}
+                      </Text>
                     </View>
                   </View>
-                  <View style={[
-                    styles.statusBadge, 
-                    practice.cancelled ? styles.statusBadgeCancelled : styles.statusBadgeConfirmed
-                  ]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      practice.cancelled ? styles.statusBadgeCancelled : styles.statusBadgeConfirmed,
+                    ]}
+                  >
                     <Text style={styles.statusBadgeText}>
                       {practice.cancelled ? "Gaat niet door" : "Gaat door"}
                     </Text>
@@ -159,10 +230,12 @@ export default function AllPracticesScreen() {
             <AlertCircle color={Colors.light.primary} size={22} strokeWidth={2.5} />
             <Text style={styles.sectionTitle}>Afgelopen Oefeningen</Text>
           </View>
-          {pastPractices.length > 0 ? (
+          {isLoading ? (
+            <ActivityIndicator color={Colors.light.primary} style={styles.loadingIndicator} />
+          ) : pastPractices.length > 0 ? (
             <View style={styles.practicesList}>
-              {pastPractices.map((practice, idx) => (
-                <View key={idx} style={styles.practiceCard}>
+              {pastPractices.map((practice) => (
+                <View key={`${practice.training.id}-past-${formatDateKey(practice.date)}`} style={styles.practiceCard}>
                   <View style={styles.practiceCardLeft}>
                     <View style={[styles.practiceIconContainer, styles.practiceIconPast]}>
                       {practice.cancelled ? (
@@ -172,19 +245,22 @@ export default function AllPracticesScreen() {
                       )}
                     </View>
                     <View style={styles.practiceInfo}>
+                      <Text style={styles.practiceName}>{practice.training.name}</Text>
                       <Text style={styles.practiceDate}>
-                        {practice.date.toLocaleDateString('nl-NL', {
-                          weekday: 'long',
-                          day: 'numeric',
-                          month: 'long'
+                        {practice.date.toLocaleDateString("nl-NL", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
                         })}
                       </Text>
                     </View>
                   </View>
-                  <View style={[
-                    styles.statusBadge, 
-                    practice.cancelled ? styles.statusBadgeCancelled : styles.statusBadgePast
-                  ]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      practice.cancelled ? styles.statusBadgeCancelled : styles.statusBadgePast,
+                    ]}
+                  >
                     <Text style={styles.statusBadgeText}>
                       {practice.cancelled ? "Afgelast" : "Afgerond"}
                     </Text>
@@ -293,14 +369,35 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scheduleDayText: {
+  scheduleDayInfo: {
     flex: 1,
+    gap: 4,
+  },
+  scheduleDayName: {
     color: Colors.light.text,
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
+  scheduleDayText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: "600" as const,
+  },
+  scheduleMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scheduleMetaText: {
+    color: Colors.light.muted,
+    fontSize: 12,
     fontWeight: "600" as const,
   },
   practicesList: {
     gap: 12,
+  },
+  loadingIndicator: {
+    marginVertical: 12,
   },
   practiceCard: {
     backgroundColor: Colors.light.surface,
@@ -334,12 +431,17 @@ const styles = StyleSheet.create({
   },
   practiceInfo: {
     flex: 1,
+    gap: 4,
+  },
+  practiceName: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: "800" as const,
   },
   practiceDate: {
     color: Colors.light.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700" as const,
-    marginBottom: 4,
   },
   practiceTime: {
     color: Colors.light.muted,
