@@ -135,27 +135,45 @@ export type Database = {
       trainings: {
         Row: {
           id: string
+          training_id: string
           name: string
           day_of_week: number
           time: string
           location: string
+          is_one_time: boolean | null
+          repeat_mode: 'none' | '1x' | '2x' | 'custom' | null
+          custom_date: string | null
           created_at: string
+          updated_at: string | null
+          deleted_at: string | null
         }
         Insert: {
-          id: string
+          id?: string
+          training_id?: string
           name: string
           day_of_week: number
           time: string
           location: string
+          is_one_time?: boolean | null
+          repeat_mode?: 'none' | '1x' | '2x' | 'custom' | null
+          custom_date?: string | null
           created_at?: string
+          updated_at?: string | null
+          deleted_at?: string | null
         }
         Update: {
           id?: string
+          training_id?: string
           name?: string
           day_of_week?: number
           time?: string
           location?: string
+          is_one_time?: boolean | null
+          repeat_mode?: 'none' | '1x' | '2x' | 'custom' | null
+          custom_date?: string | null
           created_at?: string
+          updated_at?: string | null
+          deleted_at?: string | null
         }
       }
       practice_schedule: {

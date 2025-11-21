@@ -1,14 +1,16 @@
 import React, { useState, useCallback } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
+import { useTrainings } from "@/hooks/useTrainings";
 import { Clock, Video, Music, Calendar, AlertCircle } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
   const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser, syncAllData } = useAppState();
+  const { trainings, isLoading: trainingsLoading } = useTrainings();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const recentMedia = React.useMemo(() => getRecentMedia(), [getRecentMedia]);
@@ -58,6 +60,13 @@ export default function AssignmentsScreen() {
   const latestAnnouncement = upcomingAnnouncements[0];
   const nextAppointment = upcomingAppointments[0];
 
+  const resolvedTrainings = React.useMemo(() => {
+    if (trainings.length > 0) {
+      return trainings;
+    }
+    return practiceSchedule.trainings ?? [];
+  }, [trainings, practiceSchedule.trainings]);
+
   const getNextPracticeDate = React.useCallback(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -69,7 +78,7 @@ export default function AssignmentsScreen() {
     console.log('[Dashboard] Getting next practice date');
     console.log('[Dashboard] Today:', today.toISOString());
     console.log('[Dashboard] Cancelled dates:', practiceSchedule.cancelledDates);
-    console.log('[Dashboard] Trainings:', practiceSchedule.trainings);
+    console.log('[Dashboard] Trainings:', resolvedTrainings);
     
     while (daysChecked < maxDays) {
       currentDate.setDate(currentDate.getDate() + 1);
@@ -82,7 +91,7 @@ export default function AssignmentsScreen() {
       
       console.log('[Dashboard] Checking date:', dateStr, 'dayOfWeek:', dayOfWeek);
       
-      const trainingsOnDay = practiceSchedule.trainings?.filter(t => t.dayOfWeek === dayOfWeek) || [];
+      const trainingsOnDay = resolvedTrainings.filter(t => t.dayOfWeek === dayOfWeek);
       
       if (trainingsOnDay.length > 0) {
         console.log('[Dashboard] Found trainings on:', dateStr, trainingsOnDay);
@@ -98,7 +107,7 @@ export default function AssignmentsScreen() {
     
     console.log('[Dashboard] No next practice found');
     return null;
-  }, [practiceSchedule.trainings, practiceSchedule.cancelledDates]);
+  }, [resolvedTrainings, practiceSchedule.cancelledDates]);
 
   const nextPractice = React.useMemo(() => getNextPracticeDate(), [getNextPracticeDate]);
 
@@ -263,7 +272,9 @@ export default function AssignmentsScreen() {
             <Text style={styles.widgetTitle}>Eerst Volgende Oefening</Text>
           </View>
           <View style={styles.widgetContent}>
-            {nextPractice ? (
+            {trainingsLoading ? (
+              <ActivityIndicator color={Colors.light.primary} />
+            ) : nextPractice ? (
               <>
                 {(() => {
                   console.log('[Dashboard Badge] Checking if cancelled');

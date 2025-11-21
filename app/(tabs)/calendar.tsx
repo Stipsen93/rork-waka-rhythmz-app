@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, Touch
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment, Training } from "@/providers/AppState";
+import { useTrainings } from "@/hooks/useTrainings";
 import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight, Check } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -24,6 +25,7 @@ const parseDateString = (dateStr: string): Date => {
 
 export default function CalendarScreen() {
   const { appointments, addAppointment, updateAppointment, deleteAppointments, performances, practiceSchedule, users, currentUser, syncAllData } = useAppState();
+  const { trainings } = useTrainings();
   const insets = useSafeAreaInsets();
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -150,6 +152,9 @@ export default function CalendarScreen() {
   }, [performances]);
 
   const resolvedTrainings = useMemo<Training[]>(() => {
+    if (trainings.length > 0) {
+      return trainings;
+    }
     if (practiceSchedule.trainings && practiceSchedule.trainings.length > 0) {
       return practiceSchedule.trainings;
     }
@@ -162,7 +167,7 @@ export default function CalendarScreen() {
       isOneTime: false,
       repeatMode: 'none',
     }));
-  }, [practiceSchedule]);
+  }, [trainings, practiceSchedule]);
 
   const practiceDates = useMemo(() => {
     const dates = new Set<string>();
