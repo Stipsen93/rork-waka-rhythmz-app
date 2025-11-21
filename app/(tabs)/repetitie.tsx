@@ -73,17 +73,16 @@ export default function RepetitieScreen() {
 
   const updateTraining = async (trainingId: string, updates: Partial<Training>) => {
     if (!isAdmin) return;
-    setTrainings(prev => prev.map(t => t.id === trainingId ? { ...t, ...updates } : t));
     
-    const updatedTraining = trainings.find(t => t.id === trainingId);
-    if (updatedTraining) {
-      const merged = { ...updatedTraining, ...updates };
-      await updatePracticeSchedule({
-        ...practiceSchedule,
-        trainings: trainings.map(t => t.id === trainingId ? merged : t),
-      });
-      console.log('✅ Training updated and synced:', trainingId);
-    }
+    const updatedTrainings = trainings.map(t => t.id === trainingId ? { ...t, ...updates } : t);
+    setTrainings(updatedTrainings);
+    
+    await updatePracticeSchedule({
+      ...practiceSchedule,
+      trainings: updatedTrainings,
+    });
+    
+    console.log('✅ Training updated and synced:', trainingId, updates);
   };
 
   const getRepeatModeLabel = (training: Training): string => {
@@ -112,10 +111,10 @@ export default function RepetitieScreen() {
     if (!isAdmin) return;
     const newTraining: Training = {
       id: genId("t"),
-      name: t.newTraining,
+      name: "",
       dayOfWeek: 1,
       time: "19:00",
-      location: "Zaal 3",
+      location: "",
       isOneTime: false,
       repeatMode: 'none',
     };
@@ -259,7 +258,7 @@ export default function RepetitieScreen() {
     await updatePracticeSchedule({
       ...practiceSchedule,
       regularDays: trainings.map(t => ({ dayOfWeek: t.dayOfWeek, time: t.time })),
-      location: trainings[0]?.location || "Zaal 3",
+      location: trainings[0]?.location || "",
       trainings: trainings,
     });
     
@@ -285,7 +284,7 @@ export default function RepetitieScreen() {
 
     await updatePracticeSchedule({
       regularDays: trainings.map(t => ({ dayOfWeek: t.dayOfWeek, time: t.time })),
-      location: trainings[0]?.location || "Zaal 3",
+      location: trainings[0]?.location || "",
       cancelledDates: allCancelledDates,
       isActive: true,
       trainings: trainings,
@@ -689,7 +688,12 @@ export default function RepetitieScreen() {
                       const updated = trainings.map(t => t.id === training.id ? { ...t, name: text } : t);
                       setTrainings(updated);
                     }}
-                    onBlur={() => updateTraining(training.id, { name: training.name })}
+                    onBlur={async () => {
+                      const currentTraining = trainings.find(t => t.id === training.id);
+                      if (currentTraining) {
+                        await updateTraining(training.id, { name: currentTraining.name });
+                      }
+                    }}
                     placeholder={t.trainingName}
                     placeholderTextColor={Colors.light.mutedLight}
                     editable={isEditable}
@@ -763,7 +767,12 @@ export default function RepetitieScreen() {
                       const updated = trainings.map(t => t.id === training.id ? { ...t, location: text } : t);
                       setTrainings(updated);
                     }}
-                    onBlur={() => updateTraining(training.id, { location: training.location })}
+                    onBlur={async () => {
+                      const currentTraining = trainings.find(t => t.id === training.id);
+                      if (currentTraining) {
+                        await updateTraining(training.id, { location: currentTraining.location });
+                      }
+                    }}
                     placeholder={t.location}
                     placeholderTextColor={Colors.light.mutedLight}
                     editable={isEditable}
@@ -948,7 +957,9 @@ export default function RepetitieScreen() {
       {renderCalendarModal()}
       {renderCircularTimePicker()}
       {trainings.map(training => (
-        renderCustomDatePicker(training.id)
+        <View key={training.id}>
+          {renderCustomDatePicker(training.id)}
+        </View>
       ))}
       <MenuModal 
         visible={showMenuModal} 
