@@ -24,7 +24,7 @@ const parseDateString = (dateStr: string): Date => {
 export default function NieuwsScreen() {
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState(false);
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments, users, language } = useAppState();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncements, currentUser, appointments, users, language, syncAllData } = useAppState();
   const t = translations[language];
   const DAYS = t.news.days.short;
   const MONTHS = t.news.months;
@@ -38,6 +38,7 @@ export default function NieuwsScreen() {
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
   const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -263,20 +264,36 @@ export default function NieuwsScreen() {
   };
 
   const handleDeleteFromEdit = () => {
-    if (!editingAnnouncement) return;
-    
+    if (!editingAnnouncement || isDeleting) return;
+
+    const announcementId = editingAnnouncement.id;
+    const announcementName = editingAnnouncement.name;
+
     Alert.alert(
       t.news.deleteAnnouncement,
       t.news.confirmDelete,
       [
         { text: t.news.cancel, style: "cancel" },
-        { 
-          text: t.news.delete, 
-          style: "destructive", 
+        {
+          text: t.news.delete,
+          style: "destructive",
           onPress: () => {
-            deleteAnnouncements([editingAnnouncement.id]);
-            handleCancelEdit();
-          } 
+            void (async () => {
+              try {
+                setIsDeleting(true);
+                console.log('🗑️ [Nieuws] Deleting announcement', announcementId, announcementName);
+                await deleteAnnouncements([announcementId]);
+                await syncAllData();
+                console.log('✅ [Nieuws] Announcement removed and synced', announcementId);
+                handleCancelEdit();
+              } catch (error) {
+                console.error('❌ [Nieuws] Failed to delete announcement', error);
+                Alert.alert(t.news.errorTitle, t.news.deleteError ?? 'Verwijderen mislukt. Probeer het opnieuw.');
+              } finally {
+                setIsDeleting(false);
+              }
+            })();
+          }
         },
       ]
     );
@@ -740,8 +757,9 @@ export default function NieuwsScreen() {
                 <Text style={styles.cancelButtonText}>{t.news.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.deleteButtonLarge}
+                style={[styles.deleteButtonLarge, isDeleting && styles.deleteButtonLargeDisabled]}
                 onPress={handleDeleteFromEdit}
+                disabled={isDeleting}
               >
                 <Trash2 color={Colors.light.background} size={20} strokeWidth={2.5} />
                 <Text style={styles.deleteButtonText}>{t.news.delete}</Text>
@@ -899,6 +917,9 @@ const styles = StyleSheet.create({
     color: Colors.light.background,
     fontSize: 17,
     fontWeight: "700" as const,
+  },
+  deleteButtonLargeDisabled: {
+    opacity: 0.6,
   },
   announcementDescription: {
     fontSize: 15,
