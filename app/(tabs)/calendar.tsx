@@ -551,7 +551,11 @@ export default function CalendarScreen() {
 
           <View style={styles.legendCard} testID="calendar-legend">
             <Text style={styles.legendHeading}>Legenda</Text>
-            <View style={styles.legendGrid}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.legendScrollContent}
+            >
               {LEGEND_ITEMS.map((item) => (
                 <View key={item.label} style={styles.legendBadge}>
                   <View
@@ -563,12 +567,12 @@ export default function CalendarScreen() {
                         : { borderColor: item.color },
                     ]}
                   />
-                  <Text style={styles.legendLabel} numberOfLines={1}>
+                  <Text style={styles.legendLabel}>
                     {item.label}
                   </Text>
                 </View>
               ))}
-            </View>
+            </ScrollView>
           </View>
           </View>
 
@@ -2046,12 +2050,11 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     letterSpacing: 0.2,
   },
-  legendGrid: {
+  legendScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'nowrap',
-    columnGap: 6,
+    gap: 8,
+    paddingHorizontal: 2,
   },
   legendBadge: {
     flexDirection: 'row',
