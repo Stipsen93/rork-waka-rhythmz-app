@@ -79,21 +79,31 @@ export default function NieuwsScreen() {
       isExtraTraining?: boolean;
       status?: 'active' | 'cancelled';
       category?: string;
+      cancelledByUsername?: string;
     }[] = [];
 
     announcements.forEach(a => {
-      items.push({
-        id: a.id,
-        name: a.name,
-        description: a.description,
-        date: a.date,
-        createdAt: a.createdAt,
-        type: 'announcement',
-        isExtraTraining: a.isExtraTraining,
-      });
+      const relatedAppointment = appointments.find(apt => 
+        a.name.includes(apt.name) && 
+        (a.name.includes('geannuleerd') || a.description.includes('geannuleerd'))
+      );
+      
+      if (!relatedAppointment) {
+        items.push({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          date: a.date,
+          createdAt: a.createdAt,
+          type: 'announcement',
+          isExtraTraining: a.isExtraTraining,
+        });
+      }
     });
 
     appointments.forEach(apt => {
+      const cancelledByUsername = apt.cancelledBy ? users.find(u => u.id === apt.cancelledBy)?.username : undefined;
+      
       items.push({
         id: apt.id,
         name: apt.name,
@@ -105,6 +115,7 @@ export default function NieuwsScreen() {
         type: 'appointment',
         status: apt.status,
         category: apt.category,
+        cancelledByUsername,
       });
     });
 
@@ -125,7 +136,7 @@ export default function NieuwsScreen() {
       const dateB = new Date(b.createdAt).getTime();
       return dateB - dateA;
     });
-  }, [announcements, appointments, getBirthdayAnnouncements]);
+  }, [announcements, appointments, users, getBirthdayAnnouncements]);
 
   const { recentItems, oldItems } = useMemo(() => {
     const fourteenDaysAgo = new Date();
@@ -360,6 +371,9 @@ export default function NieuwsScreen() {
                       )}
                     </View>
                     <Text style={styles.announcementDescription}>{item.description}</Text>
+                    {item.status === 'cancelled' && item.cancelledByUsername && (
+                      <Text style={styles.cancelledByText}>Geannuleerd door {item.cancelledByUsername}</Text>
+                    )}
                     <View style={styles.announcementFooter}>
                       <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
                       <Text style={styles.announcementDate}>
@@ -431,6 +445,9 @@ export default function NieuwsScreen() {
                           )}
                         </View>
                         <Text style={styles.announcementDescription}>{item.description}</Text>
+                        {item.status === 'cancelled' && item.cancelledByUsername && (
+                          <Text style={styles.cancelledByText}>Geannuleerd door {item.cancelledByUsername}</Text>
+                        )}
                         <View style={styles.announcementFooter}>
                           <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
                           <Text style={styles.announcementDate}>
@@ -1105,5 +1122,12 @@ const styles = StyleSheet.create({
   },
   oldItemCard: {
     opacity: 0.8,
+  },
+  cancelledByText: {
+    fontSize: 13,
+    color: '#EF4444',
+    fontWeight: '600' as const,
+    marginTop: 8,
+    fontStyle: 'italic' as const,
   },
 });

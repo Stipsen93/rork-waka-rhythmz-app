@@ -145,6 +145,7 @@ export interface Appointment {
   status: 'active' | 'cancelled';
   forUserId?: string;
   confirmed: boolean;
+  cancelledBy?: string;
 }
 
 export interface NotificationSettings {
@@ -716,6 +717,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             status: a.status,
             forUserId: (a as any).for_user_id ?? undefined,
             confirmed: (a as any).confirmed ?? false,
+            cancelledBy: (a as any).cancelled_by ?? undefined,
           })));
           if (appointmentsRes.data.length === 0) {
             const defaultAppointment: Database['public']['Tables']['appointments']['Insert'] = {
@@ -742,6 +744,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               status: 'active',
               forUserId: undefined,
               confirmed: false,
+              cancelledBy: undefined,
             }]);
           }
         }
@@ -910,6 +913,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               status: a.status,
               forUserId: (a as any).for_user_id ?? undefined,
               confirmed: (a as any).confirmed ?? false,
+              cancelledBy: (a as any).cancelled_by ?? undefined,
             })));
           }
         });

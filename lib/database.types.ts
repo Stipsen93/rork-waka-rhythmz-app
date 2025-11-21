@@ -220,6 +220,7 @@ export type Database = {
           status: 'active' | 'cancelled'
           for_user_id: string | null
           confirmed: boolean
+          cancelled_by: string | null
           created_at: string
         }
         Insert: {
@@ -234,6 +235,7 @@ export type Database = {
           status?: 'active' | 'cancelled'
           for_user_id?: string | null
           confirmed?: boolean
+          cancelled_by?: string | null
           created_at?: string
         }
         Update: {
@@ -248,6 +250,7 @@ export type Database = {
           status?: 'active' | 'cancelled'
           for_user_id?: string | null
           confirmed?: boolean
+          cancelled_by?: string | null
           created_at?: string
         }
       }
