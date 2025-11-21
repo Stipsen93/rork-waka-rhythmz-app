@@ -500,6 +500,7 @@ export default function CalendarScreen() {
               const hasExtraTraining = extraTrainingDates.has(day.fullDate);
               const hasBirthday = birthdayDates.has(day.fullDate);
               const hasCancelledAppointment = cancelledAppointmentDates.has(day.fullDate);
+              const showBirthdayDot = hasBirthday && day.isCurrentMonth && !hasPerformance && !hasAppointments && !hasExtraTraining;
               
               return (
                 <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
@@ -510,7 +511,6 @@ export default function CalendarScreen() {
                     hasPerformance && day.isCurrentMonth && !hasCancelledAppointment && styles.dayNumberPerformance,
                     hasAppointments && day.isCurrentMonth && !hasCancelledAppointment && styles.dayNumberAppointment,
                     hasCancelledAppointment && day.isCurrentMonth && styles.dayNumberCancelled,
-                    hasBirthday && day.isCurrentMonth && !hasPerformance && !hasAppointments && styles.dayNumberBirthday,
                   ]}>
                     <Text style={[
                       styles.dayText,
@@ -525,6 +525,9 @@ export default function CalendarScreen() {
                     {hasExtraTraining && day.isCurrentMonth && (
                       <View style={styles.extraTrainingDot} />
                     )}
+                    {showBirthdayDot && (
+                      <View style={styles.birthdayDot} />
+                    )}
                   </View>
                 </View>
               );
@@ -538,14 +541,18 @@ export default function CalendarScreen() {
             </View>
             <View style={styles.legendItem}>
               <View style={styles.legendDotRed} />
-              <Text style={styles.legendText}>Extra Training</Text>
+              <Text style={styles.legendText}>Extra training</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={styles.legendCirclePurple} />
               <Text style={styles.legendText}>Optreden</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={styles.legendCircleOrange} />
+              <View style={styles.legendCircleRed} />
+              <Text style={styles.legendText}>Geannuleerd optreden</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendDotOrange} />
               <Text style={styles.legendText}>Verjaardag</Text>
             </View>
           </View>
@@ -1486,6 +1493,14 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#DC2626',
   },
+  birthdayDot: {
+    position: 'absolute',
+    bottom: 2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F97316',
+  },
   dayNumberAppointment: {
     borderWidth: 2,
     borderColor: '#9333EA',
@@ -2035,21 +2050,23 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#9333EA',
   },
-  legendCircleOrange: {
+  legendCircleRed: {
     width: 12,
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#F97316',
+    borderColor: '#DC2626',
+  },
+  legendDotOrange: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F97316',
   },
   legendText: {
     color: Colors.light.muted,
     fontSize: 11,
     fontWeight: '600' as const,
-  },
-  dayNumberBirthday: {
-    borderWidth: 2,
-    borderColor: '#F97316',
   },
   dayNumberCancelled: {
     borderWidth: 2,
