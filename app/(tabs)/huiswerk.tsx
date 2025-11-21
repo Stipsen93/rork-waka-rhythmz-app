@@ -521,15 +521,32 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             )}
 
             <Text style={localStyles.label}>Media (Optioneel)</Text>
-            <Pressable
-              style={localStyles.uploadButton}
-              onPress={handleOpenMediaExplorer}
-            >
-              <Folder color={Colors.light.text} size={20} />
-              <Text style={localStyles.uploadButtonText}>
-                {mediaUri ? "Media Wijzigen" : "Media Kiezen"}
-              </Text>
-            </Pressable>
+            <View style={localStyles.mediaButtonsContainer}>
+              <Pressable
+                style={localStyles.mediaOptionButton}
+                onPress={handleOpenMediaExplorer}
+              >
+                <Folder color={Colors.light.primary} size={20} />
+                <Text style={localStyles.mediaOptionButtonText}>
+                  Kies uit bibliotheek
+                </Text>
+              </Pressable>
+              
+              <Pressable
+                style={localStyles.mediaOptionButton}
+                onPress={pickAndUploadMedia}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <ActivityIndicator size="small" color={Colors.light.primary} />
+                ) : (
+                  <Upload color={Colors.light.primary} size={20} />
+                )}
+                <Text style={localStyles.mediaOptionButtonText}>
+                  {isUploading ? "Uploaden..." : "Upload media"}
+                </Text>
+              </Pressable>
+            </View>
 
             {mediaUri && (
               <View style={localStyles.uploadedMediaContainer}>
@@ -1811,6 +1828,28 @@ const localStyles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.light.text,
   },
+  mediaButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  mediaOptionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.light.surface,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  mediaOptionButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
   uploadedMediaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2201,6 +2240,11 @@ const detailStyles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     alignSelf: 'flex-start',
+  },
+  completedBadgeText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
   },
   completeButton: {
     marginHorizontal: 20,
