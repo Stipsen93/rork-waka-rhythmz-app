@@ -134,7 +134,7 @@ export default function AssignmentsScreen() {
       >
         <TouchableOpacity 
           style={styles.widget}
-          onPress={() => router.push("/all-news")}
+          onPress={() => router.push("/nieuws")}
           testID="nieuws-widget"
         >
           <View style={styles.widgetHeader}>

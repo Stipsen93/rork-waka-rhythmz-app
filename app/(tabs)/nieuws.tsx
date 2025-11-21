@@ -336,12 +336,14 @@ export default function NieuwsScreen() {
                       item.status === 'cancelled' && styles.cancelledCard,
                     ]}
                     onPress={() => {
-                      if (item.type === 'announcement' && isAdmin && !item.isBirthday) {
-                        const announcement = announcements.find(a => a.id === item.id);
-                        if (announcement) handleOpenEditModal(announcement);
+                      if (isAdmin && !item.isBirthday) {
+                        if (item.type === 'announcement') {
+                          const announcement = announcements.find(a => a.id === item.id);
+                          if (announcement) handleOpenEditModal(announcement);
+                        }
                       }
                     }}
-                    activeOpacity={(item.type === 'announcement' && isAdmin && !item.isBirthday) ? 0.7 : 1}
+                    activeOpacity={(isAdmin && !item.isBirthday) ? 0.7 : 1}
                   >
                     <View style={styles.announcementHeader}>
                       <View style={styles.announcementNameContainer}>
@@ -364,7 +366,7 @@ export default function NieuwsScreen() {
                           </View>
                         )}
                       </View>
-                      {item.type === 'announcement' && isAdmin && !item.isBirthday && (
+                      {isAdmin && !item.isBirthday && (
                         <View style={styles.editIndicator}>
                           <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
                         </View>
@@ -415,12 +417,14 @@ export default function NieuwsScreen() {
                           item.status === 'cancelled' && styles.cancelledCard,
                         ]}
                         onPress={() => {
-                          if (item.type === 'announcement' && isAdmin && !item.isBirthday) {
-                            const announcement = announcements.find(a => a.id === item.id);
-                            if (announcement) handleOpenEditModal(announcement);
+                          if (isAdmin && !item.isBirthday) {
+                            if (item.type === 'announcement') {
+                              const announcement = announcements.find(a => a.id === item.id);
+                              if (announcement) handleOpenEditModal(announcement);
+                            }
                           }
                         }}
-                        activeOpacity={(item.type === 'announcement' && isAdmin && !item.isBirthday) ? 0.7 : 1}
+                        activeOpacity={(isAdmin && !item.isBirthday) ? 0.7 : 1}
                       >
                         <View style={styles.announcementHeader}>
                           <View style={styles.announcementNameContainer}>
@@ -438,7 +442,7 @@ export default function NieuwsScreen() {
                               </View>
                             )}
                           </View>
-                          {item.type === 'announcement' && isAdmin && !item.isBirthday && (
+                          {isAdmin && !item.isBirthday && (
                             <View style={styles.editIndicator}>
                               <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
                             </View>
