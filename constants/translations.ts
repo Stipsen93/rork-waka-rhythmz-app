@@ -98,6 +98,9 @@ export const translations = {
       birthdayCongrats: 'jarig! Feliciteer hem/haar!',
       appointmentCancelled: 'Afspraak geannuleerd:',
       extraTraining: 'Extra training',
+      cancelled: 'Geannuleerd',
+      appointment: 'Afspraak',
+      olderThan14Days: 'Ouder dan 14 dagen',
       days: {
         short: ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'],
       },
@@ -421,6 +424,9 @@ export const translations = {
       birthdayCongrats: "'s birthday! Congratulate them!",
       appointmentCancelled: 'Appointment cancelled:',
       extraTraining: 'Extra training',
+      cancelled: 'Cancelled',
+      appointment: 'Appointment',
+      olderThan14Days: 'Older than 14 days',
       days: {
         short: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
       },

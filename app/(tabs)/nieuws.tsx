@@ -2,10 +2,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal,
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { useAppState } from "@/providers/AppState";
-import { Plus, X, Trash2, Calendar, Edit2, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Plus, X, Trash2, Calendar, Edit2, ChevronLeft, ChevronRight, MapPin, Clock } from "lucide-react-native";
 import type { Announcement } from "@/providers/AppState";
 import { translations } from "@/constants/translations";
 
@@ -41,7 +41,7 @@ export default function NieuwsScreen() {
 
   const isAdmin = currentUser?.role === "admin";
 
-  const getBirthdayAnnouncements = () => {
+  const getBirthdayAnnouncements = useCallback(() => {
     const today = new Date();
     const todayStr = formatDateToLocal(today);
     
@@ -63,11 +63,91 @@ export default function NieuwsScreen() {
         createdAt: todayStr,
         isBirthday: true,
       }));
-  };
+  }, [users, t.news.birthdayToday, t.news.birthdayTodayMessage, t.news.birthdayCongrats]);
 
-  const allAnnouncements = [...announcements, ...getBirthdayAnnouncements()].sort((a, b) => {
-    return new Date(b.date).getTime() - new Date(a.date).getTime();
-  });
+  const allItems = useMemo(() => {
+    const items: {
+      id: string;
+      name: string;
+      description: string;
+      date: string;
+      time?: string;
+      location?: string;
+      createdAt: string;
+      type: 'announcement' | 'appointment';
+      isBirthday?: boolean;
+      isExtraTraining?: boolean;
+      status?: 'active' | 'cancelled';
+      category?: string;
+    }[] = [];
+
+    announcements.forEach(a => {
+      items.push({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        date: a.date,
+        createdAt: a.createdAt,
+        type: 'announcement',
+        isExtraTraining: a.isExtraTraining,
+      });
+    });
+
+    appointments.forEach(apt => {
+      items.push({
+        id: apt.id,
+        name: apt.name,
+        description: `${apt.category} in ${apt.location}`,
+        date: apt.date,
+        time: apt.time,
+        location: apt.location,
+        createdAt: apt.createdAt,
+        type: 'appointment',
+        status: apt.status,
+        category: apt.category,
+      });
+    });
+
+    getBirthdayAnnouncements().forEach(b => {
+      items.push({
+        id: b.id,
+        name: b.name,
+        description: b.description,
+        date: b.date,
+        createdAt: b.createdAt,
+        type: 'announcement',
+        isBirthday: true,
+      });
+    });
+
+    return items.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+  }, [announcements, appointments, getBirthdayAnnouncements]);
+
+  const { recentItems, oldItems } = useMemo(() => {
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    fourteenDaysAgo.setHours(0, 0, 0, 0);
+
+    const recent: typeof allItems = [];
+    const old: typeof allItems = [];
+
+    allItems.forEach(item => {
+      const itemDate = new Date(item.date);
+      itemDate.setHours(0, 0, 0, 0);
+
+      if (itemDate.getTime() < fourteenDaysAgo.getTime() && !item.isBirthday) {
+        old.push(item);
+      } else {
+        recent.push(item);
+      }
+    });
+
+    return { recentItems: recent, oldItems: old };
+  }, [allItems]);
 
   const getDatePickerDays = (baseDate: Date) => {
     const year = baseDate.getFullYear();
@@ -227,19 +307,7 @@ export default function NieuwsScreen() {
             </TouchableOpacity>
           )}
 
-          {allAnnouncements.filter((announcement: any) => {
-            const dutchPrefix = 'Afspraak geannuleerd:';
-            const englishPrefix = 'Appointment cancelled:';
-            const isCancelledAppointmentNews = announcement.name.startsWith(dutchPrefix) || announcement.name.startsWith(englishPrefix);
-            if (!isCancelledAppointmentNews) return true;
-            
-            const appointmentName = announcement.name.replace(dutchPrefix, '').replace(englishPrefix, '').trim();
-            const relatedAppointment = appointments.find(apt => 
-              apt.name === appointmentName && apt.status === 'cancelled'
-            );
-            
-            return !!relatedAppointment;
-          }).length === 0 ? (
+          {recentItems.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>{t.news.noAnnouncements}</Text>
               {isAdmin && (
@@ -247,55 +315,144 @@ export default function NieuwsScreen() {
               )}
             </View>
           ) : (
-            <View style={styles.announcementsList}>
-              {allAnnouncements.filter((announcement: any) => {
-                const dutchPrefix = 'Afspraak geannuleerd:';
-                const englishPrefix = 'Appointment cancelled:';
-                const isCancelledAppointmentNews = announcement.name.startsWith(dutchPrefix) || announcement.name.startsWith(englishPrefix);
-                if (!isCancelledAppointmentNews) return true;
-                
-                const appointmentName = announcement.name.replace(dutchPrefix, '').replace(englishPrefix, '').trim();
-                const relatedAppointment = appointments.find(apt => 
-                  apt.name === appointmentName && apt.status === 'cancelled'
-                );
-                
-                return !!relatedAppointment;
-              }).map((announcement: any) => (
-                <TouchableOpacity 
-                  key={announcement.id} 
-                  style={styles.announcementCard}
-                  onPress={() => (isAdmin && !announcement.isBirthday) ? handleOpenEditModal(announcement) : null}
-                  activeOpacity={(isAdmin && !announcement.isBirthday) ? 0.7 : 1}
-                >
-                  <View style={styles.announcementHeader}>
-                    <View style={styles.announcementNameContainer}>
-                      <Text style={styles.announcementName}>{announcement.name}</Text>
-                      {announcement.isExtraTraining && (
-                        <View style={styles.extraTrainingBadge}>
-                          <Text style={styles.extraTrainingBadgeText}>{t.news.extraTraining}</Text>
+            <>
+              <View style={styles.announcementsList}>
+                {recentItems.map((item) => (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={[
+                      styles.announcementCard,
+                      item.status === 'cancelled' && styles.cancelledCard,
+                    ]}
+                    onPress={() => {
+                      if (item.type === 'announcement' && isAdmin && !item.isBirthday) {
+                        const announcement = announcements.find(a => a.id === item.id);
+                        if (announcement) handleOpenEditModal(announcement);
+                      }
+                    }}
+                    activeOpacity={(item.type === 'announcement' && isAdmin && !item.isBirthday) ? 0.7 : 1}
+                  >
+                    <View style={styles.announcementHeader}>
+                      <View style={styles.announcementNameContainer}>
+                        <View style={styles.itemTitleRow}>
+                          <Text style={styles.announcementName}>{item.name}</Text>
+                          {item.status === 'cancelled' && (
+                            <View style={styles.cancelledBadge}>
+                              <Text style={styles.cancelledBadgeText}>{t.news.cancelled || 'Geannuleerd'}</Text>
+                            </View>
+                          )}
+                        </View>
+                        {item.isExtraTraining && (
+                          <View style={styles.extraTrainingBadge}>
+                            <Text style={styles.extraTrainingBadgeText}>{t.news.extraTraining}</Text>
+                          </View>
+                        )}
+                        {item.type === 'appointment' && !item.status && (
+                          <View style={styles.appointmentBadge}>
+                            <Text style={styles.appointmentBadgeText}>{t.news.appointment || 'Afspraak'}</Text>
+                          </View>
+                        )}
+                      </View>
+                      {item.type === 'announcement' && isAdmin && !item.isBirthday && (
+                        <View style={styles.editIndicator}>
+                          <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
                         </View>
                       )}
                     </View>
-                    {isAdmin && !announcement.isBirthday && (
-                      <View style={styles.editIndicator}>
-                        <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
-                      </View>
-                    )}
+                    <Text style={styles.announcementDescription}>{item.description}</Text>
+                    <View style={styles.announcementFooter}>
+                      <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
+                      <Text style={styles.announcementDate}>
+                        {new Date(item.date).toLocaleDateString('nl-NL', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </Text>
+                      {item.time && (
+                        <>
+                          <Clock color={Colors.light.muted} size={14} strokeWidth={2} style={{ marginLeft: 12 }} />
+                          <Text style={styles.announcementDate}>{item.time}</Text>
+                        </>
+                      )}
+                      {item.location && (
+                        <>
+                          <MapPin color={Colors.light.muted} size={14} strokeWidth={2} style={{ marginLeft: 12 }} />
+                          <Text style={styles.announcementDate}>{item.location}</Text>
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {oldItems.length > 0 && (
+                <View style={styles.oldItemsSection}>
+                  <View style={styles.oldItemsHeader}>
+                    <Text style={styles.oldItemsTitle}>{t.news.olderThan14Days || 'Ouder dan 14 dagen'}</Text>
                   </View>
-                  <Text style={styles.announcementDescription}>{announcement.description}</Text>
-                  <View style={styles.announcementFooter}>
-                    <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
-                    <Text style={styles.announcementDate}>
-                      {new Date(announcement.date).toLocaleDateString('nl-NL', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </Text>
+                  <View style={styles.announcementsList}>
+                    {oldItems.map((item) => (
+                      <TouchableOpacity 
+                        key={item.id} 
+                        style={[
+                          styles.announcementCard,
+                          styles.oldItemCard,
+                          item.status === 'cancelled' && styles.cancelledCard,
+                        ]}
+                        onPress={() => {
+                          if (item.type === 'announcement' && isAdmin && !item.isBirthday) {
+                            const announcement = announcements.find(a => a.id === item.id);
+                            if (announcement) handleOpenEditModal(announcement);
+                          }
+                        }}
+                        activeOpacity={(item.type === 'announcement' && isAdmin && !item.isBirthday) ? 0.7 : 1}
+                      >
+                        <View style={styles.announcementHeader}>
+                          <View style={styles.announcementNameContainer}>
+                            <View style={styles.itemTitleRow}>
+                              <Text style={styles.announcementName}>{item.name}</Text>
+                              {item.status === 'cancelled' && (
+                                <View style={styles.cancelledBadge}>
+                                  <Text style={styles.cancelledBadgeText}>{t.news.cancelled || 'Geannuleerd'}</Text>
+                                </View>
+                              )}
+                            </View>
+                            {item.type === 'appointment' && !item.status && (
+                              <View style={styles.appointmentBadge}>
+                                <Text style={styles.appointmentBadgeText}>{t.news.appointment || 'Afspraak'}</Text>
+                              </View>
+                            )}
+                          </View>
+                          {item.type === 'announcement' && isAdmin && !item.isBirthday && (
+                            <View style={styles.editIndicator}>
+                              <Edit2 color={Colors.light.primary} size={18} strokeWidth={2.5} />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.announcementDescription}>{item.description}</Text>
+                        <View style={styles.announcementFooter}>
+                          <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
+                          <Text style={styles.announcementDate}>
+                            {new Date(item.date).toLocaleDateString('nl-NL', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </Text>
+                          {item.time && (
+                            <>
+                              <Clock color={Colors.light.muted} size={14} strokeWidth={2} style={{ marginLeft: 12 }} />
+                              <Text style={styles.announcementDate}>{item.time}</Text>
+                            </>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                </TouchableOpacity>
-              ))}
-            </View>
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       </View>
@@ -889,5 +1046,64 @@ const styles = StyleSheet.create({
   calendarPickerDayTextSelected: {
     color: Colors.light.text,
     fontWeight: '700' as const,
+  },
+  itemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  appointmentBadge: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  appointmentBadgeText: {
+    color: Colors.light.background,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cancelledBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cancelledBadgeText: {
+    color: Colors.light.background,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cancelledCard: {
+    opacity: 0.7,
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+  },
+  oldItemsSection: {
+    marginTop: 24,
+  },
+  oldItemsHeader: {
+    backgroundColor: Colors.light.surface,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  oldItemsTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.light.muted,
+    textAlign: 'center',
+  },
+  oldItemCard: {
+    opacity: 0.8,
   },
 });
