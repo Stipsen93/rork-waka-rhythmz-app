@@ -11,6 +11,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -28,9 +30,9 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const [isRegistered, setIsRegistered] = useState<boolean>(false);
   
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
-  const appStateListener = useRef<any>();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const appStateListener = useRef<any>(undefined);
 
   async function registerForPushNotificationsAsync(): Promise<string | null> {
     console.log('📱 [PUSH] Starting push notification registration...');
@@ -65,7 +67,6 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
       console.log('📱 [PUSH] Getting Expo push token...');
       const projectId = 'yswc89nvctysbh5ay03im';
-      
       const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
       
       console.log('✅ [PUSH] Expo push token received:', token);

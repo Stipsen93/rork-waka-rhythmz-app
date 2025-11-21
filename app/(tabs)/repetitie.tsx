@@ -929,7 +929,11 @@ export default function RepetitieScreen() {
       </View>
       {renderCalendarModal()}
       {renderCircularTimePicker()}
-      {trainings.map(training => renderCustomDatePicker(training.id))}
+      {trainings.map(training => (
+        <View key={training.id}>
+          {renderCustomDatePicker(training.id)}
+        </View>
+      ))}
       <MenuModal 
         visible={showMenuModal} 
         onClose={() => setShowMenuModal(false)} 
