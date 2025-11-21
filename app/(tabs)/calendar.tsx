@@ -131,6 +131,16 @@ export default function CalendarScreen() {
     return map;
   }, [appointments]);
 
+  const cancelledAppointmentDates = useMemo(() => {
+    const dates = new Set<string>();
+    appointments.forEach((apt) => {
+      if (apt.status === 'cancelled') {
+        dates.add(apt.date);
+      }
+    });
+    return dates;
+  }, [appointments]);
+
   const performanceDates = useMemo(() => {
     const dates = new Set<string>();
     performances.forEach((perf) => {
@@ -484,6 +494,7 @@ export default function CalendarScreen() {
               const hasPractice = practiceDates.has(day.fullDate);
               const hasExtraTraining = extraTrainingDates.has(day.fullDate);
               const hasBirthday = birthdayDates.has(day.fullDate);
+              const hasCancelledAppointment = cancelledAppointmentDates.has(day.fullDate);
               
               return (
                 <View key={`${day.fullDate}-${index}`} style={styles.dayCell}>
@@ -491,8 +502,9 @@ export default function CalendarScreen() {
                     styles.dayNumber,
                     !day.isCurrentMonth && styles.dayNumberInactive,
                     isToday && styles.dayNumberToday,
-                    hasPerformance && day.isCurrentMonth && styles.dayNumberPerformance,
-                    hasAppointments && day.isCurrentMonth && styles.dayNumberAppointment,
+                    hasPerformance && day.isCurrentMonth && !hasCancelledAppointment && styles.dayNumberPerformance,
+                    hasAppointments && day.isCurrentMonth && !hasCancelledAppointment && styles.dayNumberAppointment,
+                    hasCancelledAppointment && day.isCurrentMonth && styles.dayNumberCancelled,
                     hasBirthday && day.isCurrentMonth && !hasPerformance && !hasAppointments && styles.dayNumberBirthday,
                   ]}>
                     <Text style={[
@@ -2033,6 +2045,10 @@ const styles = StyleSheet.create({
   dayNumberBirthday: {
     borderWidth: 2,
     borderColor: '#F97316',
+  },
+  dayNumberCancelled: {
+    borderWidth: 2,
+    borderColor: '#DC2626',
   },
   memberScrollView: {
     marginTop: 8,
