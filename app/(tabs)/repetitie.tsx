@@ -71,9 +71,19 @@ export default function RepetitieScreen() {
 
   const isAdmin = currentUser?.role === "admin";
 
-  const updateTraining = (trainingId: string, updates: Partial<Training>) => {
+  const updateTraining = async (trainingId: string, updates: Partial<Training>) => {
     if (!isAdmin) return;
     setTrainings(prev => prev.map(t => t.id === trainingId ? { ...t, ...updates } : t));
+    
+    const updatedTraining = trainings.find(t => t.id === trainingId);
+    if (updatedTraining) {
+      const merged = { ...updatedTraining, ...updates };
+      await updatePracticeSchedule({
+        ...practiceSchedule,
+        trainings: trainings.map(t => t.id === trainingId ? merged : t),
+      });
+      console.log('✅ Training updated and synced:', trainingId);
+    }
   };
 
   const getRepeatModeLabel = (training: Training): string => {
@@ -675,7 +685,11 @@ export default function RepetitieScreen() {
                   <TextInput
                     style={[styles.trainingNameInput, (!isEditable) && styles.inputDisabled]}
                     value={training.name}
-                    onChangeText={(text) => updateTraining(training.id, { name: text })}
+                    onChangeText={(text) => {
+                      const updated = trainings.map(t => t.id === training.id ? { ...t, name: text } : t);
+                      setTrainings(updated);
+                    }}
+                    onBlur={() => updateTraining(training.id, { name: training.name })}
                     placeholder={t.trainingName}
                     placeholderTextColor={Colors.light.mutedLight}
                     editable={isEditable}
@@ -745,7 +759,11 @@ export default function RepetitieScreen() {
                   <TextInput
                     style={[styles.locationInput, !isEditable && styles.inputDisabled]}
                     value={training.location}
-                    onChangeText={(text) => updateTraining(training.id, { location: text })}
+                    onChangeText={(text) => {
+                      const updated = trainings.map(t => t.id === training.id ? { ...t, location: text } : t);
+                      setTrainings(updated);
+                    }}
+                    onBlur={() => updateTraining(training.id, { location: training.location })}
                     placeholder={t.location}
                     placeholderTextColor={Colors.light.mutedLight}
                     editable={isEditable}
@@ -930,9 +948,7 @@ export default function RepetitieScreen() {
       {renderCalendarModal()}
       {renderCircularTimePicker()}
       {trainings.map(training => (
-        <View key={training.id}>
-          {renderCustomDatePicker(training.id)}
-        </View>
+        renderCustomDatePicker(training.id)
       ))}
       <MenuModal 
         visible={showMenuModal} 
