@@ -11,6 +11,21 @@ const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag', 'Overig'];
 
+type LegendVariant = 'dot' | 'outline';
+interface LegendItem {
+  label: string;
+  color: string;
+  variant: LegendVariant;
+}
+
+const LEGEND_ITEMS: LegendItem[] = [
+  { label: 'Training', color: Colors.light.primary, variant: 'dot' },
+  { label: 'Extra training', color: '#DC2626', variant: 'dot' },
+  { label: 'Optreden', color: '#9333EA', variant: 'outline' },
+  { label: 'Geannuleerd optreden', color: '#DC2626', variant: 'outline' },
+  { label: 'Verjaardag', color: '#F97316', variant: 'dot' },
+];
+
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -534,26 +549,23 @@ export default function CalendarScreen() {
             })}
           </View>
 
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={styles.legendDotBlue} />
-              <Text style={styles.legendText}>Training</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={styles.legendDotRed} />
-              <Text style={styles.legendText}>Extra training</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={styles.legendCirclePurple} />
-              <Text style={styles.legendText}>Optreden</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={styles.legendCircleRed} />
-              <Text style={styles.legendText}>Geannuleerd optreden</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={styles.legendDotOrange} />
-              <Text style={styles.legendText}>Verjaardag</Text>
+          <View style={styles.legendCard} testID="calendar-legend">
+            <Text style={styles.legendHeading}>Legenda</Text>
+            <View style={styles.legendGrid}>
+              {LEGEND_ITEMS.map((item) => (
+                <View key={item.label} style={styles.legendBadge}>
+                  <View
+                    style={[
+                      styles.legendIndicator,
+                      item.variant === 'dot' ? styles.legendIndicatorDot : styles.legendIndicatorOutline,
+                      item.variant === 'dot'
+                        ? { backgroundColor: item.color }
+                        : { borderColor: item.color },
+                    ]}
+                  />
+                  <Text style={styles.legendLabel}>{item.label}</Text>
+                </View>
+              ))}
             </View>
           </View>
           </View>
@@ -2016,56 +2028,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
   },
-  legend: {
+  legendCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    backgroundColor: Colors.light.surface,
+    gap: 12,
+  },
+  legendHeading: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
+  },
+  legendGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.surfaceLight,
-    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  legendItem: {
+  legendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.darkGray,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
   },
-  legendDotBlue: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.light.primary,
+  legendIndicator: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
-  legendDotRed: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#DC2626',
+  legendIndicatorDot: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
   },
-  legendCirclePurple: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  legendIndicatorOutline: {
     borderWidth: 2,
-    borderColor: '#9333EA',
+    backgroundColor: Colors.light.surface,
   },
-  legendCircleRed: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#DC2626',
-  },
-  legendDotOrange: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#F97316',
-  },
-  legendText: {
-    color: Colors.light.muted,
-    fontSize: 11,
+  legendLabel: {
+    color: Colors.light.text,
+    fontSize: 13,
     fontWeight: '600' as const,
   },
   dayNumberCancelled: {
