@@ -563,7 +563,9 @@ export default function CalendarScreen() {
                         : { borderColor: item.color },
                     ]}
                   />
-                  <Text style={styles.legendLabel}>{item.label}</Text>
+                  <Text style={styles.legendLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -2029,55 +2031,60 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.surfaceLight,
   },
   legendCard: {
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 16,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
     backgroundColor: Colors.light.surface,
-    gap: 12,
+    gap: 6,
   },
   legendHeading: {
     color: Colors.light.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700' as const,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   legendGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'nowrap',
+    columnGap: 6,
   },
   legendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
     backgroundColor: Colors.light.darkGray,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
+    flexShrink: 1,
   },
   legendIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   legendIndicatorDot: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    shadowOpacity: 0.15,
+    shadowRadius: 0.5,
   },
   legendIndicatorOutline: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     backgroundColor: Colors.light.surface,
   },
   legendLabel: {
     color: Colors.light.text,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600' as const,
+    flexShrink: 1,
   },
   dayNumberCancelled: {
     borderWidth: 2,
