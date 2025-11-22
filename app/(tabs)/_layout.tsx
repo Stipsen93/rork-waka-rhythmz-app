@@ -377,7 +377,7 @@ export default function TabLayout() {
               <Menu color={Colors.light.primary} size={24} strokeWidth={2.5} />
             </Pressable>
           ),
-          headerTitle: "WAKA RHYTHMZ",
+          headerTitle: "OneBand",
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,

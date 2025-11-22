@@ -137,7 +137,7 @@ export default function MeldingenScreen() {
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: "WAKA RHYTHMZ",
+          headerTitle: "OneBand",
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,
@@ -156,7 +156,7 @@ export default function MeldingenScreen() {
         />
         
         <View style={styles.header}>
-          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+          <Text style={styles.appName}>OneBand</Text>
           <Text style={styles.title}>{t.notifications.title}</Text>
           <Text style={styles.subtitle}>{t.notifications.subtitle}</Text>
           

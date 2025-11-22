@@ -21,7 +21,7 @@ export default function ModalScreen() {
     >
       <Pressable style={styles.overlay} onPress={() => router.back()}>
         <View style={styles.modalContent}>
-          <Text style={styles.title}>Waka Rhythmz</Text>
+          <Text style={styles.title}>OneBand</Text>
           <Text style={styles.description}>Snelle melding. Pas deze modal aan voor jouw workflow.</Text>
 
           <TouchableOpacity

@@ -302,7 +302,7 @@ export default function RepetitieScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTitle: "WAKA RHYTHMZ",
+          headerTitle: "OneBand",
           headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />, 
           headerTitleStyle: styles.headerTitle,
           headerStyle: { backgroundColor: Colors.light.background },

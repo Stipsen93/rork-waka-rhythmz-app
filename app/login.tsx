@@ -44,7 +44,7 @@ export default function LoginScreen() {
           <View style={styles.logoCircle}>
             <Music color={Colors.light.primary} size={48} strokeWidth={2.5} />
           </View>
-          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+          <Text style={styles.appName}>OneBand</Text>
           <Text style={styles.appTagline}>Drumband Management</Text>
         </View>
 
@@ -99,7 +99,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 Waka Rhythmz</Text>
+          <Text style={styles.footerText}>© 2025 OneBand</Text>
         </View>
       </View>
     </KeyboardAvoidingView>

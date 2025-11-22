@@ -481,7 +481,7 @@ export default function CalendarScreen() {
           }
         >
           <View style={styles.header}>
-            <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+            <Text style={styles.appName}>OneBand</Text>
             <Text style={styles.title}>Agenda</Text>
           </View>
 

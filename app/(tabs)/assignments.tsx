@@ -121,7 +121,7 @@ export default function AssignmentsScreen() {
       
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+          <Text style={styles.appName}>OneBand</Text>
           {currentUser && (
             <Text style={styles.userName}>{currentUser.username}</Text>
           )}

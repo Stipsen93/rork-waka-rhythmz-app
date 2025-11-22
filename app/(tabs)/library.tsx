@@ -646,7 +646,7 @@ export default function LibraryScreen() {
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: "WAKA RHYTHMZ",
+          headerTitle: "OneBand",
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,
@@ -667,7 +667,7 @@ export default function LibraryScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+              <Text style={styles.appName}>OneBand</Text>
               <Text style={styles.title}>{t.library.title}</Text>
               {breadcrumbText ? (
                 <Text style={styles.breadcrumb}>{breadcrumbText}</Text>

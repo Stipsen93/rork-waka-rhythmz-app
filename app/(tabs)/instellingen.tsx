@@ -19,7 +19,7 @@ export default function InstellingenScreen() {
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: "WAKA RHYTHMZ",
+          headerTitle: "OneBand",
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,

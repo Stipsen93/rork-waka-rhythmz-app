@@ -459,7 +459,7 @@ export default function AdminScreen() {
       />
       
       <View style={styles.header}>
-        <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+        <Text style={styles.appName}>OneBand</Text>
         <Text style={styles.title}>{t.admin.title}</Text>
         <Text style={styles.subtitle}>{t.admin.subtitle}</Text>
       </View>

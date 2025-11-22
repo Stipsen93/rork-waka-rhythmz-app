@@ -34,7 +34,7 @@ export default function AllNewsScreen() {
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+          <Text style={styles.appName}>OneBand</Text>
           <Text style={styles.title}>Nieuws</Text>
           <Text style={styles.subtitle}>{newsItems.length} items</Text>
         </View>

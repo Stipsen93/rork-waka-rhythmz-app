@@ -19,7 +19,7 @@ export default function DeletedScreen() {
       />
       
       <View style={styles.header}>
-        <Text style={styles.appName}>WAKA RHYTHMZ</Text>
+        <Text style={styles.appName}>OneBand</Text>
         <Text style={styles.title}>{t.deleted.title}</Text>
         <Text style={styles.subtitle}>{t.deleted.subtitle}</Text>
       </View>
