@@ -6,15 +6,17 @@ import { Platform, AppState as RNAppState } from "react-native";
 import { useAppState } from "@/providers/AppState";
 import { trpcClient } from "@/lib/trpc";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 export interface NotificationState {
   expoPushToken: string | null;
@@ -66,7 +68,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       }
 
       console.log('📱 [PUSH] Getting Expo push token...');
-      const projectId = 'yswc89nvctysbh5ay03im';
+      const projectId = 'fae11c52-b2a8-4ebd-ad40-c4623bde8068';
       const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
       
       console.log('✅ [PUSH] Expo push token received:', token);
@@ -78,6 +80,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#FF231F7C',
+          sound: 'default',
         });
       }
 
