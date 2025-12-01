@@ -71,7 +71,12 @@ const CreateUserSection = memo(({ onUserCreated, language }: { onUserCreated: ()
       <Pressable
         style={[styles.createButton, { opacity: username ? 1 : 0.5 }]} 
         disabled={!username}
-        onPress={handleCreateUser}
+        onPress={() => {
+          if (!username.trim()) {
+            return;
+          }
+          void handleCreateUser();
+        }}
         testID="create-user"
       >
         <UserPlus color={Colors.light.text} size={20} strokeWidth={2.5} />
@@ -307,7 +312,7 @@ export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const handleUserCreated = useCallback(() => {
   }, []);
@@ -499,7 +504,7 @@ export default function AdminScreen() {
         </View>
       </View>
     </>
-  ), [users.length, handleUserCreated, selectionMode, selectedUserIds.length, handleCancelSelection, handleDeleteSelected, t.admin.title, t.admin.allMembers, language]);
+  ), [users.length, handleUserCreated, selectionMode, selectedUserIds.length, handleCancelSelection, handleDeleteSelected, t.admin.title, t.admin.subtitle, t.admin.allMembers, language]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="admin-screen">
@@ -626,6 +631,7 @@ export default function AdminScreen() {
                             try {
                               await setRole(item.id, "member");
                             } catch (error) {
+                              console.error("Failed to update role", error);
                               Alert.alert(
                                 t.admin.accessDenied || "Geen toegang",
                                 t.admin.onlyCrownAdminCanDemote || "Alleen de hoofdbeheerder kan admins depromoveren naar leden"

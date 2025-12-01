@@ -59,6 +59,32 @@ export type Database = {
           created_at?: string
         }
       }
+      profiles: {
+        Row: {
+          id: string
+          email: string
+          role: 'admin' | 'member'
+          password_changed_by_user: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          role?: 'admin' | 'member'
+          password_changed_by_user?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          role?: 'admin' | 'member'
+          password_changed_by_user?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       library: {
         Row: {
           id: string
@@ -385,6 +411,58 @@ export type Database = {
           id?: string
           group_id?: string
           user_id?: string
+          created_at?: string
+        }
+      }
+      media_folders: {
+        Row: {
+          id: string
+          name: string
+          folder_path: string
+          parent_path: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          folder_path: string
+          parent_path?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          folder_path?: string
+          parent_path?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      password_reset_requests: {
+        Row: {
+          id: string
+          user_id: string
+          requested_username: string
+          device_last_login: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          requested_username: string
+          device_last_login?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          requested_username?: string
+          device_last_login?: string | null
           created_at?: string
         }
       }

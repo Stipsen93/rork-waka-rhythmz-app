@@ -40,7 +40,7 @@ function MenuModal({ visible, onClose }: { visible: boolean; onClose: () => void
       <View style={localStyles.modalOverlay}>
         <View style={[localStyles.menuModalContent, { paddingTop: insets.top + 20 }]}>
           <View style={localStyles.modalHeader}>
-            <Text style={localStyles.modalTitle}>{t.tabs.calendar === 'Calendar' ? 'Menu' : 'Menu'}</Text>
+            <Text style={localStyles.modalTitle}>Menu</Text>
             <Pressable onPress={onClose} testID="close-menu-modal">
               <X color={Colors.light.text} size={28} strokeWidth={2.5} />
             </Pressable>
@@ -266,10 +266,19 @@ function AdminModal({ visible, onClose }: { visible: boolean; onClose: () => voi
             <Pressable
               style={[localStyles.createButton, { opacity: username ? 1 : 0.5 }]} 
               disabled={!username}
-              onPress={() => {
-                const { user, password } = addUser(username.trim(), role);
-                Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
-                setUsername("");
+              onPress={async () => {
+                try {
+                  const trimmedUsername = username.trim();
+                  if (!trimmedUsername) {
+                    return;
+                  }
+                  const { user, password } = await addUser(trimmedUsername, role);
+                  Alert.alert("Account Aangemaakt", `Gebruikersnaam: ${user.username}\nWachtwoord: ${password}\n\nBewaar dit wachtwoord!`);
+                  setUsername("");
+                } catch (error) {
+                  console.error("Error creating account", error);
+                  Alert.alert("Fout", "Kon account niet aanmaken. Probeer het later opnieuw.");
+                }
               }}
               testID="create-user"
             >
