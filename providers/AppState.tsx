@@ -196,6 +196,8 @@ export interface AppStateValue {
   language: Language;
   t: typeof translations['nl'];
   setLanguage: (lang: Language) => Promise<void>;
+  biometricEnabled: boolean;
+  setBiometricEnabled: (enabled: boolean) => Promise<void>;
   setCurrentUser: (u: User | null) => void;
   login: (username: string, password: string) => boolean;
   logout: () => void;
@@ -354,6 +356,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [language, setLanguageState] = useState<Language>('nl');
+  const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(false);
 
   const refreshStorageUsage = useCallback(async () => {
     console.log('💾 Refreshing storage usage...');
@@ -395,6 +398,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }
     };
     loadLanguage();
+  }, []);
+
+  useEffect(() => {
+    const loadBiometricSetting = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('biometric_enabled');
+        if (saved !== null) {
+          setBiometricEnabledState(saved === 'true');
+        }
+      } catch (error) {
+        console.error('Error loading biometric setting:', error);
+      }
+    };
+    loadBiometricSetting();
   }, []);
 
   useEffect(() => {
@@ -2261,12 +2278,25 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     }
   }, []);
 
+  const setBiometricEnabled = useCallback(async (enabled: boolean) => {
+    console.log('💾 Setting biometric...', enabled);
+    setBiometricEnabledState(enabled);
+    try {
+      await AsyncStorage.setItem('biometric_enabled', enabled ? 'true' : 'false');
+      console.log('✅ Biometric setting saved');
+    } catch (error) {
+      console.error('❌ Error saving biometric setting:', error);
+    }
+  }, []);
+
   const value: AppStateValue = {
     users,
     currentUser,
     language,
     t: translations[language],
     setLanguage,
+    biometricEnabled,
+    setBiometricEnabled,
     setCurrentUser,
     login,
     logout,

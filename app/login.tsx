@@ -1,20 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { User, Lock, Music } from "lucide-react-native";
+import { User, Lock, Music, Fingerprint } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
+import * as LocalAuthentication from "expo-local-authentication";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const { login } = useAppState();
+  const { login, biometricEnabled } = useAppState();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [showBiometricButton, setShowBiometricButton] = useState<boolean>(false);
 
-  const handleLogin = () => {
+  const checkAndShowBiometric = useCallback(async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    
+    if (hasHardware && isEnrolled && biometricEnabled) {
+      setShowBiometricButton(true);
+      const lastUsername = await AsyncStorage.getItem('last_username');
+      if (lastUsername) {
+        setUsername(lastUsername);
+      }
+    }
+  }, [biometricEnabled]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' && biometricEnabled) {
+      checkAndShowBiometric();
+    }
+  }, [biometricEnabled, checkAndShowBiometric]);
+
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Login met biometrie',
+      });
+
+      if (result.success) {
+        const lastUsername = await AsyncStorage.getItem('last_username');
+        const lastPassword = await AsyncStorage.getItem('last_password');
+        
+        if (lastUsername && lastPassword) {
+          const success = login(lastUsername, lastPassword);
+          if (success) {
+            router.replace("/(tabs)/assignments");
+          } else {
+            Alert.alert("Inloggen mislukt", "Opgeslagen inloggegevens zijn niet meer geldig");
+          }
+        } else {
+          Alert.alert("Fout", "Geen opgeslagen inloggegevens gevonden");
+        }
+      }
+    } catch (error) {
+      console.error('Biometric error:', error);
+    }
+  };
+
+  const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert("Fout", "Voer gebruikersnaam en wachtwoord in");
       return;
@@ -22,6 +70,10 @@ export default function LoginScreen() {
 
     const success = login(username.trim(), password);
     if (success) {
+      if (biometricEnabled && Platform.OS !== 'web') {
+        await AsyncStorage.setItem('last_username', username.trim());
+        await AsyncStorage.setItem('last_password', password);
+      }
       router.replace("/(tabs)/assignments");
     } else {
       Alert.alert("Inloggen mislukt", "Gebruikersnaam of wachtwoord is onjuist");
@@ -96,6 +148,16 @@ export default function LoginScreen() {
               <Text style={styles.loginButtonText}>Inloggen</Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          {showBiometricButton && (
+            <TouchableOpacity 
+              style={styles.biometricButton} 
+              onPress={handleBiometricLogin}
+            >
+              <Fingerprint color={Colors.light.tint} size={28} strokeWidth={2} />
+              <Text style={styles.biometricButtonText}>Login met biometrie</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.footer}>
@@ -210,5 +272,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.muted,
     fontWeight: "500" as const,
+  },
+  biometricButton: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 2,
+    borderColor: Colors.light.tint,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginTop: 16,
+    gap: 12,
+  },
+  biometricButtonText: {
+    color: Colors.light.tint,
+    fontSize: 16,
+    fontWeight: "600" as const,
   },
 });

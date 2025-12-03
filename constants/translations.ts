@@ -44,6 +44,9 @@ export const translations = {
       languageDescription: 'Kies de taal van de app',
       dutch: 'Nederlands',
       english: 'Engels',
+      security: 'Beveiliging',
+      biometricLogin: 'Biometrische inlog',
+      biometricDescription: 'Gebruik gezichtsherkenning of vingerafdruk om in te loggen',
     },
     memberProfile: {
       title: 'Lid Profiel',
@@ -372,6 +375,9 @@ export const translations = {
       languageDescription: 'Choose the app language',
       dutch: 'Dutch',
       english: 'English',
+      security: 'Security',
+      biometricLogin: 'Biometric Login',
+      biometricDescription: 'Use face recognition or fingerprint to login',
     },
     memberProfile: {
       title: 'Member Profile',

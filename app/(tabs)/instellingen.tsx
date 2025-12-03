@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
@@ -6,13 +6,45 @@ import { useState } from "react";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { useAppState } from "@/providers/AppState";
 import { translations } from "@/constants/translations";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, Fingerprint } from "lucide-react-native";
+import * as LocalAuthentication from "expo-local-authentication";
 
 export default function InstellingenScreen() {
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
-  const { language, setLanguage } = useAppState();
+  const { language, setLanguage, biometricEnabled, setBiometricEnabled } = useAppState();
   const t = translations[language];
+
+  const handleBiometricToggle = async (value: boolean) => {
+    if (Platform.OS === 'web') {
+      Alert.alert(t.common.error, 'Biometrische authenticatie is niet beschikbaar op web');
+      return;
+    }
+
+    if (value) {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      if (!hasHardware) {
+        Alert.alert(t.common.error, 'Dit apparaat ondersteunt geen biometrische authenticatie');
+        return;
+      }
+
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!isEnrolled) {
+        Alert.alert(t.common.error, 'Geen biometrische data gevonden. Stel eerst vingerafdruk of gezichtsherkenning in op je apparaat');
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Verifieer je identiteit',
+      });
+
+      if (result.success) {
+        await setBiometricEnabled(true);
+      }
+    } else {
+      await setBiometricEnabled(false);
+    }
+  };
 
   return (
     <>
@@ -71,6 +103,28 @@ export default function InstellingenScreen() {
                 </Text>
                 {language === 'en' && <ChevronRight size={20} color={Colors.light.tint} />}
               </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.settingsSection}>
+            <Text style={styles.sectionTitle}>{t.settings.security}</Text>
+            <Text style={styles.sectionDescription}>{t.settings.biometricDescription}</Text>
+            
+            <View style={styles.biometricOption}>
+              <View style={styles.biometricInfo}>
+                <View style={styles.biometricIconContainer}>
+                  <Fingerprint size={24} color={Colors.light.tint} strokeWidth={2} />
+                </View>
+                <View style={styles.biometricTextContainer}>
+                  <Text style={styles.biometricTitle}>{t.settings.biometricLogin}</Text>
+                </View>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={handleBiometricToggle}
+                trackColor={{ false: Colors.light.mutedLight, true: Colors.light.tint }}
+                thumbColor="#fff"
+              />
             </View>
           </View>
         </ScrollView>
@@ -140,5 +194,37 @@ const styles = StyleSheet.create({
   },
   languageButtonTextActive: {
     color: Colors.light.tint,
+  },
+  biometricOption: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+  },
+  biometricInfo: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    flex: 1,
+    gap: 12,
+  },
+  biometricIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.light.tint + "20",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+  },
+  biometricTextContainer: {
+    flex: 1,
+  },
+  biometricTitle: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
   },
 });
