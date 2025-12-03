@@ -7,6 +7,8 @@ import { TRPCError } from "@trpc/server";
 type MediaInsert = Database['public']['Tables']['media_library']['Insert'];
 type MediaRow = Database['public']['Tables']['media_library']['Row'];
 
+const MAX_FILE_SIZE = 400 * 1024 * 1024;
+
 export const uploadMediaRoute = publicProcedure
   .input(z.object({
     name: z.string(),
@@ -24,6 +26,14 @@ export const uploadMediaRoute = publicProcedure
       console.log('[UPLOAD START] Type:', input.fileType);
       console.log('[UPLOAD START] Size:', input.fileSize);
       console.log('[UPLOAD START] Base64 length:', input.base64Data.length);
+      
+      if (input.fileSize > MAX_FILE_SIZE) {
+        console.error('[UPLOAD ERROR] File size exceeds limit:', input.fileSize, '>', MAX_FILE_SIZE);
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+        });
+      }
       
       console.log('[UPLOAD] Testing Supabase connection...');
       const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();

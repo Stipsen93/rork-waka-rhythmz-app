@@ -32,9 +32,11 @@ export default function AssignmentsScreen() {
   }, [syncAllData]);
   
   const myAssignments = React.useMemo(() => {
-    return assignments.filter(a => 
-      a.assignedUserIds.length === 0 || a.assignedUserIds.includes(currentUser?.id ?? '')
-    );
+    return assignments
+      .filter(a => 
+        a.assignedUserIds.length === 0 || a.assignedUserIds.includes(currentUser?.id ?? '')
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [assignments, currentUser]);
   
   const nextAssignment = myAssignments[0];

@@ -1,47 +1,24 @@
-import React from "react";
+import React, { useState } from "react";
 import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppState, MediaItem, CategoryNode } from "@/providers/AppState";
+import { useAppState, MediaItem, CategoryNode, MediaLibraryItem } from "@/providers/AppState";
 import { Video, Image as ImageIcon, Music, ArrowLeft } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import AudioPlayerModal from "@/components/AudioPlayerModal";
+import { supabase } from "@/lib/supabase";
 
-interface MediaWithFolder {
-  media: MediaItem;
-  folderPath: string;
-}
+
 
 export default function AllMediaScreen() {
-  const { library } = useAppState();
+  const { mediaLibrary } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [audioModalVisible, setAudioModalVisible] = useState<boolean>(false);
+  const [selectedAudio, setSelectedAudio] = useState<{ uri: string; title: string } | null>(null);
 
-  const getAllMediaWithFolders = (): MediaWithFolder[] => {
-    const result: MediaWithFolder[] = [];
-    
-    const traverse = (nodes: CategoryNode[], path: string[]) => {
-      for (const node of nodes) {
-        const currentPath = [...path, node.name];
-        if (node.media) {
-          for (const media of node.media) {
-            result.push({
-              media,
-              folderPath: currentPath.join(" > "),
-            });
-          }
-        }
-        if (node.children) {
-          traverse(node.children, currentPath);
-        }
-      }
-    };
-    
-    traverse(library, []);
-    return result;
-  };
-
-  const allMedia = getAllMediaWithFolders();
+  const allMedia = mediaLibrary;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -49,8 +26,20 @@ export default function AllMediaScreen() {
         return Video;
       case "image":
         return ImageIcon;
+      case "audio":
+        return Music;
       default:
         return Music;
+    }
+  };
+
+  const handleMediaPress = (item: MediaLibraryItem) => {
+    if (item.file_type === 'audio') {
+      const { data } = supabase.storage
+        .from('media-library')
+        .getPublicUrl(item.storage_path);
+      setSelectedAudio({ uri: data.publicUrl, title: item.name });
+      setAudioModalVisible(true);
     }
   };
 
@@ -75,23 +64,29 @@ export default function AllMediaScreen() {
 
       <FlatList
         data={allMedia}
-        keyExtractor={(item) => item.media.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 20 }]}
         renderItem={({ item }) => {
-          const Icon = getIcon(item.media.type);
+          const Icon = getIcon(item.file_type);
           return (
-            <Pressable style={styles.card} testID={`media-${item.media.id}`}>
+            <Pressable 
+              style={styles.card} 
+              testID={`media-${item.id}`}
+              onPress={() => handleMediaPress(item)}
+            >
               <View style={styles.iconContainer}>
                 <Icon color={Colors.light.text} size={24} strokeWidth={2} />
               </View>
               <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.media.title}</Text>
-                <Text style={styles.cardMeta}>{item.media.type.toUpperCase()}</Text>
-                <Text style={styles.folderPath} numberOfLines={1}>{item.folderPath}</Text>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardMeta}>{item.file_type.toUpperCase()}</Text>
+                <Text style={styles.folderPath} numberOfLines={1}>{item.folder_path || 'Root'}</Text>
               </View>
-              <View style={styles.playBadge}>
-                <Text style={styles.playBadgeText}>▶</Text>
-              </View>
+              {item.file_type === 'audio' && (
+                <View style={styles.playBadge}>
+                  <Text style={styles.playBadgeText}>▶</Text>
+                </View>
+              )}
             </Pressable>
           );
         }}
@@ -101,6 +96,18 @@ export default function AllMediaScreen() {
           </View>
         }
       />
+
+      {selectedAudio && (
+        <AudioPlayerModal
+          visible={audioModalVisible}
+          audioUri={selectedAudio.uri}
+          audioTitle={selectedAudio.title}
+          onClose={() => {
+            setAudioModalVisible(false);
+            setSelectedAudio(null);
+          }}
+        />
+      )}
     </View>
   );
 }

@@ -6,13 +6,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock, Music, Fingerprint } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
+import { useAuth } from "@/providers/AuthProvider";
 import * as LocalAuthentication from "expo-local-authentication";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const { login, biometricEnabled } = useAppState();
+  const { biometricEnabled } = useAppState();
+  const { signIn } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [showBiometricButton, setShowBiometricButton] = useState<boolean>(false);
@@ -47,8 +49,8 @@ export default function LoginScreen() {
         const lastPassword = await AsyncStorage.getItem('last_password');
         
         if (lastUsername && lastPassword) {
-          const success = login(lastUsername, lastPassword);
-          if (success) {
+          const result = await signIn(lastUsername, lastPassword);
+          if (result.success) {
             router.replace("/(tabs)/assignments");
           } else {
             Alert.alert("Inloggen mislukt", "Opgeslagen inloggegevens zijn niet meer geldig");
@@ -68,15 +70,15 @@ export default function LoginScreen() {
       return;
     }
 
-    const success = login(username.trim(), password);
-    if (success) {
+    const result = await signIn(username.trim(), password);
+    if (result.success) {
       if (biometricEnabled && Platform.OS !== 'web') {
         await AsyncStorage.setItem('last_username', username.trim());
         await AsyncStorage.setItem('last_password', password);
       }
       router.replace("/(tabs)/assignments");
     } else {
-      Alert.alert("Inloggen mislukt", "Gebruikersnaam of wachtwoord is onjuist");
+      Alert.alert("Inloggen mislukt", result.error || "Gebruikersnaam of wachtwoord is onjuist");
     }
   };
 
