@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AuthProvider } from "@/providers/AuthProvider";
 import { AppStateProvider } from "@/providers/AppState";
 import { NotificationProvider } from "@/providers/NotificationProvider";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -33,11 +34,13 @@ export default function RootLayout() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={styles.container}>
-          <AppStateProvider>
-            <NotificationProvider>
-              <RootLayoutNav />
-            </NotificationProvider>
-          </AppStateProvider>
+          <AuthProvider>
+            <AppStateProvider>
+              <NotificationProvider>
+                <RootLayoutNav />
+              </NotificationProvider>
+            </AppStateProvider>
+          </AuthProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </trpc.Provider>
