@@ -1901,11 +1901,11 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       return mediaItem;
     } catch (error: any) {
       console.error('❌ [UPLOAD] Upload error:', error);
-      console.error('❌ [UPLOAD] Error details:', {
+      console.error('❌ [UPLOAD] Error details:', JSON.stringify({
         message: error?.message,
         cause: error?.cause,
-        stack: error?.stack,
-      });
+        name: error?.name,
+      }));
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
   }, []);

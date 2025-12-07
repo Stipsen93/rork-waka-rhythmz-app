@@ -20,9 +20,8 @@ const getBaseUrl = () => {
     return baseUrl;
   }
 
-  throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL or run in a web environment"
-  );
+  console.error('[TRPC] Failed to determine base URL. Make sure EXPO_PUBLIC_RORK_API_BASE_URL is set.');
+  return '';
 };
 
 export const trpcClient = trpc.createClient({
