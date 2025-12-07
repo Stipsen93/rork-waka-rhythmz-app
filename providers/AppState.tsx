@@ -193,6 +193,7 @@ export interface Group {
 export interface AppStateValue {
   users: User[];
   currentUser: User | null;
+  isInitialized: boolean;
   language: Language;
   t: typeof translations['nl'];
   setLanguage: (lang: Language) => Promise<void>;
@@ -2292,6 +2293,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const value: AppStateValue = {
     users,
     currentUser,
+    isInitialized,
     language,
     t: translations[language],
     setLanguage,

@@ -1,12 +1,12 @@
 import { Redirect } from "expo-router";
-import { useAuth } from "@/providers/AuthProvider";
 import { ActivityIndicator, View } from "react-native";
 import Colors from "@/constants/colors";
+import { useAppState } from "@/providers/AppState";
 
 export default function RootIndex() {
-  const { profile, loading } = useAuth();
+  const { currentUser, isInitialized } = useAppState();
   
-  if (loading) {
+  if (!isInitialized) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.light.background }}>
         <ActivityIndicator size="large" color={Colors.light.primary} />
@@ -14,7 +14,7 @@ export default function RootIndex() {
     );
   }
   
-  if (!profile) {
+  if (!currentUser) {
     return <Redirect href="/login" />;
   }
   
