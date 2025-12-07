@@ -18,6 +18,10 @@ export default function LoginScreen() {
   const [showBiometricButton, setShowBiometricButton] = useState<boolean>(false);
 
   const checkAndShowBiometric = useCallback(async () => {
+    if (Platform.OS === 'web' || !biometricEnabled) {
+      return;
+    }
+    
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
     
@@ -31,10 +35,8 @@ export default function LoginScreen() {
   }, [biometricEnabled]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' && biometricEnabled) {
-      checkAndShowBiometric();
-    }
-  }, [biometricEnabled, checkAndShowBiometric]);
+    checkAndShowBiometric();
+  }, [checkAndShowBiometric]);
 
   const handleBiometricLogin = async () => {
     try {
