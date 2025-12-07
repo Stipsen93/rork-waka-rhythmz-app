@@ -76,61 +76,71 @@ export default function LibraryScreen() {
     try {
       console.log('[LIBRARY] Loading items for path:', currentPath || 'root');
       
-      const prefix = currentPath ? `${currentPath}/` : '';
-      
-      const { data: files, error } = await supabase.storage
-        .from('media-library')
-        .list(prefix, {
-          limit: 1000,
-          offset: 0,
-        });
-
-      if (error) {
-        console.error('[LIBRARY] Error loading items:', error);
-        throw error;
-      }
-
-      console.log('[LIBRARY] Raw files:', files?.length || 0);
-
       const parsedItems: LibraryItem[] = [];
       const seenFolders = new Set<string>();
 
-      if (files) {
-        for (const file of files) {
-          // Skip .keep and .emptyFolderPlaceholder files
-          if (file.name === '.keep' || file.name === '.emptyFolderPlaceholder') {
-            continue;
-          }
+      // Get folders from AppState
+      const allFolders = appState.getFolders();
+      const allMedia = appState.mediaLibrary;
 
-          const fullPath = prefix + file.name;
+      console.log('[LIBRARY] All folders:', allFolders.length);
+      console.log('[LIBRARY] All media:', allMedia.length);
 
-          // If it has metadata, it's a file
-          if (file.metadata) {
-            const { data } = supabase.storage
-              .from('media-library')
-              .getPublicUrl(fullPath);
-
-            parsedItems.push({
-              name: file.name,
-              path: fullPath,
-              type: 'file',
-              size: file.metadata.size || 0,
-              mimeType: file.metadata.mimetype || 'application/octet-stream',
-              url: data.publicUrl,
-            });
-          } else {
-            // It's a folder
-            if (!seenFolders.has(file.name)) {
-              seenFolders.add(file.name);
+      // Filter folders for current path
+      allFolders.forEach(folderPath => {
+        // If we're at root, show top-level folders
+        if (!currentPath) {
+          const parts = folderPath.split('/');
+          if (parts.length === 1 && parts[0]) {
+            if (!seenFolders.has(parts[0])) {
+              seenFolders.add(parts[0]);
               parsedItems.push({
-                name: file.name,
-                path: fullPath,
+                name: parts[0],
+                path: parts[0],
                 type: 'folder',
               });
             }
           }
+        } else {
+          // If we're in a folder, show subfolders
+          if (folderPath.startsWith(currentPath + '/')) {
+            const remaining = folderPath.substring(currentPath.length + 1);
+            const parts = remaining.split('/');
+            if (parts.length >= 1 && parts[0]) {
+              const subfolderPath = currentPath + '/' + parts[0];
+              if (!seenFolders.has(subfolderPath)) {
+                seenFolders.add(subfolderPath);
+                parsedItems.push({
+                  name: parts[0],
+                  path: subfolderPath,
+                  type: 'folder',
+                });
+              }
+            }
+          }
         }
-      }
+      });
+
+      // Get media items for current path
+      const mediaInFolder = appState.getMediaInFolder(currentPath);
+      mediaInFolder.forEach(media => {
+        if (media.name === '.keep' || media.name === '.emptyFolderPlaceholder') {
+          return;
+        }
+
+        const { data } = supabase.storage
+          .from('media-library')
+          .getPublicUrl(media.storage_path);
+
+        parsedItems.push({
+          name: media.name,
+          path: media.path,
+          type: 'file',
+          size: media.file_size,
+          mimeType: media.mime_type,
+          url: data.publicUrl,
+        });
+      });
 
       // Sort: folders first, then files
       parsedItems.sort((a, b) => {
@@ -150,56 +160,29 @@ export default function LibraryScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentPath]);
+  }, [currentPath, appState.getFolders, appState.getMediaInFolder, appState.mediaLibrary]);
 
   const loadStorageUsage = useCallback(async () => {
     try {
-      // Get all files to calculate usage
-      const { data: files, error } = await supabase.storage
-        .from('media-library')
-        .list('', {
-          limit: 10000,
-          offset: 0,
+      await appState.refreshStorageUsage();
+      if (appState.storageUsage) {
+        setStorageUsage({ 
+          used: appState.storageUsage.usageGB, 
+          total: appState.storageUsage.maxGB 
         });
-
-      if (error) throw error;
-
-      let totalBytes = 0;
-      const calculateSize = async (prefix: string = '') => {
-        const { data: items, error } = await supabase.storage
-          .from('media-library')
-          .list(prefix, {
-            limit: 1000,
-            offset: 0,
-          });
-
-        if (error || !items) return;
-
-        for (const item of items) {
-          if (item.metadata) {
-            totalBytes += item.metadata.size || 0;
-          } else {
-            // It's a folder, recurse
-            await calculateSize(prefix ? `${prefix}/${item.name}` : item.name);
-          }
-        }
-      };
-
-      await calculateSize('');
-
-      const usedGB = totalBytes / (1024 * 1024 * 1024);
-      const totalGB = 100; // Supabase free tier is 100GB
-
-      setStorageUsage({ used: usedGB, total: totalGB });
+      }
     } catch (error) {
       console.error('[LIBRARY] Storage usage error:', error);
     }
-  }, []);
+  }, [appState.refreshStorageUsage, appState.storageUsage]);
 
   useEffect(() => {
     loadItems();
+  }, [loadItems]);
+
+  useEffect(() => {
     loadStorageUsage();
-  }, [loadItems, loadStorageUsage]);
+  }, [loadStorageUsage]);
 
   const handleBack = () => {
     const parts = currentPath.split('/');
@@ -220,23 +203,7 @@ export default function LibraryScreen() {
       
       console.log('[FOLDER] Creating folder:', newFolderPath);
 
-      // Upload a .keep file to create the folder
-      const keepPath = `${newFolderPath}/.keep`;
-      
-      // Create empty content - use ArrayBuffer for cross-platform compatibility
-      const emptyContent = new Uint8Array(0);
-      
-      const { error } = await supabase.storage
-        .from('media-library')
-        .upload(keepPath, emptyContent, {
-          contentType: 'application/octet-stream',
-          upsert: false,
-        });
-
-      if (error) {
-        console.error('[FOLDER] Error:', error);
-        throw error;
-      }
+      await appState.createFolder(newFolderPath);
 
       console.log('[FOLDER] Created successfully');
       
@@ -290,32 +257,44 @@ export default function LibraryScreen() {
 
       console.log('[UPLOAD WEB] Starting upload...', file.name);
       
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = currentPath 
-        ? `${currentPath}/${timestamp}_${sanitizedName}`
-        : `${timestamp}_${sanitizedName}`;
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          const base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
 
-      console.log('[UPLOAD WEB] Storage path:', storagePath);
+          let fileType = 'other';
+          if (file.type.startsWith('video/')) fileType = 'video';
+          else if (file.type.startsWith('image/')) fileType = 'image';
+          else if (file.type.startsWith('audio/')) fileType = 'audio';
 
-      const { data, error } = await supabase.storage
-        .from('media-library')
-        .upload(storagePath, file, {
-          contentType: file.type,
-          upsert: false,
-        });
+          await appState.uploadMedia({
+            name: file.name,
+            folderPath: currentPath,
+            fileType,
+            fileSize: file.size,
+            mimeType: file.type,
+            base64Data,
+          });
 
-      if (error) {
-        console.error('[UPLOAD WEB] Error:', error);
-        throw error;
-      }
-
-      console.log('[UPLOAD WEB] Success!', data);
-      
-      setIsUploading(false);
-      setErrorMessage('Upload succesvol!');
-      setTimeout(() => setErrorMessage(null), 3000);
-      await Promise.all([loadItems(), loadStorageUsage()]);
+          setIsUploading(false);
+          setErrorMessage('Upload succesvol!');
+          setTimeout(() => setErrorMessage(null), 3000);
+          await Promise.all([loadItems(), loadStorageUsage()]);
+        } catch (error: any) {
+          console.error('[UPLOAD WEB] Error:', error);
+          setIsUploading(false);
+          const message = error?.message || 'Onbekende fout';
+          setErrorMessage(`Upload mislukt: ${message}`);
+          setTimeout(() => setErrorMessage(null), 5000);
+        }
+      };
+      reader.onerror = () => {
+        setIsUploading(false);
+        setErrorMessage('Bestand lezen mislukt');
+        setTimeout(() => setErrorMessage(null), 5000);
+      };
+      reader.readAsDataURL(file);
     } catch (error: any) {
       console.error('[UPLOAD WEB] Error:', error);
       setIsUploading(false);
@@ -399,37 +378,41 @@ export default function LibraryScreen() {
       console.log('[UPLOAD NATIVE] Name:', fileName);
       console.log('[UPLOAD NATIVE] Type:', mimeType);
 
-      const timestamp = Date.now();
-      const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = currentPath 
-        ? `${currentPath}/${timestamp}_${sanitizedName}`
-        : `${timestamp}_${sanitizedName}`;
-
-      console.log('[UPLOAD NATIVE] Storage path:', storagePath);
-
-      // Read file as ArrayBuffer for React Native compatibility
       const response = await fetch(uri);
       if (!response.ok) {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
       }
       
-      const arrayBuffer = await response.arrayBuffer();
-      console.log('[UPLOAD NATIVE] File size:', arrayBuffer.byteLength);
+      const blob = await response.blob();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!reader.result) {
+            reject(new Error('FileReader resultaat is leeg'));
+            return;
+          }
+          const result = reader.result as string;
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
+        reader.readAsDataURL(blob);
+      });
 
-      const { data, error } = await supabase.storage
-        .from('media-library')
-        .upload(storagePath, arrayBuffer, {
-          contentType: mimeType || 'application/octet-stream',
-          upsert: false,
-        });
+      let fileType = 'other';
+      if (mimeType?.startsWith('video/')) fileType = 'video';
+      else if (mimeType?.startsWith('image/')) fileType = 'image';
+      else if (mimeType?.startsWith('audio/')) fileType = 'audio';
 
-      if (error) {
-        console.error('[UPLOAD NATIVE] Error:', error);
-        throw error;
-      }
+      await appState.uploadMedia({
+        name: fileName,
+        folderPath: currentPath,
+        fileType,
+        fileSize: blob.size,
+        mimeType: mimeType || 'application/octet-stream',
+        base64Data,
+      });
 
-      console.log('[UPLOAD NATIVE] Success!', data);
-      
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
