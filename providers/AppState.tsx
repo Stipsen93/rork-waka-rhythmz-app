@@ -201,8 +201,8 @@ export interface AppStateValue {
   biometricEnabled: boolean;
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   setCurrentUser: (u: User | null) => void;
-  login: (username: string, password: string) => boolean;
-  logout: () => void;
+  login: (username: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   addUser: (username: string, role: Role) => Promise<{ user: User; password: string }>;
   deleteUsers: (userIds: string[]) => Promise<void>;
   setCrownAdmin: (userId: string) => Promise<void>;
@@ -287,6 +287,7 @@ function buildCategoryTree(allNodes: any[]): (node: any) => CategoryNode {
 export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(() => {
   console.log('🎯 [AppState] Initializing context hook...');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const mockMedia: MediaItem[] = [
     {
       id: "m1",
@@ -591,6 +592,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     const initializeData = async () => {
       try {
         console.log('🔄 Loading data from Supabase...');
+        
+        let savedUserId: string | null = null;
+        try {
+          savedUserId = await AsyncStorage.getItem('saved_user_id');
+          console.log('💾 Saved user ID:', savedUserId);
+        } catch (error) {
+          console.error('❌ Error reading saved user ID:', error);
+        }
         const [usersRes, libraryRes, assignmentsRes, trainingsRes, scheduleRes, announcementsRes, appointmentsRes, settingsRes, mediaLibraryRes, groupsRes, groupMembersRes] = await Promise.all([
           supabase.from('users').select('*'),
           supabase.from('library').select('*'),
@@ -830,10 +839,43 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         }
 
         console.log('✅ Data loaded from Supabase');
+        
+        if (savedUserId) {
+          const savedUser = usersRes.data?.find(u => u.id === savedUserId);
+          if (savedUser && !savedUser.deleted_by_user) {
+            setCurrentUser({
+              id: savedUser.id,
+              username: savedUser.username,
+              password: savedUser.password,
+              role: savedUser.role as Role,
+              passwordChangedByUser: savedUser.password_changed_by_user,
+              email: savedUser.email,
+              phone: savedUser.phone,
+              age: savedUser.age,
+              address: savedUser.address,
+              notificationPreferences: (savedUser.notification_preferences as any) ?? {
+                newsEnabled: true,
+                assignmentsEnabled: true,
+                trainingsEnabled: true,
+                performancesEnabled: true,
+              },
+              deletedByUser: savedUser.deleted_by_user ?? false,
+              deletedAt: savedUser.deleted_at ?? null,
+              isCrownAdmin: savedUser.is_crown_admin ?? false,
+            });
+            console.log('✅ Restored login session for user:', savedUser.username);
+          } else {
+            console.log('⚠️ Saved user not found or deleted, clearing session');
+            await AsyncStorage.removeItem('saved_user_id');
+          }
+        }
+        
         setIsInitialized(true);
+        setIsCheckingSession(false);
       } catch (error) {
         console.error('❌ Error initializing data:', error);
         setIsInitialized(true);
+        setIsCheckingSession(false);
       }
     };
 
@@ -1143,20 +1185,35 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ User role updated');
   }, [users, currentUser]);
 
-  const login = useCallback((username: string, password: string) => {
+  const login = useCallback(async (username: string, password: string) => {
     const user = users.find(u => u.username === username && u.password === password);
     if (user) {
       if (user.deletedByUser) {
         return false;
       }
       setCurrentUser(user);
+      
+      try {
+        await AsyncStorage.setItem('saved_user_id', user.id);
+        console.log('✅ Login saved to storage');
+      } catch (error) {
+        console.error('❌ Error saving login:', error);
+      }
+      
       return true;
     }
     return false;
   }, [users]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setCurrentUser(null);
+    
+    try {
+      await AsyncStorage.removeItem('saved_user_id');
+      console.log('✅ Login removed from storage');
+    } catch (error) {
+      console.error('❌ Error removing login:', error);
+    }
   }, []);
 
   const addUser = useCallback(async (username: string, role: Role): Promise<{ user: User; password: string }> => {

@@ -49,7 +49,7 @@ export default function LoginScreen() {
         const lastPassword = await AsyncStorage.getItem('last_password');
         
         if (lastUsername && lastPassword) {
-          const success = login(lastUsername, lastPassword);
+          const success = await login(lastUsername, lastPassword);
           if (success) {
             router.replace("/(tabs)/assignments");
           } else {
@@ -70,7 +70,7 @@ export default function LoginScreen() {
       return;
     }
 
-    const success = login(username.trim(), password);
+    const success = await login(username.trim(), password);
     if (success) {
       if (biometricEnabled && Platform.OS !== 'web') {
         await AsyncStorage.setItem('last_username', username.trim());
