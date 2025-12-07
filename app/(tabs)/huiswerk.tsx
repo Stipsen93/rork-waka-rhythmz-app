@@ -22,7 +22,7 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
-  const { addAssignment, updateAssignment, users, groups } = useAppState();
+  const { addAssignment, updateAssignment, users, groups, uploadMedia } = useAppState();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState<string>(editingAssignment?.title ?? "");
   const [description, setDescription] = useState<string>(editingAssignment?.description ?? "");
@@ -105,35 +105,55 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       }
 
       const file = result.assets[0];
-      const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `assignments/${fileName}`;
+      const fileType = file.mimeType?.startsWith('video/')
+        ? 'video'
+        : file.mimeType?.startsWith('image/')
+          ? 'image'
+          : file.mimeType?.startsWith('audio/')
+            ? 'audio'
+            : 'other';
 
       const response = await fetch(file.uri);
       const blob = await response.blob();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!reader.result) {
+            reject(new Error('Leeg bestand'));
+            return;
+          }
+          const resultString = reader.result as string;
+          const base64 = resultString.includes(',') ? resultString.split(',')[1] : resultString;
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
+        reader.readAsDataURL(blob);
+      });
 
-      const { data, error } = await supabase.storage
-        .from('media')
-        .upload(filePath, blob, {
-          contentType: file.mimeType || 'application/octet-stream',
-          upsert: false,
-        });
+      console.log('[ASSIGNMENT UPLOAD] Uploading via backend...');
+      const uploadedMedia = await uploadMedia({
+        name: file.name,
+        folderPath: 'assignments',
+        fileType,
+        fileSize: file.size || 0,
+        mimeType: file.mimeType || 'application/octet-stream',
+        base64Data,
+      });
 
-      if (error) {
-        throw error;
-      }
+      const { data } = supabase.storage
+        .from('media-library')
+        .getPublicUrl(uploadedMedia.storage_path);
 
-      const { data: urlData } = supabase.storage
-        .from('media')
-        .getPublicUrl(data.path);
+      setMediaUri(data.publicUrl);
 
-      setMediaUri(urlData.publicUrl);
-
-      if (file.mimeType?.startsWith('video/')) {
+      if (fileType === 'video') {
         setMediaType('video');
-      } else if (file.mimeType?.startsWith('image/')) {
+      } else if (fileType === 'image') {
         setMediaType('image');
-      } else if (file.mimeType?.startsWith('audio/')) {
+      } else if (fileType === 'audio') {
         setMediaType('audio');
+      } else {
+        setMediaType(undefined);
       }
 
       Alert.alert("Succes", "Media is succesvol geüpload!");
