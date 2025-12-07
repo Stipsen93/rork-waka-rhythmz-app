@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from "@/constants/translations";
 import { translations } from "@/constants/translations";
+import { trpcClient } from "@/lib/trpc";
 
 export type Role = "admin" | "member";
 
@@ -1852,16 +1853,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Notification settings updated');
   }, []);
 
-  const getBaseUrl = useCallback(() => {
-    if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
-      return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-    }
-    if (typeof window !== 'undefined') {
-      return `${window.location.protocol}//${window.location.host}`;
-    }
-    throw new Error('No base URL available');
-  }, []);
-
   const uploadMedia = useCallback(async (input: { 
     name: string; 
     folderPath: string; 
@@ -1870,42 +1861,27 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     mimeType: string; 
     base64Data: string 
   }): Promise<MediaLibraryItem> => {
-    console.log('💾 Uploading media via backend...');
+    console.log('💾 [UPLOAD] Uploading media via tRPC...');
+    console.log('💾 [UPLOAD] Input:', {
+      name: input.name,
+      folderPath: input.folderPath,
+      fileType: input.fileType,
+      fileSize: input.fileSize,
+      mimeType: input.mimeType,
+      base64Length: input.base64Data.length,
+    });
     
     try {
-      const baseUrl = getBaseUrl();
-      console.log('[UPLOAD] Using base URL:', baseUrl);
-      const response = await fetch(`${baseUrl}/api/trpc/media.uploadMedia`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          0: {
-            json: {
-              name: input.name,
-              folderPath: input.folderPath,
-              fileType: input.fileType,
-              fileSize: input.fileSize,
-              mimeType: input.mimeType,
-              base64Data: input.base64Data,
-            }
-          }
-        }),
+      const result = await trpcClient.media.uploadMedia.mutate({
+        name: input.name,
+        folderPath: input.folderPath,
+        fileType: input.fileType,
+        fileSize: input.fileSize,
+        mimeType: input.mimeType,
+        base64Data: input.base64Data,
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Upload error:', errorText);
-        throw new Error(`Upload mislukt: ${errorText}`);
-      }
-      
-      const responseData = await response.json();
-      const result = responseData.result?.data || responseData[0]?.result?.data;
-      
-      if (!result) {
-        throw new Error('Geen data ontvangen van server');
-      }
+      console.log('💾 [UPLOAD] Upload successful, result:', result);
       
       const mediaItem: MediaLibraryItem = {
         id: result.id,
@@ -1921,13 +1897,18 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       };
       
       setMediaLibrary(prev => [mediaItem, ...prev]);
-      console.log('✅ Media uploaded');
+      console.log('✅ [UPLOAD] Media uploaded successfully');
       return mediaItem;
     } catch (error: any) {
-      console.error('❌ Upload error:', error);
+      console.error('❌ [UPLOAD] Upload error:', error);
+      console.error('❌ [UPLOAD] Error details:', {
+        message: error?.message,
+        cause: error?.cause,
+        stack: error?.stack,
+      });
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, [getBaseUrl]);
+  }, []);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
     console.log('💾 [DELETE_MEDIA] Starting delete for IDs:', ids);
@@ -2146,38 +2127,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [mediaLibrary]);
 
   const createFolder = useCallback(async (folderPath: string) => {
-    console.log('💾 Creating folder via backend...');
+    console.log('💾 [CREATE_FOLDER] Creating folder via tRPC...');
     
     try {
-      const baseUrl = getBaseUrl();
-      console.log('[CREATE_FOLDER] Using base URL:', baseUrl);
-      const response = await fetch(`${baseUrl}/api/trpc/media.createFolder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          0: {
-            json: {
-              folderPath,
-              createdBy: currentUser?.id,
-            }
-          }
-        }),
+      await trpcClient.media.createFolder.mutate({
+        folderPath,
+        createdBy: currentUser?.id,
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Folder creation error:', errorText);
-        throw new Error(`Folder aanmaken mislukt: ${errorText}`);
-      }
-      
-      console.log('✅ Folder created');
+      console.log('✅ [CREATE_FOLDER] Folder created successfully');
     } catch (error: any) {
-      console.error('❌ Folder creation error:', error);
+      console.error('❌ [CREATE_FOLDER] Folder creation error:', error);
       throw new Error(`Folder aanmaken mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, [currentUser, getBaseUrl]);
+  }, [currentUser]);
 
   const addGroup = useCallback(async (name: string, memberIds: string[]) => {
     console.log('💾 Adding group to Supabase...');
