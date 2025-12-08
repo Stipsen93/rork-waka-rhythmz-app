@@ -114,33 +114,20 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             ? 'audio'
             : 'other';
 
+      console.log('[ASSIGNMENT UPLOAD] Preparing binary payload...');
       const response = await fetch(file.uri);
       const blob = await response.blob();
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (!reader.result) {
-            reject(new Error('Leeg bestand'));
-            return;
-          }
-          const resultString = reader.result as string;
-          const base64 = resultString.includes(',') ? resultString.split(',')[1] : resultString;
-          resolve(base64);
-        };
-        reader.onerror = () => reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
-        reader.readAsDataURL(blob);
-      });
+      const buffer = await blob.arrayBuffer();
+      const fileBytes = new Uint8Array(buffer);
 
       console.log('[ASSIGNMENT UPLOAD] Uploading to assignment-submissions bucket...');
       
       const fileName = `${Date.now()}-${file.name}`;
       const filePath = `assignments/${fileName}`;
       
-      const arrayBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('assignment-submissions')
-        .upload(filePath, arrayBuffer, {
+        .upload(filePath, fileBytes, {
           contentType: file.mimeType || 'application/octet-stream',
           upsert: false,
         });
@@ -1053,29 +1040,15 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
 
       const response = await fetch(file.uri);
       const blob = await response.blob();
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (!reader.result) {
-            reject(new Error('FileReader resultaat is leeg'));
-            return;
-          }
-          const result = reader.result as string;
-          const base64 = result.includes(',') ? result.split(',')[1] : result;
-          resolve(base64);
-        };
-        reader.onerror = () => reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
-        reader.readAsDataURL(blob);
-      });
+      const buffer = await blob.arrayBuffer();
+      const fileBytes = new Uint8Array(buffer);
 
       const fileName = `${Date.now()}-${file.name}`;
       const filePath = `huiswerk-uploads/${fileName}`;
       
-      const arrayBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('assignment-submissions')
-        .upload(filePath, arrayBuffer, {
+        .upload(filePath, fileBytes, {
           contentType: file.mimeType || 'application/octet-stream',
           upsert: false,
         });
