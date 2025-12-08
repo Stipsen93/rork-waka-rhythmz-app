@@ -128,14 +128,15 @@ export default function LibraryScreen() {
 
       // Get media items for current path
       const mediaInFolder = appState.getMediaInFolder(currentPath);
+      console.log('[LIBRARY] Media in current folder:', mediaInFolder.length);
       mediaInFolder.forEach(media => {
         if (media.name === '.keep' || media.name === '.emptyFolderPlaceholder') {
           return;
         }
 
-        const { data } = supabase.storage
-          .from('media-library')
-          .getPublicUrl(media.storage_path);
+        // Generate public URL using the Supabase storage URL pattern
+        const storageUrl = `https://afeslrqjcpuhhqivyhuz.supabase.co/storage/v1/object/public/media-library/${media.storage_path}`;
+        console.log('[LIBRARY] Media item:', media.name, 'URL:', storageUrl);
 
         parsedItems.push({
           name: media.name,
@@ -143,7 +144,7 @@ export default function LibraryScreen() {
           type: 'file',
           size: media.file_size,
           mimeType: media.mime_type,
-          url: data.publicUrl,
+          url: storageUrl,
         });
       });
 
