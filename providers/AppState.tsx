@@ -65,6 +65,13 @@ export interface CommentItem {
   createdAt: string;
 }
 
+export interface AssignmentSubmission {
+  userId: string;
+  mediaUri?: string;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface Assignment {
   id: string;
   title: string;
@@ -76,7 +83,7 @@ export interface Assignment {
   requireMedia: boolean;
   completedBy: { userId: string; completedAt: string; mediaUri?: string }[];
   createdAt: string;
-  submissions: { userId: string; videoUri: string; createdAt: string }[];
+  submissions: AssignmentSubmission[];
 }
 
 export interface CalendarEvent {
@@ -223,7 +230,7 @@ export interface AppStateValue {
   addAssignment: (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>) => void;
   updateAssignment: (id: string, assignment: Partial<Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>>) => void;
   deleteAssignments: (ids: string[]) => void;
-  completeAssignment: (assignmentId: string, userId: string, mediaUri?: string) => Promise<void>;
+  completeAssignment: (assignmentId: string, userId: string, submission?: { mediaUri?: string; notes?: string }) => Promise<void>;
   events: CalendarEvent[];
   performances: Performance[];
   addPerformance: (perf: Omit<Performance, 'id'>) => void;
@@ -1610,13 +1617,13 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Assignments deleted:', ids.length);
   }, []);
 
-  const completeAssignment = useCallback(async (assignmentId: string, userId: string, mediaUri?: string) => {
+  const completeAssignment = useCallback(async (assignmentId: string, userId: string, submission?: { mediaUri?: string; notes?: string }) => {
     console.log('💾 Completing assignment in Supabase...', assignmentId);
     
     const completion = {
       userId,
       completedAt: new Date().toISOString(),
-      ...(mediaUri && { mediaUri }),
+      ...(submission?.mediaUri && { mediaUri: submission.mediaUri }),
     };
     
     const assignment = assignments.find(a => a.id === assignmentId);
@@ -1627,8 +1634,18 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     
     const updatedCompletedBy = [...assignment.completedBy, completion];
     
+    const newSubmission: AssignmentSubmission = {
+      userId,
+      createdAt: new Date().toISOString(),
+      ...(submission?.mediaUri && { mediaUri: submission.mediaUri }),
+      ...(submission?.notes && { notes: submission.notes }),
+    };
+    
+    const updatedSubmissions = [...assignment.submissions, newSubmission];
+    
     const updateData: Database['public']['Tables']['assignments']['Update'] = {
       completed_by: updatedCompletedBy as any,
+      submissions: updatedSubmissions as any,
     };
     
     const { error } = await supabase.from('assignments').update(updateData).eq('id', assignmentId);
@@ -1639,7 +1656,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     
     setAssignments((prev) => prev.map((a) => {
       if (a.id === assignmentId) {
-        return { ...a, completedBy: updatedCompletedBy };
+        return { ...a, completedBy: updatedCompletedBy, submissions: updatedSubmissions };
       }
       return a;
     }));

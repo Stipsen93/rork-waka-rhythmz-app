@@ -958,11 +958,12 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
 
 function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: { visible: boolean; assignment: Assignment; onClose: () => void; currentUserId: string }) {
   const insets = useSafeAreaInsets();
-  const { completeAssignment, users, uploadMedia } = useAppState();
+  const { completeAssignment, users, currentUser, uploadMedia } = useAppState();
   const [isCompleting, setIsCompleting] = useState(false);
   const [uploadedMediaUri, setUploadedMediaUri] = useState<string>("");
   const [uploadedMediaType, setUploadedMediaType] = useState<'video' | 'image' | 'audio' | undefined>(undefined);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [notes, setNotes] = useState<string>("");
   const [showMediaExplorer, setShowMediaExplorer] = useState(false);
   const [explorerPath, setExplorerPath] = useState<string>("");
   const [videoPlayerVisible, setVideoPlayerVisible] = useState<boolean>(false);
@@ -978,6 +979,7 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
       setUploadedMediaType(undefined);
       setVideoPlayerVisible(false);
       setVideoPlayerUrl("");
+      setNotes("");
     }
   }, [visible]);
 
@@ -989,7 +991,10 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
 
     try {
       setIsCompleting(true);
-      await completeAssignment(assignment.id, currentUserId, uploadedMediaUri || undefined);
+      await completeAssignment(assignment.id, currentUserId, {
+        mediaUri: uploadedMediaUri || undefined,
+        notes: notes.trim() || undefined,
+      });
       Alert.alert("Succes", "Huiswerk opdracht is voltooid!");
       onClose();
     } catch (error) {
@@ -1248,6 +1253,79 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
                     </Pressable>
                   </View>
                 )}
+              </View>
+            )}
+
+            {!isCompleted && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.label}>Notities (Optioneel)</Text>
+                <TextInput
+                  style={detailStyles.notesInput}
+                  placeholder="Voeg notities toe voor de admin..."
+                  placeholderTextColor={Colors.light.muted}
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+            )}
+
+            {currentUser?.role === 'admin' && assignment.submissions.length > 0 && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.label}>Inzendingen</Text>
+                {assignment.submissions.map((submission, index) => {
+                  const submitter = users.find(u => u.id === submission.userId);
+                  const submittedAt = new Date(submission.createdAt).toLocaleString("nl-NL", {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  
+                  return (
+                    <View key={index} style={detailStyles.submissionCard}>
+                      <View style={detailStyles.submissionHeader}>
+                        <Text style={detailStyles.submissionUsername}>{submitter?.username || 'Onbekend'}</Text>
+                        <Text style={detailStyles.submissionDate}>{submittedAt}</Text>
+                      </View>
+                      
+                      {submission.notes && (
+                        <View style={detailStyles.submissionNotesContainer}>
+                          <Text style={detailStyles.submissionNotesLabel}>Notities:</Text>
+                          <Text style={detailStyles.submissionNotesText}>{submission.notes}</Text>
+                        </View>
+                      )}
+                      
+                      {submission.mediaUri && (
+                        <View style={detailStyles.submissionMediaContainer}>
+                          <Text style={detailStyles.submissionNotesLabel}>Media:</Text>
+                          <Pressable 
+                            style={detailStyles.submissionMediaButton}
+                            onPress={async () => {
+                              try {
+                                const supported = await Linking.canOpenURL(submission.mediaUri!);
+                                if (supported) {
+                                  await Linking.openURL(submission.mediaUri!);
+                                } else {
+                                  Alert.alert("Fout", "Kan media niet openen");
+                                }
+                              } catch (error) {
+                                console.error('Error opening media:', error);
+                                Alert.alert("Fout", "Er is een fout opgetreden");
+                              }
+                            }}
+                          >
+                            <Play color={Colors.light.text} size={16} strokeWidth={2.5} />
+                            <Text style={detailStyles.submissionMediaButtonText}>Bekijk media</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </ScrollView>
@@ -2412,5 +2490,77 @@ const detailStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500' as const,
     color: Colors.light.muted,
+  },
+  notesInput: {
+    backgroundColor: Colors.light.surface,
+    borderColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: Colors.light.text,
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  submissionCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    gap: 12,
+    marginBottom: 12,
+  },
+  submissionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  submissionUsername: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  submissionDate: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: Colors.light.muted,
+  },
+  submissionNotesContainer: {
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  submissionNotesLabel: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.light.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  submissionNotesText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.light.text,
+  },
+  submissionMediaContainer: {
+    gap: 8,
+  },
+  submissionMediaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  submissionMediaButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
   },
 });
