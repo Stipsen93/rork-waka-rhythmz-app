@@ -10,15 +10,46 @@ export const trpc = createTRPCReact<AppRouter>();
 
 const sanitizeUrl = (value: string) => value.replace(/\/$/, "");
 
+const isLocalHost = (host: string) => {
+  if (!host) {
+    return false;
+  }
+
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".local") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+};
+
+const shouldUseHttps = (rawUri: string, host: string, port?: string) => {
+  if (port === "443") {
+    return true;
+  }
+
+  if (rawUri.startsWith("https")) {
+    return true;
+  }
+
+  const secureHostHints = ["ngrok", "trycloudflare", "rork.app"] as const;
+  if (secureHostHints.some((hint) => host.includes(hint))) {
+    return true;
+  }
+
+  return !isLocalHost(host);
+};
+
 const deriveDevServerUrl = () => {
-  const hostUri = Constants.expoConfig?.hostUri ?? null;
+  const hostUri = Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost ?? null;
   if (!hostUri) {
     return null;
   }
 
   const normalized = hostUri
-    .replace(/^exp:\/\//, "")
-    .replace(/^https?:\/\//, "")
+    .replace(/^(exp|http|https|ws|wss):\/\//, "")
     .split(/[/?]/)[0];
 
   if (!normalized) {
@@ -26,9 +57,13 @@ const deriveDevServerUrl = () => {
   }
 
   const [host, port] = normalized.split(":");
-  const isSecureHost = normalized.includes("ngrok") || port === "443";
-  const protocol = isSecureHost ? "https" : "http";
-  const resolvedPort = port ?? (isSecureHost ? "" : "8081");
+  if (!host) {
+    return null;
+  }
+
+  const useHttps = shouldUseHttps(hostUri, host, port);
+  const protocol = useHttps ? "https" : "http";
+  const resolvedPort = port ?? (useHttps ? "" : "8081");
 
   return `${protocol}://${host}${resolvedPort ? `:${resolvedPort}` : ""}`;
 };
