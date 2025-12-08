@@ -10,6 +10,7 @@ import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from "@/lib/supabase";
+import VideoPlayerModal from "@/components/VideoPlayerModal";
 
 const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
@@ -930,6 +931,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [showMediaExplorer, setShowMediaExplorer] = useState(false);
   const [explorerPath, setExplorerPath] = useState<string>("");
+  const [videoPlayerVisible, setVideoPlayerVisible] = useState<boolean>(false);
+  const [videoPlayerUrl, setVideoPlayerUrl] = useState<string>("");
 
   const isCompleted = assignment.completedBy.some(c => c.userId === currentUserId);
   const hasUploadedMedia = !!uploadedMediaUri;
@@ -939,6 +942,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
     if (!visible) {
       setUploadedMediaUri("");
       setUploadedMediaType(undefined);
+      setVideoPlayerVisible(false);
+      setVideoPlayerUrl("");
     }
   }, [visible]);
 
@@ -1068,7 +1073,13 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   };
 
   const openMedia = async () => {
-    if (!assignment.mediaUri) return;
+    if (!assignment.mediaUri || !assignment.mediaType) return;
+
+    if (assignment.mediaType === 'video') {
+      setVideoPlayerUrl(assignment.mediaUri);
+      setVideoPlayerVisible(true);
+      return;
+    }
     
     try {
       const supported = await Linking.canOpenURL(assignment.mediaUri);
@@ -1242,6 +1253,15 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         }}
         onNavigate={setExplorerPath}
         onSelectMedia={handleSelectMediaFromLibrary}
+      />
+
+      <VideoPlayerModal
+        visible={videoPlayerVisible}
+        videoUrl={videoPlayerUrl}
+        onClose={() => {
+          setVideoPlayerVisible(false);
+          setVideoPlayerUrl("");
+        }}
       />
     </Modal>
   );
