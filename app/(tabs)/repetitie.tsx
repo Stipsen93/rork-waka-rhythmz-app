@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, Clock, Edit3, Loader2, MapPin, Plus, Trash2, X } from "lucide-react-native";
+import { Check, Clock, Edit3, Loader2, MapPin, Plus, Trash2, X, Calendar as CalendarIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { translations } from "@/constants/translations";
-import { useAppState } from "@/providers/AppState";
+import { useAppState, CancelledPractice, Training } from "@/providers/AppState";
 import { useTrainings } from "@/hooks/useTrainings";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 
@@ -14,6 +14,9 @@ const HOURS = Array.from({ length: 24 }, (_, index) => index);
 const MINUTES = [0, 15, 30, 45];
 const QUICK_TIMES = ["17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"];
 const WHEEL_ITEM_HEIGHT = 48;
+
+const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 
 type WheelPickerColumnProps = {
   label: string;
@@ -117,9 +120,58 @@ type Feedback = {
 
 const formatTime = (hour: number, minute: number) => `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 
+const formatDateToLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDatePickerDays = (baseDate: Date) => {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = lastDay.getDate();
+  
+  const days: { date: number; isCurrentMonth: boolean; fullDate: string }[] = [];
+  
+  for (let i = 0; i < startDayOfWeek; i++) {
+    const prevMonthDay = new Date(year, month, -startDayOfWeek + i + 1);
+    days.push({
+      date: prevMonthDay.getDate(),
+      isCurrentMonth: false,
+      fullDate: formatDateToLocal(prevMonthDay),
+    });
+  }
+  
+  for (let i = 1; i <= daysInMonth; i++) {
+    const fullDate = new Date(year, month, i);
+    days.push({
+      date: i,
+      isCurrentMonth: true,
+      fullDate: formatDateToLocal(fullDate),
+    });
+  }
+  
+  const remainingDays = 42 - days.length;
+  for (let i = 1; i <= remainingDays; i++) {
+    const nextMonthDay = new Date(year, month + 1, i);
+    days.push({
+      date: i,
+      isCurrentMonth: false,
+      fullDate: formatDateToLocal(nextMonthDay),
+    });
+  }
+  
+  return days;
+};
+
 export default function RepetitieScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser, language, syncAllData } = useAppState();
+  const { currentUser, language, syncAllData, practiceSchedule, updatePracticeSchedule, addAnnouncement } = useAppState();
   const t = translations[language].practices;
   const tc = translations[language].common;
   const WEEKDAYS_SHORT = t.weekdays.short;
@@ -144,6 +196,12 @@ export default function RepetitieScreen() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Cancellation Widget State
+  const [showCancellationDropdown, setShowCancellationDropdown] = useState(false);
+  const [selectedCancellationDates, setSelectedCancellationDates] = useState<string[]>([]);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
   const orderedTrainings = useMemo(() => {
     return [...trainings].sort((a, b) => {
       if (a.dayOfWeek === b.dayOfWeek) {
@@ -152,6 +210,119 @@ export default function RepetitieScreen() {
       return a.dayOfWeek - b.dayOfWeek;
     });
   }, [trainings]);
+
+  const upcomingTrainings = useMemo(() => {
+    if (orderedTrainings.length === 0) return [];
+
+    const upcoming: { date: string; displayDate: string; trainings: Training[] }[] = [];
+    const now = new Date();
+    let current = new Date(now);
+    
+    // Iterate up to 60 days to find occurrences, filtering for filtered logic could be done
+    // but here we just want the next 4 *days* that have trainings.
+    
+    let daysFound = 0;
+    let attempts = 0;
+    
+    while (daysFound < 4 && attempts < 60) {
+      const dayOfWeek = current.getDay();
+      const dateStr = formatDateToLocal(current);
+      
+      const trainingsOnDay = orderedTrainings.filter(t => t.dayOfWeek === dayOfWeek);
+      
+      if (trainingsOnDay.length > 0) {
+        // Check if already cancelled
+        const isCancelled = practiceSchedule.cancelledDates?.some(cd => cd.date === dateStr);
+        
+        // Only add if not already cancelled? 
+        // User wants to cancel them, so we should show them even if not cancelled.
+        // But if they are ALREADY cancelled, maybe we shouldn't show them as "upcoming to cancel".
+        // Let's exclude already cancelled ones for the "Next 4 days" list to avoid confusion,
+        // or show them as disabled/cancelled.
+        
+        if (!isCancelled) {
+             upcoming.push({
+            date: dateStr,
+            displayDate: current.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }),
+            trainings: trainingsOnDay
+          });
+          daysFound++;
+        }
+      }
+      
+      current.setDate(current.getDate() + 1);
+      attempts++;
+    }
+    
+    return upcoming;
+  }, [orderedTrainings, practiceSchedule.cancelledDates, language]);
+
+  const handleToggleCancellationDate = (date: string) => {
+    setSelectedCancellationDates(prev => {
+      if (prev.includes(date)) {
+        return prev.filter(d => d !== date);
+      } else {
+        return [...prev, date];
+      }
+    });
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (selectedCancellationDates.length === 0) return;
+    
+    Alert.alert(
+      "Trainingen annuleren",
+      `Weet je zeker dat je trainingen op ${selectedCancellationDates.length} dagen wilt annuleren? Er wordt automatisch een mededeling verstuurd.`,
+      [
+        { text: "Annuleren", style: "cancel" },
+        { 
+          text: "Bevestigen", 
+          onPress: async () => {
+            try {
+              setIsSubmitting(true);
+              
+              // 1. Update practice schedule
+              const newCancelledDates: CancelledPractice[] = [
+                ...(practiceSchedule.cancelledDates || []),
+                ...selectedCancellationDates.map(date => ({ date, reason: "Geannuleerd via dashboard" }))
+              ];
+              
+              // Remove duplicates just in case
+              const uniqueCancelled = Array.from(new Map(newCancelledDates.map(item => [item.date, item])).values());
+              
+              await updatePracticeSchedule({
+                ...practiceSchedule,
+                cancelledDates: uniqueCancelled
+              });
+              
+              // 2. Create announcements
+              for (const dateStr of selectedCancellationDates) {
+                const dateObj = new Date(dateStr);
+                const formattedDate = dateObj.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+                
+                await addAnnouncement({
+                  name: `Training geannuleerd: ${formattedDate}`,
+                  description: `De trainingen op ${formattedDate} gaan niet door.`,
+                  date: dateStr,
+                });
+              }
+              
+              setFeedback({ type: "success", message: "Trainingen geannuleerd en mededeling verstuurd" });
+              setSelectedCancellationDates([]);
+              setShowCancellationDropdown(false);
+              
+            } catch (error) {
+              console.error("Error cancelling trainings:", error);
+              setFeedback({ type: "error", message: "Er is iets misgegaan bij het annuleren." });
+            } finally {
+              setIsSubmitting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
 
   const openTimePicker = (mode: "new" | "edit", value: string, trainingId?: string) => {
     const [hour, minute] = value.split(":").map(Number);
@@ -331,6 +502,90 @@ export default function RepetitieScreen() {
               <Text style={styles.feedbackText}>{feedback.message}</Text>
               <TouchableOpacity onPress={() => setFeedback(null)}>
                 <X size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isAdmin && (
+            <View style={styles.card} testID="cancellation-widget">
+              <Text style={styles.cardTitle}>Training annuleren</Text>
+              <Text style={styles.cardSubtitle}>Selecteer dagen om trainingen te annuleren</Text>
+              
+              <TouchableOpacity 
+                style={styles.dropdownHeader}
+                onPress={() => setShowCancellationDropdown(!showCancellationDropdown)}
+              >
+                <Text style={styles.dropdownHeaderText}>
+                  {selectedCancellationDates.length > 0 
+                    ? `${selectedCancellationDates.length} dag(en) geselecteerd` 
+                    : "Kies dagen"}
+                </Text>
+                {showCancellationDropdown ? (
+                  <ChevronUp size={20} color={Colors.light.muted} />
+                ) : (
+                  <ChevronDown size={20} color={Colors.light.muted} />
+                )}
+              </TouchableOpacity>
+              
+              {showCancellationDropdown && (
+                <View style={styles.dropdownContent}>
+                  {upcomingTrainings.length === 0 ? (
+                    <Text style={styles.emptyText}>Geen komende trainingen gevonden</Text>
+                  ) : (
+                    upcomingTrainings.map((item) => {
+                      const isSelected = selectedCancellationDates.includes(item.date);
+                      return (
+                        <TouchableOpacity 
+                          key={item.date} 
+                          style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
+                          onPress={() => handleToggleCancellationDate(item.date)}
+                        >
+                          <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextSelected]}>
+                            {item.displayDate}
+                          </Text>
+                          {isSelected && <Check size={16} color={Colors.light.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
+              )}
+              
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={() => setShowCalendarModal(true)}
+              >
+                <CalendarIcon size={18} color={Colors.light.text} />
+                <Text style={styles.secondaryButtonText}>Kalender</Text>
+              </TouchableOpacity>
+              
+              {selectedCancellationDates.length > 0 && (
+                <View style={styles.selectedDatesContainer}>
+                  <Text style={styles.selectedDatesTitle}>Geselecteerde dagen:</Text>
+                  {selectedCancellationDates.sort().map(date => (
+                    <View key={date} style={styles.selectedDateChip}>
+                      <Text style={styles.selectedDateText}>
+                        {new Date(date).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { day: 'numeric', month: 'short' })}
+                      </Text>
+                      <TouchableOpacity onPress={() => handleToggleCancellationDate(date)}>
+                        <X size={14} color={Colors.light.text} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+              
+              <TouchableOpacity
+                style={[styles.dangerButton, selectedCancellationDates.length === 0 && styles.dangerButtonDisabled]}
+                onPress={handleConfirmCancellation}
+                disabled={selectedCancellationDates.length === 0 || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 color="#fff" size={18} />
+                ) : (
+                  <Trash2 color="#fff" size={18} />
+                )}
+                <Text style={styles.dangerButtonText}>Trainingen annuleren</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -531,6 +786,98 @@ export default function RepetitieScreen() {
             )}
           </View>
         </ScrollView>
+        <Modal
+          visible={showCalendarModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCalendarModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.calendarModalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Kies dagen</Text>
+                <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
+                  <X color={Colors.light.text} size={24} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity 
+                  onPress={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                  style={styles.calendarNavButton}
+                >
+                  <ChevronLeft color={Colors.light.text} size={20} />
+                </TouchableOpacity>
+                <Text style={styles.calendarMonthTitle}>
+                  {MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                  style={styles.calendarNavButton}
+                >
+                  <ChevronRight color={Colors.light.text} size={20} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.weekDaysRow}>
+                {DAYS.map(day => (
+                  <Text key={day} style={styles.weekDayText}>{day}</Text>
+                ))}
+              </View>
+              
+              <View style={styles.daysGrid}>
+                {getDatePickerDays(calendarMonth).map((day, index) => {
+                   const isSelected = selectedCancellationDates.includes(day.fullDate);
+                   const isCancelled = practiceSchedule.cancelledDates?.some(cd => cd.date === day.fullDate);
+                   
+                   // Check if there is training on this day
+                   const dateObj = new Date(day.fullDate);
+                   const dayOfWeek = dateObj.getDay();
+                   const hasTraining = orderedTrainings.some(t => t.dayOfWeek === dayOfWeek);
+                   
+                   return (
+                    <TouchableOpacity
+                      key={`${day.fullDate}-${index}`}
+                      style={[
+                        styles.dayCell,
+                        !day.isCurrentMonth && styles.dayCellInactive,
+                        isSelected && styles.dayCellSelected,
+                        isCancelled && !isSelected && styles.dayCellCancelled
+                      ]}
+                      onPress={() => {
+                        if (day.isCurrentMonth) {
+                          handleToggleCancellationDate(day.fullDate);
+                        }
+                      }}
+                      disabled={!day.isCurrentMonth}
+                    >
+                      <Text style={[
+                        styles.dayText,
+                        !day.isCurrentMonth && styles.dayTextInactive,
+                        isSelected && styles.dayTextSelected,
+                        isCancelled && !isSelected && styles.dayTextCancelled
+                      ]}>
+                        {day.date}
+                      </Text>
+                      {hasTraining && !isCancelled && !isSelected && (
+                        <View style={styles.trainingDot} />
+                      )}
+                    </TouchableOpacity>
+                   );
+                })}
+              </View>
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={styles.modalButtonPrimary} 
+                  onPress={() => setShowCalendarModal(false)}
+                >
+                  <Text style={styles.modalButtonPrimaryText}>Klaar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
         {renderTimePicker()}
         <MenuModal visible={showMenuModal} onClose={() => setShowMenuModal(false)} />
       </View>
@@ -995,5 +1342,197 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontWeight: "600" as const,
     flex: 1,
+  },
+  dropdownHeader: {
+    backgroundColor: Colors.light.surfaceLight,
+    padding: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  dropdownHeaderText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  dropdownContent: {
+    backgroundColor: Colors.light.surfaceLight,
+    borderRadius: 14,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownItemSelected: {
+    backgroundColor: Colors.light.primary + "1A",
+  },
+  dropdownItemText: {
+    color: Colors.light.text,
+    fontSize: 15,
+  },
+  dropdownItemTextSelected: {
+    color: Colors.light.primary,
+    fontWeight: '700' as const,
+  },
+  secondaryButton: {
+    backgroundColor: Colors.light.surfaceLight,
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  secondaryButtonText: {
+    color: Colors.light.text,
+    fontWeight: "600" as const,
+    fontSize: 16,
+  },
+  dangerButton: {
+    backgroundColor: Colors.light.error,
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  dangerButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: Colors.light.muted,
+  },
+  dangerButtonText: {
+    color: "#fff",
+    fontWeight: "700" as const,
+    fontSize: 16,
+  },
+  selectedDatesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  selectedDatesTitle: {
+    width: '100%',
+    fontSize: 12,
+    color: Colors.light.muted,
+    marginBottom: 4,
+  },
+  selectedDateChip: {
+    backgroundColor: Colors.light.surfaceLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  selectedDateText: {
+    fontSize: 13,
+    color: Colors.light.text,
+    fontWeight: '600' as const,
+  },
+  calendarModalContent: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  calendarNavButton: {
+    padding: 8,
+  },
+  calendarMonthTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  weekDaysRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  weekDayText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    color: Colors.light.muted,
+    fontWeight: '700' as const,
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    position: 'relative',
+  },
+  dayCellInactive: {
+    opacity: 0.3,
+  },
+  dayCellSelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  dayCellCancelled: {
+    backgroundColor: Colors.light.error + "22",
+  },
+  dayText: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: '600' as const,
+  },
+  dayTextInactive: {
+    color: Colors.light.muted,
+  },
+  dayTextSelected: {
+    color: "#fff",
+  },
+  dayTextCancelled: {
+    color: Colors.light.error,
+    textDecorationLine: 'line-through',
+  },
+  trainingDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.light.primary,
   },
 });
