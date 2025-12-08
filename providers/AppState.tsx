@@ -853,11 +853,9 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         }
         
         setIsInitialized(true);
-        setIsCheckingSession(false);
       } catch (error) {
         console.error('❌ Error initializing data:', error);
         setIsInitialized(true);
-        setIsCheckingSession(false);
       }
     };
 
