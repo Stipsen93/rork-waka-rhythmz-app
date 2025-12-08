@@ -647,60 +647,88 @@ function MediaExplorerModal({
   onNavigate: (path: string) => void;
   onSelectMedia: (media: any) => void;
 }) {
-  const { mediaLibrary, getFolders, getMediaInFolder } = useAppState();
   const insets = useSafeAreaInsets();
+  const [isLoading, setIsLoading] = useState(false);
+  const [folders, setFolders] = useState<{ name: string; path: string; itemCount: number }[]>([]);
+  const [mediaItems, setMediaItems] = useState<any[]>([]);
 
-  const folders = useMemo(() => {
-    const allFolderPaths = getFolders();
-    const folderMap = new Map<string, number>();
+  useEffect(() => {
+    if (!visible) return;
     
-    allFolderPaths.forEach((folderPath) => {
-      if (currentPath && !folderPath.startsWith(currentPath + '/')) {
-        return;
-      }
-      
-      if (currentPath === '' && folderPath.includes('/')) {
-        const firstFolder = folderPath.split('/')[0];
-        folderMap.set(firstFolder, (folderMap.get(firstFolder) || 0) + 1);
-      } else if (currentPath && folderPath.startsWith(currentPath + '/')) {
-        const remaining = folderPath.substring(currentPath.length + 1);
-        if (remaining.includes('/')) {
-          const nextFolder = remaining.split('/')[0];
-          const fullPath = currentPath + '/' + nextFolder;
-          folderMap.set(fullPath, (folderMap.get(fullPath) || 0) + 1);
-        }
-      } else if (currentPath === '' && !folderPath.includes('/')) {
-        folderMap.set(folderPath, 0);
-      }
-    });
-    
-    mediaLibrary.forEach((item) => {
-      if (item.folder_path.startsWith(currentPath)) {
-        const remaining = item.folder_path.substring(currentPath ? currentPath.length + 1 : 0);
-        const parts = remaining.split('/').filter(Boolean);
+    const loadItems = async () => {
+      setIsLoading(true);
+      try {
+        console.log('[MEDIA EXPLORER] Loading items for path:', currentPath || 'root');
         
-        if (parts.length > 0) {
-          const nextFolder = currentPath ? currentPath + '/' + parts[0] : parts[0];
-          folderMap.set(nextFolder, (folderMap.get(nextFolder) || 0) + 1);
-        }
-      }
-    });
-    
-    return Array.from(folderMap.entries()).map(([path, count]) => ({
-      name: path.split('/').pop() || path,
-      path,
-      itemCount: count,
-    }));
-  }, [mediaLibrary, currentPath]);
+        const bucketPath = currentPath || undefined;
+        const { data: storageEntries, error: storageError } = await supabase.storage
+          .from('media-library')
+          .list(bucketPath, {
+            limit: 1000,
+            offset: 0,
+            sortBy: { column: 'name', order: 'asc' },
+          });
 
-  const mediaItems = useMemo(() => {
-    return getMediaInFolder(currentPath)
-      .filter(m => m.name !== '.emptyFolderPlaceholder')
-      .filter(m => {
-        const type = m.file_type;
-        return type === 'video' || type === 'image' || type === 'audio';
-      });
-  }, [currentPath, getMediaInFolder]);
+        if (storageError) {
+          console.error('[MEDIA EXPLORER] Storage error:', storageError);
+          throw storageError;
+        }
+
+        const foundFolders: { name: string; path: string; itemCount: number }[] = [];
+        const foundMedia: any[] = [];
+
+        storageEntries?.forEach((entry) => {
+          if (!entry) return;
+
+          const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+          const isFolder = !entry.metadata;
+
+          if (isFolder) {
+            foundFolders.push({
+              name: entry.name,
+              path: entryPath,
+              itemCount: 0,
+            });
+            return;
+          }
+
+          if (entry.name === '.keep' || entry.name === '.emptyFolderPlaceholder') {
+            return;
+          }
+
+          const mimeType = entry.metadata?.mimetype ?? 'application/octet-stream';
+          if (!mimeType.startsWith('video/') && !mimeType.startsWith('image/') && !mimeType.startsWith('audio/')) {
+            return;
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from('media-library')
+            .getPublicUrl(entryPath);
+
+          foundMedia.push({
+            name: entry.name,
+            storage_path: entryPath,
+            file_size: entry.metadata?.size ?? 0,
+            mime_type: mimeType,
+            file_type: mimeType.startsWith('video/') ? 'video' : mimeType.startsWith('image/') ? 'image' : 'audio',
+            url: publicUrlData.publicUrl,
+          });
+        });
+
+        console.log('[MEDIA EXPLORER] Found folders:', foundFolders.length, 'media:', foundMedia.length);
+        setFolders(foundFolders);
+        setMediaItems(foundMedia);
+      } catch (error) {
+        console.error('[MEDIA EXPLORER] Load error:', error);
+        setFolders([]);
+        setMediaItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadItems();
+  }, [visible, currentPath]);
 
   const breadcrumbText = useMemo(() => {
     if (!currentPath) return 'Bibliotheek';
@@ -746,14 +774,19 @@ function MediaExplorerModal({
             </Pressable>
           ) : null}
 
-          <FlatList
-            data={items}
-            keyExtractor={(item, index) => 
-              item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.id}`
-            }
-            style={explorerStyles.list}
-            contentContainerStyle={explorerStyles.listContent}
-            renderItem={({ item }) => {
+          {isLoading ? (
+            <View style={explorerStyles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.light.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={items}
+              keyExtractor={(item, index) => 
+                item.kind === "folder" ? `folder-${item.folder.path}` : `media-${item.media.storage_path}`
+              }
+              style={explorerStyles.list}
+              contentContainerStyle={explorerStyles.listContent}
+              renderItem={({ item }) => {
               if (item.kind === "folder") {
                 return (
                   <TouchableOpacity 
@@ -791,8 +824,9 @@ function MediaExplorerModal({
                   <CheckCircle2 color={Colors.light.primary} size={20} strokeWidth={2.5} />
                 </TouchableOpacity>
               );
-            }}
-          />
+              }}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -2188,6 +2222,12 @@ const explorerStyles = StyleSheet.create({
     color: Colors.light.muted,
     fontSize: 13,
     fontWeight: '500' as const,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
   },
 });
 
