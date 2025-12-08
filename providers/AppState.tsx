@@ -344,28 +344,17 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(false);
 
   const refreshStorageUsage = useCallback(async () => {
-    console.log('💾 Refreshing storage usage...');
+    console.log('💾 Refreshing storage usage via tRPC...');
     try {
-      const { data, error } = await supabase.rpc('get_storage_usage');
-      
-      if (error) {
-        console.error('Error getting storage usage:', error);
-        return;
-      }
-      
-      const usageBytes = data || 0;
-      const maxBytes = 10 * 1024 * 1024 * 1024;
-      const usageGB = usageBytes / (1024 * 1024 * 1024);
-      const maxGB = maxBytes / (1024 * 1024 * 1024);
-      const percentage = (usageBytes / maxBytes) * 100;
+      const usage = await trpcClient.media.getStorageUsage.query();
       
       setStorageUsage({
-        usageGB,
-        maxGB,
-        percentage,
+        usageGB: usage.usageGB,
+        maxGB: usage.maxGB,
+        percentage: usage.percentage,
       });
       
-      console.log('✅ Storage usage refreshed:', { usageGB, maxGB, percentage });
+      console.log('✅ Storage usage refreshed:', usage);
     } catch (error) {
       console.error('Error refreshing storage usage:', error);
     }

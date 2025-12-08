@@ -147,16 +147,10 @@ export default function LibraryScreen() {
   const loadStorageUsage = useCallback(async () => {
     try {
       await refreshStorageUsageFromApp();
-      if (globalStorageUsage) {
-        setStorageUsage({ 
-          used: globalStorageUsage.usageGB, 
-          total: globalStorageUsage.maxGB 
-        });
-      }
     } catch (error) {
       console.error('[LIBRARY] Storage usage error:', error);
     }
-  }, [refreshStorageUsageFromApp, globalStorageUsage]);
+  }, [refreshStorageUsageFromApp]);
 
   useEffect(() => {
     loadItems();
@@ -165,6 +159,16 @@ export default function LibraryScreen() {
   useEffect(() => {
     loadStorageUsage();
   }, [loadStorageUsage]);
+
+  useEffect(() => {
+    if (!globalStorageUsage) {
+      return;
+    }
+    setStorageUsage({
+      used: globalStorageUsage.usageGB,
+      total: globalStorageUsage.maxGB,
+    });
+  }, [globalStorageUsage]);
 
   const handleBack = () => {
     const parts = currentPath.split('/');
