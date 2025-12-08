@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform, RefreshControl } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
@@ -28,6 +28,10 @@ type FileItem = {
 };
 
 type LibraryItem = FolderItem | FileItem;
+
+type LoadItemsOptions = {
+  forceSync?: boolean;
+};
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
@@ -61,18 +65,37 @@ export default function LibraryScreen() {
   const [newFileName, setNewFileName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const isAdmin = currentUser?.role === 'admin';
+  const itemsCacheRef = useRef<Map<string, LibraryItem[]>>(new Map());
+  const hasSyncedRef = useRef(false);
+  const latestPathRef = useRef(currentPath);
 
-  const loadItems = useCallback(async () => {
-    console.log('[LIBRARY] Loading items for path:', currentPath || 'root');
-    try {
+  const loadItems = useCallback(async (options?: LoadItemsOptions) => {
+    const forceSync = options?.forceSync ?? false;
+    const pathForRequest = currentPath;
+    const cacheKey = pathForRequest || "";
+    const cachedItems = itemsCacheRef.current.get(cacheKey);
+    const canUseCache = Boolean(cachedItems) && !forceSync;
+
+    console.log('[LIBRARY] Loading items for path:', pathForRequest || 'root', 'forceSync:', forceSync);
+
+    if (canUseCache && cachedItems) {
+      setItems(cachedItems);
+      setIsLoading(false);
+    } else {
       setIsLoading(true);
+    }
+
+    try {
       setErrorMessage(null);
 
-      console.log('[LIBRARY] Syncing data...');
-      await syncAllData();
-      console.log('[LIBRARY] Sync completed');
+      if (!hasSyncedRef.current || forceSync) {
+        console.log('[LIBRARY] Syncing data...');
+        await syncAllData();
+        hasSyncedRef.current = true;
+        console.log('[LIBRARY] Sync completed');
+      }
 
-      const bucketPath = currentPath || undefined;
+      const bucketPath = pathForRequest || undefined;
       console.log('[LIBRARY] Fetching storage contents for path:', bucketPath ?? '/');
 
       const { data: storageEntries, error: storageError } = await supabase.storage
@@ -95,7 +118,7 @@ export default function LibraryScreen() {
           return;
         }
 
-        const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+        const entryPath = pathForRequest ? `${pathForRequest}/${entry.name}` : entry.name;
         const isFolder = !entry.metadata;
 
         if (isFolder) {
@@ -133,13 +156,19 @@ export default function LibraryScreen() {
       });
 
       console.log('[LIBRARY] Parsed storage items:', parsedItems.length);
-      setItems(parsedItems);
+      itemsCacheRef.current.set(cacheKey, parsedItems);
+
+      if (latestPathRef.current === pathForRequest) {
+        setItems(parsedItems);
+      }
     } catch (error: any) {
       console.error('[LIBRARY] Load error:', error);
       setErrorMessage(`Fout bij laden: ${error.message || 'Onbekende fout'}`);
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
-      setIsLoading(false);
+      if (latestPathRef.current === pathForRequest) {
+        setIsLoading(false);
+      }
       setIsRefreshing(false);
     }
   }, [currentPath, syncAllData]);
@@ -151,6 +180,10 @@ export default function LibraryScreen() {
       console.error('[LIBRARY] Storage usage error:', error);
     }
   }, [refreshStorageUsageFromApp]);
+
+  useEffect(() => {
+    latestPathRef.current = currentPath;
+  }, [currentPath]);
 
   useEffect(() => {
     loadItems();
@@ -178,7 +211,8 @@ export default function LibraryScreen() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([loadItems(), loadStorageUsage()]);
+    itemsCacheRef.current.clear();
+    await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
   }, [loadItems, loadStorageUsage]);
 
   const handleCreateFolder = async () => {
@@ -195,7 +229,8 @@ export default function LibraryScreen() {
       
       setShowFolderModal(false);
       setFolderName("");
-      await loadItems();
+      itemsCacheRef.current.clear();
+      await loadItems({ forceSync: true });
     } catch (error: any) {
       console.error('[FOLDER] Create error:', error);
       const message = error?.message || 'Onbekende fout';
@@ -266,7 +301,8 @@ export default function LibraryScreen() {
           setIsUploading(false);
           setErrorMessage('Upload succesvol!');
           setTimeout(() => setErrorMessage(null), 3000);
-          await Promise.all([loadItems(), loadStorageUsage()]);
+          itemsCacheRef.current.clear();
+          await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
         } catch (error: any) {
           console.error('[UPLOAD WEB] Error:', error);
           setIsUploading(false);
@@ -402,7 +438,8 @@ export default function LibraryScreen() {
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
-      await Promise.all([loadItems(), loadStorageUsage()]);
+      itemsCacheRef.current.clear();
+      await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
     } catch (error: any) {
       console.error('[UPLOAD NATIVE] Error:', error);
       setIsUploading(false);
@@ -522,7 +559,8 @@ export default function LibraryScreen() {
       setErrorMessage('Bestand hernoemd!');
       setTimeout(() => setErrorMessage(null), 3000);
       
-      await loadItems();
+      itemsCacheRef.current.clear();
+      await loadItems({ forceSync: true });
     } catch (error: any) {
       console.error('[RENAME] Error:', error);
       const message = error?.message || 'Onbekende fout';
@@ -581,7 +619,8 @@ export default function LibraryScreen() {
         
         setSelectionMode(false);
         setSelectedItems(new Set());
-        await Promise.all([loadItems(), loadStorageUsage()]);
+        itemsCacheRef.current.clear();
+        await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
       } catch (error: any) {
         console.error('[DELETE] Error:', error);
         const message = error?.message || 'Onbekende fout';
