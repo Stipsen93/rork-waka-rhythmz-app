@@ -286,25 +286,7 @@ function buildCategoryTree(allNodes: any[]): (node: any) => CategoryNode {
 
 export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(() => {
   console.log('🎯 [AppState] Initializing context hook...');
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const mockMedia: MediaItem[] = [
-    {
-      id: "m1",
-      type: "video",
-      title: "Groove A - Intro",
-      uri: "https://cdn.coverr.co/videos/coverr-drums-1450/1080p.mp4",
-      notes: "Focus op rechterhand accent.",
-      comments: [],
-    },
-    {
-      id: "m2",
-      type: "image",
-      title: "Stick Grip",
-      uri: "https://images.unsplash.com/photo-1518131678677-a90f9f3a5e83?q=80&w=1600&auto=format&fit=crop",
-      comments: [],
-    },
-  ];
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -2262,6 +2244,28 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return group ? group.memberIds : [];
   }, [groups]);
 
+  const setLanguage = useCallback(async (lang: Language) => {
+    console.log('💾 Setting language...', lang);
+    setLanguageState(lang);
+    try {
+      await AsyncStorage.setItem('app_language', lang);
+      console.log('✅ Language saved');
+    } catch (error) {
+      console.error('❌ Error saving language:', error);
+    }
+  }, []);
+
+  const setBiometricEnabled = useCallback(async (enabled: boolean) => {
+    console.log('💾 Setting biometric...', enabled);
+    setBiometricEnabledState(enabled);
+    try {
+      await AsyncStorage.setItem('biometric_enabled', enabled ? 'true' : 'false');
+      console.log('✅ Biometric setting saved');
+    } catch (error) {
+      console.error('❌ Error saving biometric setting:', error);
+    }
+  }, []);
+
   const setCrownAdmin = useCallback(async (userId: string) => {
     console.log('💾 Setting crown admin in Supabase...');
     
@@ -2287,28 +2291,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     }
     console.log('✅ Crown admin set');
   }, [currentUser, users]);
-
-  const setLanguage = useCallback(async (lang: Language) => {
-    console.log('💾 Setting language...', lang);
-    setLanguageState(lang);
-    try {
-      await AsyncStorage.setItem('app_language', lang);
-      console.log('✅ Language saved');
-    } catch (error) {
-      console.error('❌ Error saving language:', error);
-    }
-  }, []);
-
-  const setBiometricEnabled = useCallback(async (enabled: boolean) => {
-    console.log('💾 Setting biometric...', enabled);
-    setBiometricEnabledState(enabled);
-    try {
-      await AsyncStorage.setItem('biometric_enabled', enabled ? 'true' : 'false');
-      console.log('✅ Biometric setting saved');
-    } catch (error) {
-      console.error('❌ Error saving biometric setting:', error);
-    }
-  }, []);
 
   const value: AppStateValue = {
     users,
