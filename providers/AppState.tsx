@@ -121,6 +121,7 @@ export interface PracticeDay {
 export interface CancelledPractice {
   date: string;
   reason?: string;
+  cancelledBy?: string;
 }
 
 export interface PracticeSchedule {

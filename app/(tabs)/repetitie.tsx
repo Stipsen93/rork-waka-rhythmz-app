@@ -276,7 +276,11 @@ export default function RepetitieScreen() {
               // 1. Update practice schedule
               const newCancelledDates: CancelledPractice[] = [
                 ...(practiceSchedule.cancelledDates || []),
-                ...selectedCancellationDates.map(date => ({ date, reason: "Geannuleerd via dashboard" }))
+                ...selectedCancellationDates.map(date => ({ 
+                  date, 
+                  reason: `Geannuleerd door ${currentUser?.username || 'onbekend'}`,
+                  cancelledBy: currentUser?.id 
+                }))
               ];
               
               // Remove duplicates just in case

@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser, syncAllData } = useAppState();
+  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser, syncAllData, users } = useAppState();
   const { trainings, isLoading: trainingsLoading } = useTrainings();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -297,6 +297,9 @@ export default function AssignmentsScreen() {
                     cd => cd.date === nextPractice.dateStr
                   );
                   
+                  const cancelledByUser = cancelledInfo?.cancelledBy ? 
+                    users.find(u => u.id === cancelledInfo.cancelledBy) : null;
+                  
                   return (
                     <>
                       <View style={styles.nextPracticeDateContainer}>
@@ -310,9 +313,11 @@ export default function AssignmentsScreen() {
                           })}
                         </Text>
                       </View>
-                      {isCancelled && cancelledInfo?.reason && (
+                      {isCancelled && cancelledByUser && (
                         <View style={styles.cancelReasonBanner}>
-                          <Text style={styles.cancelReasonText}>{cancelledInfo.reason}</Text>
+                          <Text style={styles.cancelReasonText}>
+                            Geannuleerd door {cancelledByUser.username}
+                          </Text>
                         </View>
                       )}
                       {nextPractice.trainings.map((training, idx) => (
