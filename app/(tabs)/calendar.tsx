@@ -40,6 +40,7 @@ const parseDateString = (dateStr: string): Date => {
 
 export default function CalendarScreen() {
   const { appointments, addAppointment, updateAppointment, deleteAppointments, performances, practiceSchedule, users, currentUser, syncAllData } = useAppState();
+  const isCrownAdmin = currentUser?.isCrownAdmin ?? false;
   const { trainings } = useTrainings();
   const insets = useSafeAreaInsets();
   
@@ -593,7 +594,7 @@ export default function CalendarScreen() {
                 const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
                 const creator = users.find(u => u.id === item.createdBy);
                 const isCancelled = item.status === 'cancelled';
-                const isAdmin = currentUser?.role === 'admin';
+                const isAdmin = currentUser?.role === 'admin' || isCrownAdmin;
                 const isCreator = currentUser?.id === item.createdBy;
                 const canEdit = isAdmin || isCreator;
                 

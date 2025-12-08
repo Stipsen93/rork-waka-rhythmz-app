@@ -1235,6 +1235,7 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
 export default function HuiswerkScreen() {
   const insets = useSafeAreaInsets();
   const { assignments, currentUser, deleteAssignments } = useAppState();
+  const isCrownAdmin = currentUser?.isCrownAdmin ?? false;
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | undefined>(undefined);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -1324,7 +1325,7 @@ export default function HuiswerkScreen() {
         </ScrollView>
       </View>
 
-      {currentUser?.role === "admin" && (
+      {(currentUser?.role === "admin" || isCrownAdmin) && (
         <>
           {selectionMode ? (
             <View style={[styles.selectionBar, { bottom: insets.bottom + 20 }]}>

@@ -28,6 +28,7 @@ export default function NieuwsScreen() {
   const t = translations[language];
   const DAYS = t.news.days.short;
   const MONTHS = t.news.months;
+  const isCrownAdmin = currentUser?.isCrownAdmin ?? false;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
@@ -40,7 +41,7 @@ export default function NieuwsScreen() {
   const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = currentUser?.role === "admin" || isCrownAdmin;
 
   const getBirthdayAnnouncements = useCallback(() => {
     const today = new Date();
