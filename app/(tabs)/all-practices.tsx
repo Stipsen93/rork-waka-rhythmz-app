@@ -121,7 +121,7 @@ export default function AllPracticesScreen() {
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.appName}>OneBand</Text>
+          <Text style={styles.appName}>Waka Rythmz</Text>
           <Text style={styles.title}>Oefeningen</Text>
           <Text style={styles.subtitle}>
             {pastPractices.length} afgelopen • {upcomingPractices.length} gepland

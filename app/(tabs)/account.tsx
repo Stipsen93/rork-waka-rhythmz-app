@@ -127,7 +127,7 @@ export default function AccountScreen() {
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: "OneBand",
+          headerTitle: "Waka Rythmz",
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,

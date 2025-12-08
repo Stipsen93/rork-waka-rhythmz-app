@@ -38,7 +38,7 @@ export default function AllAssignmentsScreen() {
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.appName}>OneBand</Text>
+          <Text style={styles.appName}>Waka Rythmz</Text>
           <Text style={styles.title}>Huiswerkopdrachten</Text>
           <Text style={styles.subtitle}>{assignments.length} opdrachten</Text>
         </View>

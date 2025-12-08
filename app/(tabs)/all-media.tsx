@@ -56,7 +56,7 @@ export default function AllMediaScreen() {
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.appName}>OneBand</Text>
+          <Text style={styles.appName}>Waka Rythmz</Text>
           <Text style={styles.title}>Alle Media</Text>
           <Text style={styles.subtitle}>{allMedia.length} items</Text>
         </View>
