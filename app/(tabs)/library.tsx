@@ -690,22 +690,6 @@ export default function LibraryScreen() {
               ) : null}
             </View>
             <View style={styles.headerActions}>
-              {isAdmin ? (
-                <Pressable
-                  onPress={handleToggleSelectionMode}
-                  style={[styles.editButton, selectionMode && styles.editButtonActive]}
-                  testID="toggle-library-edit-mode"
-                >
-                  <Edit2
-                    color={selectionMode ? Colors.light.text : Colors.light.primary}
-                    size={18}
-                    strokeWidth={2.5}
-                  />
-                  <Text style={[styles.editButtonText, selectionMode && styles.editButtonTextActive]}>
-                    {selectionMode ? 'Klaar' : 'Bewerk'}
-                  </Text>
-                </Pressable>
-              ) : null}
               <Pressable 
                 onPress={handleRefresh}
                 style={[styles.refreshButton, isRefreshing && styles.refreshButtonActive]}
