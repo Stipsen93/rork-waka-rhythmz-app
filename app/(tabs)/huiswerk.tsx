@@ -968,6 +968,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   const [explorerPath, setExplorerPath] = useState<string>("");
   const [videoPlayerVisible, setVideoPlayerVisible] = useState<boolean>(false);
   const [videoPlayerUrl, setVideoPlayerUrl] = useState<string>("");
+  const [submissionVideoPlayerVisible, setSubmissionVideoPlayerVisible] = useState<boolean>(false);
+  const [submissionVideoPlayerUrl, setSubmissionVideoPlayerUrl] = useState<string>("");
 
   const isCompleted = assignment.completedBy.some(c => c.userId === currentUserId);
   const hasUploadedMedia = !!uploadedMediaUri;
@@ -979,6 +981,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
       setUploadedMediaType(undefined);
       setVideoPlayerVisible(false);
       setVideoPlayerUrl("");
+      setSubmissionVideoPlayerVisible(false);
+      setSubmissionVideoPlayerUrl("");
       setNotes("");
     }
   }, [visible]);
@@ -1306,11 +1310,17 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
                             style={detailStyles.submissionMediaButton}
                             onPress={async () => {
                               try {
-                                const supported = await Linking.canOpenURL(submission.mediaUri!);
-                                if (supported) {
-                                  await Linking.openURL(submission.mediaUri!);
+                                const isVideo = submission.mediaUri?.includes('.mp4') || submission.mediaUri?.includes('.mov') || submission.mediaUri?.includes('video/');
+                                if (isVideo) {
+                                  setSubmissionVideoPlayerUrl(submission.mediaUri!);
+                                  setSubmissionVideoPlayerVisible(true);
                                 } else {
-                                  Alert.alert("Fout", "Kan media niet openen");
+                                  const supported = await Linking.canOpenURL(submission.mediaUri!);
+                                  if (supported) {
+                                    await Linking.openURL(submission.mediaUri!);
+                                  } else {
+                                    Alert.alert("Fout", "Kan media niet openen");
+                                  }
                                 }
                               } catch (error) {
                                 console.error('Error opening media:', error);
@@ -1373,6 +1383,15 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         onClose={() => {
           setVideoPlayerVisible(false);
           setVideoPlayerUrl("");
+        }}
+      />
+
+      <VideoPlayerModal
+        visible={submissionVideoPlayerVisible}
+        videoUrl={submissionVideoPlayerUrl}
+        onClose={() => {
+          setSubmissionVideoPlayerVisible(false);
+          setSubmissionVideoPlayerUrl("");
         }}
       />
     </Modal>
