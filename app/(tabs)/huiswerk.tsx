@@ -130,19 +130,27 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
         reader.readAsDataURL(blob);
       });
 
-      console.log('[ASSIGNMENT UPLOAD] Uploading via backend...');
-      const uploadedMedia = await uploadMedia({
-        name: file.name,
-        folderPath: 'assignments',
-        fileType,
-        fileSize: file.size || 0,
-        mimeType: file.mimeType || 'application/octet-stream',
-        base64Data,
-      });
-
+      console.log('[ASSIGNMENT UPLOAD] Uploading to assignment-submissions bucket...');
+      
+      const fileName = `${Date.now()}-${file.name}`;
+      const filePath = `assignments/${fileName}`;
+      
+      const arrayBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('assignment-submissions')
+        .upload(filePath, arrayBuffer, {
+          contentType: file.mimeType || 'application/octet-stream',
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        throw new Error(`Upload error: ${uploadError.message}`);
+      }
+      
       const { data } = supabase.storage
-        .from('media-library')
-        .getPublicUrl(uploadedMedia.storage_path);
+        .from('assignment-submissions')
+        .getPublicUrl(uploadData.path);
 
       setMediaUri(data.publicUrl);
 
@@ -1009,18 +1017,25 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         reader.readAsDataURL(blob);
       });
 
-      const uploadedMedia = await uploadMedia({
-        name: file.name,
-        folderPath: 'huiswerk-uploads',
-        fileType,
-        fileSize: file.size || 0,
-        mimeType: file.mimeType || 'application/octet-stream',
-        base64Data,
-      });
-
+      const fileName = `${Date.now()}-${file.name}`;
+      const filePath = `huiswerk-uploads/${fileName}`;
+      
+      const arrayBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('assignment-submissions')
+        .upload(filePath, arrayBuffer, {
+          contentType: file.mimeType || 'application/octet-stream',
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        throw new Error(`Upload error: ${uploadError.message}`);
+      }
+      
       const { data } = supabase.storage
-        .from('media-library')
-        .getPublicUrl(uploadedMedia.storage_path);
+        .from('assignment-submissions')
+        .getPublicUrl(uploadData.path);
 
       setUploadedMediaUri(data.publicUrl);
 
