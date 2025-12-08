@@ -59,7 +59,9 @@ const getBaseUrl = () => {
     return cachedBaseUrl;
   }
 
-  throw new Error("[TRPC] Unable to determine API base URL. Set EXPO_PUBLIC_RORK_API_BASE_URL.");
+  console.warn("[TRPC] Unable to determine API base URL. Using fallback.");
+  cachedBaseUrl = "http://localhost:8081";
+  return cachedBaseUrl;
 };
 
 export const trpcClient = trpc.createClient({
@@ -84,12 +86,17 @@ export const trpcClient = trpc.createClient({
             if (!response.ok) {
               const text = await response.clone().text();
               console.error("[TRPC RESPONSE] Error body:", text.substring(0, 500));
+              
+              if (text.includes("<!DOCTYPE html>") || text.includes("<html>")) {
+                console.error("[TRPC] Received HTML instead of JSON. Backend may not be running or URL is incorrect.");
+              }
             }
 
             return response;
           })
           .catch((error) => {
             console.error("[TRPC FETCH ERROR]:", error);
+            console.error("[TRPC] Backend might not be running. Make sure the server is started.");
             throw error;
           });
       },
