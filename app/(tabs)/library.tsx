@@ -79,12 +79,17 @@ export default function LibraryScreen() {
       const parsedItems: LibraryItem[] = [];
       const seenFolders = new Set<string>();
 
+      // Sync data first to ensure we have latest
+      await appState.syncAllData();
+
       // Get folders from AppState
       const allFolders = appState.getFolders();
       const allMedia = appState.mediaLibrary;
 
       console.log('[LIBRARY] All folders:', allFolders.length);
       console.log('[LIBRARY] All media:', allMedia.length);
+      console.log('[LIBRARY] Folders list:', allFolders);
+      console.log('[LIBRARY] Media items:', allMedia.map(m => ({ name: m.name, path: m.path, folder_path: m.folder_path })));
 
       // Filter folders for current path
       allFolders.forEach(folderPath => {
@@ -160,7 +165,7 @@ export default function LibraryScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentPath, appState.getFolders, appState.getMediaInFolder, appState.mediaLibrary]);
+  }, [currentPath, appState]);
 
   const loadStorageUsage = useCallback(async () => {
     try {
