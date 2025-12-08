@@ -903,54 +903,57 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
           )}
         </View>
       )}
-      <View style={[styles.assignmentHeader, !selectionMode && styles.assignmentFullWidth]}>
-        <View style={styles.assignmentTitleRow}>
-          <Text style={styles.assignmentTitle}>{assignment.title}</Text>
-          {isCompleted && (
-            <View style={styles.completedBadge}>
-              <CheckCircle2 color={Colors.light.text} size={14} strokeWidth={2.5} />
-              <Text style={styles.completedBadgeText}>Voltooid</Text>
+      <View style={[styles.assignmentContent, !selectionMode && styles.assignmentFullWidth]}>
+        <View style={styles.assignmentTopRow}>
+          <View style={styles.assignmentHeaderLeft}>
+            <Text style={styles.assignmentTitle} numberOfLines={2}>{assignment.title}</Text>
+            {isCompleted && (
+              <View style={styles.completedBadge}>
+                <CheckCircle2 color={Colors.light.text} size={12} strokeWidth={2.5} />
+                <Text style={styles.completedBadgeText}>Voltooid</Text>
+              </View>
+            )}
+          </View>
+          {assignment.mediaType && (
+            <View style={styles.mediaIconContainer}>
+              {getMediaIcon()}
             </View>
           )}
         </View>
-        {assignment.mediaType && (
-          <View style={styles.mediaIconContainer}>
-            {getMediaIcon()}
+
+        {isAdmin && (
+          <View style={styles.assignedUsersRow}>
+            <Users color={Colors.light.muted} size={14} strokeWidth={2} />
+            <Text style={styles.assignedUsersText} numberOfLines={1}>
+              {assignedUsernames}
+            </Text>
           </View>
         )}
-      </View>
+
+        {assignment.dueDate && (
+          <View style={styles.deadlineDateRow}>
+            <Calendar color={Colors.light.muted} size={14} strokeWidth={2} />
+            <Text style={styles.deadlineDateText}>
+              Deadline: {formatDateTime(assignment.dueDate)}
+            </Text>
+          </View>
+        )}
       
-      {assignment.description && (
-        <Text style={styles.assignmentDescription}>{assignment.description}</Text>
-      )}
-      
-      {isAdmin && completionInfo.length > 0 && (
-        <View style={styles.completionInfoContainer}>
-          {completionInfo.map((info, idx) => (
-            <View key={idx} style={styles.completionInfoRow}>
-              <CheckCircle2 color={Colors.light.success} size={14} strokeWidth={2.5} />
-              <Text style={styles.completionInfoText}>
-                {info.username} - {formatDateTime(info.completedAt)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-      
-      <View style={styles.assignmentFooter}>
-        <View style={styles.assignmentInfo}>
-          <Calendar color={Colors.light.muted} size={16} />
-          <Text style={styles.assignmentInfoText}>
-            {assignment.dueDate ? formatDate(assignment.dueDate) : "Geen deadline"}
-          </Text>
-        </View>
-        
-        <View style={styles.assignmentInfo}>
-          <Users color={Colors.light.muted} size={16} />
-          <Text style={styles.assignmentInfoText} numberOfLines={1}>
-            {assignedUsernames}
-          </Text>
-        </View>
+        {isAdmin && completionInfo.length > 0 && (
+          <View style={styles.completionInfoContainer}>
+            {completionInfo.map((info, idx) => (
+              <View key={idx} style={styles.completionInfoRow}>
+                <CheckCircle2 color={Colors.light.success} size={12} strokeWidth={2.5} />
+                <Text style={styles.completionInfoText}>
+                  {info.username}
+                </Text>
+                <Text style={styles.completionDateText}>
+                  {formatDateTime(info.completedAt)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -1651,27 +1654,30 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
-    gap: 12,
     flexDirection: 'row',
   },
-  assignmentHeader: {
+  assignmentContent: {
     flex: 1,
-    gap: 12,
+    gap: 10,
   },
   assignmentFullWidth: {
     flex: 1,
   },
-  assignmentTitleRow: {
+  assignmentTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 4,
+  },
+  assignmentHeaderLeft: {
     flex: 1,
+    gap: 6,
   },
   assignmentTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700" as const,
     color: Colors.light.text,
-    flex: 1,
+    lineHeight: 22,
   },
   completedBadge: {
     flexDirection: 'row',
@@ -1680,57 +1686,71 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   completedBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700' as const,
     color: Colors.light.text,
+    textTransform: 'uppercase' as const,
   },
   mediaIconContainer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     backgroundColor: Colors.light.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
   },
-  assignmentDescription: {
-    fontSize: 14,
+  assignedUsersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.light.darkGray,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  assignedUsersText: {
+    fontSize: 13,
+    color: Colors.light.text,
+    fontWeight: '600' as const,
+  },
+  deadlineDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  deadlineDateText: {
+    fontSize: 13,
     color: Colors.light.muted,
-    lineHeight: 20,
+    fontWeight: '600' as const,
   },
   completionInfoContainer: {
     backgroundColor: Colors.light.darkGray,
     borderRadius: 10,
     padding: 10,
-    gap: 6,
+    gap: 8,
+    marginTop: 4,
   },
   completionInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexWrap: 'wrap' as const,
   },
   completionInfoText: {
-    fontSize: 12,
-    color: Colors.light.text,
-    fontWeight: '600' as const,
-    flex: 1,
-  },
-  assignmentFooter: {
-    gap: 8,
-    paddingTop: 4,
-  },
-  assignmentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  assignmentInfoText: {
     fontSize: 13,
+    color: Colors.light.text,
+    fontWeight: '700' as const,
+  },
+  completionDateText: {
+    fontSize: 12,
     color: Colors.light.muted,
-    flex: 1,
+    fontWeight: '600' as const,
   },
   fab: {
     position: "absolute",
