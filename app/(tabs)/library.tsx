@@ -7,28 +7,10 @@ import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDriv
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
-import { Image } from 'expo-image';
 import VideoPlayerModal from '@/components/VideoPlayerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppState } from "@/providers/AppState";
-
-type StorageFile = {
-  name: string;
-  id: string;
-  updated_at: string;
-  created_at: string;
-  last_accessed_at: string;
-  metadata: {
-    eTag: string;
-    size: number;
-    mimetype: string;
-    cacheControl: string;
-    lastModified: string;
-    contentLength: number;
-    httpStatusCode: number;
-  };
-};
 
 type FolderItem = {
   name: string;
@@ -49,8 +31,15 @@ type LibraryItem = FolderItem | FileItem;
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
-  const appState = useAppState();
-  const { t } = appState;
+  const {
+    t,
+    syncAllData,
+    refreshStorageUsage: refreshStorageUsageFromApp,
+    storageUsage: globalStorageUsage,
+    createFolder,
+    uploadMedia,
+    currentUser,
+  } = useAppState();
   const [currentPath, setCurrentPath] = useState<string>("");
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -73,99 +62,68 @@ export default function LibraryScreen() {
   const [isRenaming, setIsRenaming] = useState(false);
 
   const loadItems = useCallback(async () => {
+    console.log('[LIBRARY] Loading items for path:', currentPath || 'root');
     try {
-      console.log('[LIBRARY] Loading items for path:', currentPath || 'root');
-      
-      const parsedItems: LibraryItem[] = [];
-      const seenFolders = new Set<string>();
+      setIsLoading(true);
+      setErrorMessage(null);
 
-      // Sync data first to ensure we have latest
       console.log('[LIBRARY] Syncing data...');
-      await appState.syncAllData();
+      await syncAllData();
       console.log('[LIBRARY] Sync completed');
 
-      // Also fetch directly from Supabase to ensure we have the latest data
-      console.log('[LIBRARY] Fetching from Supabase storage bucket...');
-      const { data: storageFiles, error: storageError } = await supabase.storage
+      const bucketPath = currentPath || undefined;
+      console.log('[LIBRARY] Fetching storage contents for path:', bucketPath ?? '/');
+
+      const { data: storageEntries, error: storageError } = await supabase.storage
         .from('media-library')
-        .list('', {
+        .list(bucketPath, {
           limit: 1000,
           offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
         });
-      
+
       if (storageError) {
         console.error('[LIBRARY] Storage error:', storageError);
-      } else {
-        console.log('[LIBRARY] Storage files:', storageFiles?.length || 0);
+        throw storageError;
       }
 
-      // Get folders from AppState
-      const allFolders = appState.getFolders();
-      const allMedia = appState.mediaLibrary;
+      const parsedItems: LibraryItem[] = [];
 
-      console.log('[LIBRARY] All folders:', allFolders.length);
-      console.log('[LIBRARY] All media:', allMedia.length);
-      console.log('[LIBRARY] Folders list:', allFolders);
-      console.log('[LIBRARY] Media items:', allMedia.map(m => ({ name: m.name, path: m.path, folder_path: m.folder_path })));
-
-      // Filter folders for current path
-      allFolders.forEach(folderPath => {
-        // If we're at root, show top-level folders
-        if (!currentPath) {
-          const parts = folderPath.split('/');
-          if (parts.length === 1 && parts[0]) {
-            if (!seenFolders.has(parts[0])) {
-              seenFolders.add(parts[0]);
-              parsedItems.push({
-                name: parts[0],
-                path: parts[0],
-                type: 'folder',
-              });
-            }
-          }
-        } else {
-          // If we're in a folder, show subfolders
-          if (folderPath.startsWith(currentPath + '/')) {
-            const remaining = folderPath.substring(currentPath.length + 1);
-            const parts = remaining.split('/');
-            if (parts.length >= 1 && parts[0]) {
-              const subfolderPath = currentPath + '/' + parts[0];
-              if (!seenFolders.has(subfolderPath)) {
-                seenFolders.add(subfolderPath);
-                parsedItems.push({
-                  name: parts[0],
-                  path: subfolderPath,
-                  type: 'folder',
-                });
-              }
-            }
-          }
-        }
-      });
-
-      // Get media items for current path
-      const mediaInFolder = appState.getMediaInFolder(currentPath);
-      console.log('[LIBRARY] Media in current folder:', mediaInFolder.length);
-      mediaInFolder.forEach(media => {
-        if (media.name === '.keep' || media.name === '.emptyFolderPlaceholder') {
+      storageEntries?.forEach((entry) => {
+        if (!entry) {
           return;
         }
 
-        // Generate public URL using the Supabase storage URL pattern
-        const storageUrl = `https://afeslrqjcpuhhqivyhuz.supabase.co/storage/v1/object/public/media-library/${media.storage_path}`;
-        console.log('[LIBRARY] Media item:', media.name, 'URL:', storageUrl);
+        const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+        const isFolder = !entry.metadata;
+
+        if (isFolder) {
+          parsedItems.push({
+            name: entry.name,
+            path: entryPath,
+            type: 'folder',
+          });
+          return;
+        }
+
+        if (entry.name === '.keep' || entry.name === '.emptyFolderPlaceholder') {
+          return;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('media-library')
+          .getPublicUrl(entryPath);
 
         parsedItems.push({
-          name: media.name,
-          path: media.path,
+          name: entry.name,
+          path: entryPath,
           type: 'file',
-          size: media.file_size,
-          mimeType: media.mime_type,
-          url: storageUrl,
+          size: entry.metadata?.size ?? 0,
+          mimeType: entry.metadata?.mimetype ?? 'application/octet-stream',
+          url: publicUrlData.publicUrl,
         });
       });
 
-      // Sort: folders first, then files
       parsedItems.sort((a, b) => {
         if (a.type === b.type) {
           return a.name.localeCompare(b.name);
@@ -173,7 +131,7 @@ export default function LibraryScreen() {
         return a.type === 'folder' ? -1 : 1;
       });
 
-      console.log('[LIBRARY] Parsed items:', parsedItems.length);
+      console.log('[LIBRARY] Parsed storage items:', parsedItems.length);
       setItems(parsedItems);
     } catch (error: any) {
       console.error('[LIBRARY] Load error:', error);
@@ -183,21 +141,21 @@ export default function LibraryScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentPath, appState]);
+  }, [currentPath, syncAllData]);
 
   const loadStorageUsage = useCallback(async () => {
     try {
-      await appState.refreshStorageUsage();
-      if (appState.storageUsage) {
+      await refreshStorageUsageFromApp();
+      if (globalStorageUsage) {
         setStorageUsage({ 
-          used: appState.storageUsage.usageGB, 
-          total: appState.storageUsage.maxGB 
+          used: globalStorageUsage.usageGB, 
+          total: globalStorageUsage.maxGB 
         });
       }
     } catch (error) {
       console.error('[LIBRARY] Storage usage error:', error);
     }
-  }, [appState.refreshStorageUsage, appState.storageUsage]);
+  }, [refreshStorageUsageFromApp, globalStorageUsage]);
 
   useEffect(() => {
     loadItems();
@@ -226,7 +184,7 @@ export default function LibraryScreen() {
       
       console.log('[FOLDER] Creating folder:', newFolderPath);
 
-      await appState.createFolder(newFolderPath);
+      await createFolder(newFolderPath);
 
       console.log('[FOLDER] Created successfully');
       
@@ -291,7 +249,7 @@ export default function LibraryScreen() {
           else if (file.type.startsWith('image/')) fileType = 'image';
           else if (file.type.startsWith('audio/')) fileType = 'audio';
 
-          await appState.uploadMedia({
+          await uploadMedia({
             name: file.name,
             folderPath: currentPath,
             fileType,
@@ -427,7 +385,7 @@ export default function LibraryScreen() {
       else if (mimeType?.startsWith('image/')) fileType = 'image';
       else if (mimeType?.startsWith('audio/')) fileType = 'audio';
 
-      await appState.uploadMedia({
+      await uploadMedia({
         name: fileName,
         folderPath: currentPath,
         fileType,
@@ -450,7 +408,7 @@ export default function LibraryScreen() {
   };
 
   const handleLongPress = (item: LibraryItem) => {
-    if (appState.currentUser?.role !== 'admin') {
+    if (currentUser?.role !== 'admin') {
       return;
     }
     if (!selectionMode) {
@@ -519,7 +477,7 @@ export default function LibraryScreen() {
       const newPath = pathParts.join('/');
 
       // Copy the file to new location
-      const { data: copyData, error: copyError } = await supabase.storage
+      const { error: copyError } = await supabase.storage
         .from('media-library')
         .copy(renameItem.path, newPath);
 
@@ -1072,7 +1030,7 @@ export default function LibraryScreen() {
               </Pressable>
             </View>
           </View>
-        ) : appState.currentUser?.role === 'admin' ? (
+        ) : currentUser?.role === 'admin' ? (
           <Pressable 
             style={[styles.fab, { bottom: insets.bottom + 20 }]} 
             onPress={() => setShowActionSheet(true)}
