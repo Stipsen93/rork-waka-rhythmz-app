@@ -219,9 +219,6 @@ export default function RepetitieScreen() {
     const now = new Date();
     let current = new Date(now);
     
-    // Iterate up to 60 days to find occurrences, filtering for filtered logic could be done
-    // but here we just want the next 4 *days* that have trainings.
-    
     let daysFound = 0;
     let attempts = 0;
     
@@ -232,16 +229,10 @@ export default function RepetitieScreen() {
       const trainingsOnDay = orderedTrainings.filter(t => t.dayOfWeek === dayOfWeek);
       
       if (trainingsOnDay.length > 0) {
-        // Check if already cancelled
         const isCancelled = practiceSchedule.cancelledDates?.some(cd => cd.date === dateStr);
+        const isSelectedForCancellation = selectedCancellationDates.includes(dateStr);
         
-        // Only add if not already cancelled? 
-        // User wants to cancel them, so we should show them even if not cancelled.
-        // But if they are ALREADY cancelled, maybe we shouldn't show them as "upcoming to cancel".
-        // Let's exclude already cancelled ones for the "Next 4 days" list to avoid confusion,
-        // or show them as disabled/cancelled.
-        
-        if (!isCancelled) {
+        if (!isCancelled && !isSelectedForCancellation) {
              upcoming.push({
             date: dateStr,
             displayDate: current.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }),
@@ -256,7 +247,7 @@ export default function RepetitieScreen() {
     }
     
     return upcoming;
-  }, [orderedTrainings, practiceSchedule.cancelledDates, language]);
+  }, [orderedTrainings, practiceSchedule.cancelledDates, selectedCancellationDates, language]);
 
   const handleToggleCancellationDate = (date: string) => {
     setSelectedCancellationDates(prev => {
