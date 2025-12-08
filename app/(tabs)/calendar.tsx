@@ -73,6 +73,8 @@ export default function CalendarScreen() {
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
   const [showEditDatePicker, setShowEditDatePicker] = useState<boolean>(false);
   const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
+  const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
+  const [detailsAppointment, setDetailsAppointment] = useState<Appointment | null>(null);
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -602,8 +604,10 @@ export default function CalendarScreen() {
                   <Pressable 
                     key={item.id} 
                     style={[styles.card, isCancelled && styles.cardCancelled]} 
-                    onPress={() => canEdit && openEditModal(item)}
-                    disabled={!canEdit}
+                    onPress={() => {
+                      setDetailsAppointment(item);
+                      setShowDetailsModal(true);
+                    }}
                   >
                     <View style={[styles.cardColorStrip, isCancelled && styles.cardColorStripCancelled]} />
                     <View style={styles.cardContent}>
@@ -1389,6 +1393,131 @@ export default function CalendarScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      <Modal
+        visible={showDetailsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDetailsModal(false)}
+      >
+        <Pressable 
+          style={styles.detailsModalOverlay}
+          onPress={() => setShowDetailsModal(false)}
+        >
+          <Pressable 
+            style={styles.detailsModalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.detailsHeader}>
+              <Text style={styles.detailsTitle}>Afspraak Details</Text>
+              <Pressable onPress={() => setShowDetailsModal(false)}>
+                <X color={Colors.light.muted} size={24} />
+              </Pressable>
+            </View>
+
+            {detailsAppointment && (() => {
+              const dateObj = parseDateString(detailsAppointment.date);
+              const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+              const selectedMembers = users.filter(u => detailsAppointment.memberIds?.includes(u.id));
+              const isCancelled = detailsAppointment.status === 'cancelled';
+              const isAdmin = currentUser?.role === 'admin' || isCrownAdmin;
+              const isCreator = currentUser?.id === detailsAppointment.createdBy;
+              const canEdit = isAdmin || isCreator;
+
+              return (
+                <ScrollView 
+                  style={styles.detailsScrollView}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {isCancelled && (
+                    <View style={styles.detailsCancelledBanner}>
+                      <Text style={styles.detailsCancelledBannerText}>Deze afspraak is geannuleerd</Text>
+                    </View>
+                  )}
+                  
+                  {!isCancelled && detailsAppointment.confirmed && (
+                    <View style={styles.detailsConfirmedBanner}>
+                      <Text style={styles.detailsConfirmedBannerText}>✓ Bevestigd</Text>
+                    </View>
+                  )}
+
+                  {!isCancelled && !detailsAppointment.confirmed && (
+                    <View style={styles.detailsNotConfirmedBanner}>
+                      <Text style={styles.detailsNotConfirmedBannerText}>Niet bevestigd</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionLabel}>Naam</Text>
+                    <Text style={styles.detailsSectionValue}>{detailsAppointment.name}</Text>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionLabel}>Categorie</Text>
+                    <View style={styles.detailsCategoryBadge}>
+                      <Text style={styles.detailsCategoryText}>{detailsAppointment.category}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionLabel}>Datum</Text>
+                    <View style={styles.detailsRow}>
+                      <CalendarIcon color={Colors.light.primary} size={18} strokeWidth={2} />
+                      <Text style={styles.detailsSectionValue}>{formattedDate}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionLabel}>Tijd</Text>
+                    <Text style={styles.detailsSectionValue}>{detailsAppointment.time}</Text>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionLabel}>Locatie</Text>
+                    <View style={styles.detailsRow}>
+                      <MapPin color={Colors.light.primary} size={18} strokeWidth={2} />
+                      <Text style={styles.detailsSectionValue}>{detailsAppointment.location}</Text>
+                    </View>
+                  </View>
+
+                  {selectedMembers.length > 0 && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.detailsSectionLabel}>Geselecteerde Leden ({selectedMembers.length})</Text>
+                      <View style={styles.detailsMembersList}>
+                        {selectedMembers.map((member) => (
+                          <View key={member.id} style={styles.detailsMemberChip}>
+                            <Users color={Colors.light.primary} size={14} strokeWidth={2} />
+                            <Text style={styles.detailsMemberName}>{member.username}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {canEdit && (
+                    <Pressable
+                      style={styles.detailsEditButton}
+                      onPress={() => {
+                        setShowDetailsModal(false);
+                        setTimeout(() => openEditModal(detailsAppointment), 300);
+                      }}
+                    >
+                      <LinearGradient
+                        colors={[Colors.light.primary, Colors.light.primaryDark]}
+                        style={styles.buttonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <Text style={styles.detailsEditButtonText}>Bewerken</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  )}
+                </ScrollView>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -2157,5 +2286,163 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  detailsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  detailsModalContent: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 24,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.surfaceLight,
+  },
+  detailsTitle: {
+    color: Colors.light.text,
+    fontSize: 22,
+    fontWeight: '800' as const,
+  },
+  detailsScrollView: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  detailsCancelledBanner: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  detailsCancelledBannerText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  detailsConfirmedBanner: {
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  detailsConfirmedBannerText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  detailsNotConfirmedBanner: {
+    backgroundColor: Colors.light.darkGray,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  detailsNotConfirmedBannerText: {
+    color: Colors.light.muted,
+    fontSize: 14,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontStyle: 'italic',
+  },
+  detailsSection: {
+    marginBottom: 20,
+  },
+  detailsSectionLabel: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  detailsSectionValue: {
+    color: Colors.light.text,
+    fontSize: 18,
+    fontWeight: '600' as const,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailsCategoryBadge: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  detailsCategoryText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailsMembersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  detailsMemberChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.light.darkGray,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  detailsMemberName: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  detailsEditButton: {
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  detailsEditButtonText: {
+    color: Colors.light.text,
+    fontSize: 17,
+    fontWeight: '700' as const,
   },
 });
