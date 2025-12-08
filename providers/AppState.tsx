@@ -1905,7 +1905,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     mimeType: string; 
     base64Data: string 
   }): Promise<MediaLibraryItem> => {
-    console.log('💾 [UPLOAD] Uploading media via tRPC...');
+    console.log('💾 [UPLOAD] Uploading media directly to Supabase...');
     console.log('💾 [UPLOAD] Input:', {
       name: input.name,
       folderPath: input.folderPath,
@@ -1916,29 +1916,61 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     });
     
     try {
-      const result = await trpcClient.media.uploadMedia.mutate({
-        name: input.name,
-        folderPath: input.folderPath,
-        fileType: input.fileType,
-        fileSize: input.fileSize,
-        mimeType: input.mimeType,
-        base64Data: input.base64Data,
-      });
+      const storagePath = input.folderPath ? `${input.folderPath}/${input.name}` : input.name;
       
-      console.log('💾 [UPLOAD] Upload successful, result:', result);
+      const binaryString = atob(input.base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
       
+      console.log('💾 [UPLOAD] Uploading to storage path:', storagePath);
+      const { error: uploadError } = await supabase.storage
+        .from('media-library')
+        .upload(storagePath, bytes, {
+          contentType: input.mimeType,
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        console.error('❌ [UPLOAD] Storage upload error:', uploadError);
+        throw uploadError;
+      }
+      
+      console.log('💾 [UPLOAD] Storage upload successful, creating database entry...');
+      
+      const mediaId = genId('m');
       const mediaItem: MediaLibraryItem = {
-        id: result.id,
-        name: result.name,
-        path: result.path,
-        folder_path: result.folder_path,
-        file_type: result.file_type,
-        file_size: result.file_size,
-        mime_type: result.mime_type,
-        storage_path: result.storage_path,
-        uploaded_by: result.uploaded_by,
-        created_at: result.created_at,
+        id: mediaId,
+        name: input.name,
+        path: storagePath,
+        folder_path: input.folderPath,
+        file_type: input.fileType,
+        file_size: input.fileSize,
+        mime_type: input.mimeType,
+        storage_path: storagePath,
+        uploaded_by: currentUser?.id ?? null,
+        created_at: new Date().toISOString(),
       };
+      
+      const insertData: Database['public']['Tables']['media_library']['Insert'] = {
+        id: mediaItem.id,
+        name: mediaItem.name,
+        path: mediaItem.path,
+        folder_path: mediaItem.folder_path,
+        file_type: mediaItem.file_type,
+        file_size: mediaItem.file_size,
+        mime_type: mediaItem.mime_type,
+        storage_path: mediaItem.storage_path,
+        uploaded_by: mediaItem.uploaded_by,
+      };
+      
+      const { error: dbError } = await supabase.from('media_library').insert(insertData);
+      if (dbError) {
+        console.error('❌ [UPLOAD] Database insert error:', dbError);
+        await supabase.storage.from('media-library').remove([storagePath]);
+        throw dbError;
+      }
       
       setMediaLibrary(prev => [mediaItem, ...prev]);
       console.log('✅ [UPLOAD] Media uploaded successfully');
@@ -1952,7 +1984,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }));
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, []);
+  }, [currentUser]);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
     console.log('💾 [DELETE_MEDIA] Starting delete for IDs:', ids);
@@ -2171,20 +2203,30 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [mediaLibrary]);
 
   const createFolder = useCallback(async (folderPath: string) => {
-    console.log('💾 [CREATE_FOLDER] Creating folder via tRPC...');
+    console.log('💾 [CREATE_FOLDER] Creating folder directly in Supabase Storage...');
     
     try {
-      await trpcClient.media.createFolder.mutate({
-        folderPath,
-        createdBy: currentUser?.id,
-      });
+      const placeholderPath = `${folderPath}/.emptyFolderPlaceholder`;
+      const placeholderData = new Uint8Array([]);
       
-      console.log('✅ [CREATE_FOLDER] Folder created successfully');
+      const { data, error } = await supabase.storage
+        .from('media-library')
+        .upload(placeholderPath, placeholderData, {
+          contentType: 'application/octet-stream',
+          upsert: false,
+        });
+      
+      if (error) {
+        console.error('❌ [CREATE_FOLDER] Storage error:', error);
+        throw error;
+      }
+      
+      console.log('✅ [CREATE_FOLDER] Folder created successfully:', data);
     } catch (error: any) {
       console.error('❌ [CREATE_FOLDER] Folder creation error:', error);
       throw new Error(`Folder aanmaken mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, [currentUser]);
+  }, []);
 
   const addGroup = useCallback(async (name: string, memberIds: string[]) => {
     console.log('💾 Adding group to Supabase...');
