@@ -80,7 +80,24 @@ export default function LibraryScreen() {
       const seenFolders = new Set<string>();
 
       // Sync data first to ensure we have latest
+      console.log('[LIBRARY] Syncing data...');
       await appState.syncAllData();
+      console.log('[LIBRARY] Sync completed');
+
+      // Also fetch directly from Supabase to ensure we have the latest data
+      console.log('[LIBRARY] Fetching from Supabase storage bucket...');
+      const { data: storageFiles, error: storageError } = await supabase.storage
+        .from('media-library')
+        .list('', {
+          limit: 1000,
+          offset: 0,
+        });
+      
+      if (storageError) {
+        console.error('[LIBRARY] Storage error:', storageError);
+      } else {
+        console.log('[LIBRARY] Storage files:', storageFiles?.length || 0);
+      }
 
       // Get folders from AppState
       const allFolders = appState.getFolders();
