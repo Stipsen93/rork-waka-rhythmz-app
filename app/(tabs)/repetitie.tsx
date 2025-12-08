@@ -195,6 +195,7 @@ export default function RepetitieScreen() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddTrainingExpanded, setIsAddTrainingExpanded] = useState(false);
 
   // Cancellation Widget State
   const [showCancellationDropdown, setShowCancellationDropdown] = useState(false);
@@ -507,143 +508,79 @@ export default function RepetitieScreen() {
           )}
 
           {isAdmin && (
-            <View style={styles.card} testID="cancellation-widget">
-              <Text style={styles.cardTitle}>Training annuleren</Text>
-              <Text style={styles.cardSubtitle}>Selecteer dagen om trainingen te annuleren</Text>
-              
+            <View style={styles.card} testID="training-create-form">
               <TouchableOpacity 
-                style={styles.dropdownHeader}
-                onPress={() => setShowCancellationDropdown(!showCancellationDropdown)}
+                style={styles.expandableHeader}
+                onPress={() => setIsAddTrainingExpanded(!isAddTrainingExpanded)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.dropdownHeaderText}>
-                  {selectedCancellationDates.length > 0 
-                    ? `${selectedCancellationDates.length} dag(en) geselecteerd` 
-                    : "Kies dagen"}
-                </Text>
-                {showCancellationDropdown ? (
-                  <ChevronUp size={20} color={Colors.light.muted} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>{t.addTraining}</Text>
+                  <Text style={styles.cardSubtitle}>Voeg direct een nieuwe training toe</Text>
+                </View>
+                {isAddTrainingExpanded ? (
+                  <ChevronUp size={20} color={Colors.light.text} />
                 ) : (
-                  <ChevronDown size={20} color={Colors.light.muted} />
+                  <ChevronDown size={20} color={Colors.light.text} />
                 )}
               </TouchableOpacity>
-              
-              {showCancellationDropdown && (
-                <View style={styles.dropdownContent}>
-                  {upcomingTrainings.length === 0 ? (
-                    <Text style={styles.emptyText}>Geen komende trainingen gevonden</Text>
-                  ) : (
-                    upcomingTrainings.map((item) => {
-                      const isSelected = selectedCancellationDates.includes(item.date);
-                      return (
-                        <TouchableOpacity 
-                          key={item.date} 
-                          style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                          onPress={() => handleToggleCancellationDate(item.date)}
-                        >
-                          <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextSelected]}>
-                            {item.displayDate}
-                          </Text>
-                          {isSelected && <Check size={16} color={Colors.light.primary} />}
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </View>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.secondaryButton}
-                onPress={() => setShowCalendarModal(true)}
-              >
-                <CalendarIcon size={18} color={Colors.light.text} />
-                <Text style={styles.secondaryButtonText}>Kalender</Text>
-              </TouchableOpacity>
-              
-              {selectedCancellationDates.length > 0 && (
-                <View style={styles.selectedDatesContainer}>
-                  <Text style={styles.selectedDatesTitle}>Geselecteerde dagen:</Text>
-                  {selectedCancellationDates.sort().map(date => (
-                    <View key={date} style={styles.selectedDateChip}>
-                      <Text style={styles.selectedDateText}>
-                        {new Date(date).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { day: 'numeric', month: 'short' })}
-                      </Text>
-                      <TouchableOpacity onPress={() => handleToggleCancellationDate(date)}>
-                        <X size={14} color={Colors.light.text} />
+
+              {isAddTrainingExpanded && (
+                <View style={{ marginTop: 16, gap: 16 }}>
+                  <TextInput
+                    value={formState.name}
+                    onChangeText={(text) => setFormState((prev) => ({ ...prev, name: text }))}
+                    placeholder={t.trainingName}
+                    placeholderTextColor={Colors.light.muted}
+                    style={styles.input}
+                  />
+                  <View style={styles.daySelectorRow}>
+                    {WEEKDAYS_SHORT.map((label, index) => (
+                      <TouchableOpacity
+                        key={label}
+                        style={[styles.dayChip, formState.dayOfWeek === index && styles.dayChipActive]}
+                        onPress={() => setFormState((prev) => ({ ...prev, dayOfWeek: index }))}
+                      >
+                        <Text style={[styles.dayChipText, formState.dayOfWeek === index && styles.dayChipTextActive]}>
+                          {label}
+                        </Text>
                       </TouchableOpacity>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.timeSelector}
+                    onPress={() => openTimePicker("new", formState.time)}
+                    testID="new-training-time"
+                  >
+                    <Clock color={Colors.light.primary} size={18} />
+                    <Text style={styles.timeSelectorText}>{formState.time}</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    value={formState.location}
+                    onChangeText={(text) => setFormState((prev) => ({ ...prev, location: text }))}
+                    placeholder={t.location}
+                    placeholderTextColor={Colors.light.muted}
+                    style={styles.input}
+                  />
+                  <TouchableOpacity
+                    style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
+                    onPress={handleCreateTraining}
+                    disabled={isSubmitting}
+                    testID="create-training-button"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 color="#fff" size={18} />
+                    ) : (
+                      <Plus color="#fff" size={18} />
+                    )}
+                    <Text style={styles.primaryButtonText}>{t.addTraining}</Text>
+                  </TouchableOpacity>
                 </View>
               )}
-              
-              <TouchableOpacity
-                style={[styles.dangerButton, selectedCancellationDates.length === 0 && styles.dangerButtonDisabled]}
-                onPress={handleConfirmCancellation}
-                disabled={selectedCancellationDates.length === 0 || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <Loader2 color="#fff" size={18} />
-                ) : (
-                  <Trash2 color="#fff" size={18} />
-                )}
-                <Text style={styles.dangerButtonText}>Trainingen annuleren</Text>
-              </TouchableOpacity>
             </View>
           )}
 
-          {isAdmin ? (
-            <View style={styles.card} testID="training-create-form">
-              <Text style={styles.cardTitle}>{t.addTraining}</Text>
-              <Text style={styles.cardSubtitle}>Voeg direct een nieuwe training toe</Text>
-              <TextInput
-                value={formState.name}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, name: text }))}
-                placeholder={t.trainingName}
-                placeholderTextColor={Colors.light.muted}
-                style={styles.input}
-              />
-              <View style={styles.daySelectorRow}>
-                {WEEKDAYS_SHORT.map((label, index) => (
-                  <TouchableOpacity
-                    key={label}
-                    style={[styles.dayChip, formState.dayOfWeek === index && styles.dayChipActive]}
-                    onPress={() => setFormState((prev) => ({ ...prev, dayOfWeek: index }))}
-                  >
-                    <Text style={[styles.dayChipText, formState.dayOfWeek === index && styles.dayChipTextActive]}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity
-                style={styles.timeSelector}
-                onPress={() => openTimePicker("new", formState.time)}
-                testID="new-training-time"
-              >
-                <Clock color={Colors.light.primary} size={18} />
-                <Text style={styles.timeSelectorText}>{formState.time}</Text>
-              </TouchableOpacity>
-              <TextInput
-                value={formState.location}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, location: text }))}
-                placeholder={t.location}
-                placeholderTextColor={Colors.light.muted}
-                style={styles.input}
-              />
-              <TouchableOpacity
-                style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
-                onPress={handleCreateTraining}
-                disabled={isSubmitting}
-                testID="create-training-button"
-              >
-                {isSubmitting ? (
-                  <Loader2 color="#fff" size={18} />
-                ) : (
-                  <Plus color="#fff" size={18} />
-                )}
-                <Text style={styles.primaryButtonText}>{t.addTraining}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
+          {!isAdmin && (
             <View style={styles.noticeCard}>
               <Text style={styles.noticeText}>{t.adminOnly}</Text>
             </View>
@@ -785,6 +722,90 @@ export default function RepetitieScreen() {
               })
             )}
           </View>
+
+          {isAdmin && (
+            <View style={styles.card} testID="cancellation-widget">
+              <Text style={styles.cardTitle}>Training annuleren</Text>
+              <Text style={styles.cardSubtitle}>Selecteer dagen om trainingen te annuleren</Text>
+              
+              <TouchableOpacity 
+                style={styles.dropdownHeader}
+                onPress={() => setShowCancellationDropdown(!showCancellationDropdown)}
+              >
+                <Text style={styles.dropdownHeaderText}>
+                  {selectedCancellationDates.length > 0 
+                    ? `${selectedCancellationDates.length} dag(en) geselecteerd` 
+                    : "Kies dagen"}
+                </Text>
+                {showCancellationDropdown ? (
+                  <ChevronUp size={20} color={Colors.light.muted} />
+                ) : (
+                  <ChevronDown size={20} color={Colors.light.muted} />
+                )}
+              </TouchableOpacity>
+              
+              {showCancellationDropdown && (
+                <View style={styles.dropdownContent}>
+                  {upcomingTrainings.length === 0 ? (
+                    <Text style={styles.emptyText}>Geen komende trainingen gevonden</Text>
+                  ) : (
+                    upcomingTrainings.map((item) => {
+                      const isSelected = selectedCancellationDates.includes(item.date);
+                      return (
+                        <TouchableOpacity 
+                          key={item.date} 
+                          style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
+                          onPress={() => handleToggleCancellationDate(item.date)}
+                        >
+                          <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextSelected]}>
+                            {item.displayDate}
+                          </Text>
+                          {isSelected && <Check size={16} color={Colors.light.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
+              )}
+              
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={() => setShowCalendarModal(true)}
+              >
+                <CalendarIcon size={18} color={Colors.light.text} />
+                <Text style={styles.secondaryButtonText}>Kalender</Text>
+              </TouchableOpacity>
+              
+              {selectedCancellationDates.length > 0 && (
+                <View style={styles.selectedDatesContainer}>
+                  <Text style={styles.selectedDatesTitle}>Geselecteerde dagen:</Text>
+                  {selectedCancellationDates.sort().map(date => (
+                    <View key={date} style={styles.selectedDateChip}>
+                      <Text style={styles.selectedDateText}>
+                        {new Date(date).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { day: 'numeric', month: 'short' })}
+                      </Text>
+                      <TouchableOpacity onPress={() => handleToggleCancellationDate(date)}>
+                        <X size={14} color={Colors.light.text} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+              
+              <TouchableOpacity
+                style={[styles.dangerButton, selectedCancellationDates.length === 0 && styles.dangerButtonDisabled]}
+                onPress={handleConfirmCancellation}
+                disabled={selectedCancellationDates.length === 0 || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 color="#fff" size={18} />
+                ) : (
+                  <Trash2 color="#fff" size={18} />
+                )}
+                <Text style={styles.dangerButtonText}>Trainingen annuleren</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
         <Modal
           visible={showCalendarModal}
@@ -1342,6 +1363,11 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontWeight: "600" as const,
     flex: 1,
+  },
+  expandableHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   dropdownHeader: {
     backgroundColor: Colors.light.surfaceLight,
