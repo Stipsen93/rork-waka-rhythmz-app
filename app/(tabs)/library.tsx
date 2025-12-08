@@ -60,6 +60,7 @@ export default function LibraryScreen() {
   const [renameItem, setRenameItem] = useState<LibraryItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
+  const isAdmin = currentUser?.role === 'admin';
 
   const loadItems = useCallback(async () => {
     console.log('[LIBRARY] Loading items for path:', currentPath || 'root');
@@ -407,8 +408,21 @@ export default function LibraryScreen() {
     }
   };
 
+  const handleCancelSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedItems(new Set());
+  }, []);
+
+  const handleToggleSelectionMode = useCallback(() => {
+    if (selectionMode) {
+      handleCancelSelection();
+      return;
+    }
+    setSelectionMode(true);
+  }, [selectionMode, handleCancelSelection]);
+
   const handleLongPress = (item: LibraryItem) => {
-    if (currentUser?.role !== 'admin') {
+    if (!isAdmin) {
       return;
     }
     if (!selectionMode) {
@@ -444,11 +458,6 @@ export default function LibraryScreen() {
         }
       }
     }
-  };
-
-  const handleCancelSelection = () => {
-    setSelectionMode(false);
-    setSelectedItems(new Set());
   };
 
   const handleRenameSelected = () => {
@@ -637,19 +646,37 @@ export default function LibraryScreen() {
                 <Text style={styles.breadcrumb}>{breadcrumbText}</Text>
               ) : null}
             </View>
-            <Pressable 
-              onPress={handleRefresh}
-              style={[styles.refreshButton, isRefreshing && styles.refreshButtonActive]}
-              disabled={isRefreshing}
-              testID="refresh-library-button"
-            >
-              <RefreshCw 
-                color={Colors.light.primary} 
-                size={22} 
-                strokeWidth={2.5}
-                style={isRefreshing && styles.refreshIcon}
-              />
-            </Pressable>
+            <View style={styles.headerActions}>
+              {isAdmin ? (
+                <Pressable
+                  onPress={handleToggleSelectionMode}
+                  style={[styles.editButton, selectionMode && styles.editButtonActive]}
+                  testID="toggle-library-edit-mode"
+                >
+                  <Edit2
+                    color={selectionMode ? Colors.light.text : Colors.light.primary}
+                    size={18}
+                    strokeWidth={2.5}
+                  />
+                  <Text style={[styles.editButtonText, selectionMode && styles.editButtonTextActive]}>
+                    {selectionMode ? 'Klaar' : 'Bewerk'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable 
+                onPress={handleRefresh}
+                style={[styles.refreshButton, isRefreshing && styles.refreshButtonActive]}
+                disabled={isRefreshing}
+                testID="refresh-library-button"
+              >
+                <RefreshCw 
+                  color={Colors.light.primary} 
+                  size={22} 
+                  strokeWidth={2.5}
+                  style={isRefreshing && styles.refreshIcon}
+                />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -734,10 +761,15 @@ export default function LibraryScreen() {
               const isSelected = selectedItems.has(item.path);
               
               return (
-                <TouchableOpacity 
-                  style={[styles.card, isSelected && styles.cardSelected]} 
+                <Pressable 
+                  style={({ pressed }) => [
+                    styles.card,
+                    isSelected && styles.cardSelected,
+                    pressed && !selectionMode ? styles.cardPressed : null,
+                  ]}
                   onPress={() => handleItemPress(item)}
                   onLongPress={() => handleLongPress(item)}
+                  delayLongPress={250}
                   testID={`item-${item.path}`}
                 >
                   {selectionMode && (
@@ -764,7 +796,7 @@ export default function LibraryScreen() {
                     </Text>
                   </View>
                   {!selectionMode && <ChevronRight color={Colors.light.muted} size={20} />}
-                </TouchableOpacity>
+                </Pressable>
               );
             }}
           />
@@ -1030,7 +1062,7 @@ export default function LibraryScreen() {
               </Pressable>
             </View>
           </View>
-        ) : currentUser?.role === 'admin' ? (
+        ) : isAdmin ? (
           <Pressable 
             style={[styles.fab, { bottom: insets.bottom + 20 }]} 
             onPress={() => setShowActionSheet(true)}
@@ -1175,6 +1207,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+  },
+  cardPressed: {
+    transform: [{ scale: 0.98 }],
   },
   iconContainer: {
     width: 52,
@@ -1463,6 +1498,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
   },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    backgroundColor: Colors.light.surface,
+  },
+  editButtonActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  editButtonText: {
+    color: Colors.light.primary,
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  editButtonTextActive: {
+    color: Colors.light.text,
+  },
   toolbarText: {
     color: Colors.light.text,
     fontSize: 14,
@@ -1472,6 +1530,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   refreshButton: {
     width: 40,
