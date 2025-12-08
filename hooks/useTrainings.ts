@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import type { Training } from "@/providers/AppState";
 
 const TRAININGS_QUERY_KEY = ["trainings"] as const;
+const TRAININGS_CACHE_KEY = "trainings-cache-v1";
 
 type TrainingRow = Database["public"]["Tables"]["trainings"]["Row"];
 type TrainingInsert = Database["public"]["Tables"]["trainings"]["Insert"];
@@ -56,6 +59,30 @@ const fetchTrainings = async (): Promise<Training[]> => {
 
 export function useTrainings() {
   const queryClient = useQueryClient();
+  const [cachedTrainings, setCachedTrainings] = useState<Training[] | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCache = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(TRAININGS_CACHE_KEY);
+        if (!isMounted) return;
+        if (stored) {
+          const parsed = JSON.parse(stored) as Training[];
+          setCachedTrainings(parsed);
+        }
+      } catch (error) {
+        console.error("❌ [useTrainings] Cache load error", error);
+      } finally {
+        // no-op
+      }
+    };
+
+    loadCache();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const trainingsQuery = useQuery({
     queryKey: TRAININGS_QUERY_KEY,
@@ -63,7 +90,27 @@ export function useTrainings() {
     staleTime: 1000 * 60 * 5,
   });
 
+  useEffect(() => {
+    if (typeof trainingsQuery.data === "undefined") {
+      return;
+    }
+
+    const persist = async () => {
+      try {
+        const payload = trainingsQuery.data;
+        setCachedTrainings(payload);
+        await AsyncStorage.setItem(TRAININGS_CACHE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        console.error("❌ [useTrainings] Cache save error", error);
+      }
+    };
+
+    persist();
+  }, [trainingsQuery.data]);
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: TRAININGS_QUERY_KEY });
+  const resolvedTrainings = trainingsQuery.data ?? cachedTrainings ?? [];
+  const derivedLoading = trainingsQuery.isLoading && cachedTrainings === null;
 
   const addTrainingMutation = useMutation({
     mutationFn: async (draft: TrainingDraft) => {
@@ -144,8 +191,8 @@ export function useTrainings() {
   });
 
   return {
-    trainings: trainingsQuery.data ?? [],
-    isLoading: trainingsQuery.isLoading,
+    trainings: resolvedTrainings,
+    isLoading: derivedLoading,
     isError: trainingsQuery.isError,
     refetch: trainingsQuery.refetch,
     addTraining: addTrainingMutation.mutateAsync,
