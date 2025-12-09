@@ -212,11 +212,13 @@ export default function LibraryScreen() {
         
         if (error) throw error;
         
-        setAllUsers(data?.map(u => ({
-          id: u.id,
-          username: u.username,
-          isCrownAdmin: u.is_crown_admin,
-        })) || []);
+        if (data) {
+          setAllUsers(data.map((u: any) => ({
+            id: u.id,
+            username: u.username,
+            isCrownAdmin: u.is_crown_admin,
+          })));
+        }
       } catch (error) {
         console.error('[LIBRARY] Load users error:', error);
       }
@@ -557,8 +559,8 @@ export default function LibraryScreen() {
           .maybeSingle();
         
         if (!error && data) {
-          setVisibilityToAll(data.visible_to_all ?? true);
-          setSelectedUserIds(new Set(data.visible_to_user_ids || []));
+          setVisibilityToAll((data as any).visible_to_all ?? true);
+          setSelectedUserIds(new Set((data as any).visible_to_user_ids || []));
         } else {
           setVisibilityToAll(true);
           setSelectedUserIds(new Set());
@@ -571,15 +573,15 @@ export default function LibraryScreen() {
           .maybeSingle();
         
         if (!error && data) {
-          setVisibilityToAll(data.visible_to_all ?? true);
-          setSelectedUserIds(new Set(data.visible_to_user_ids || []));
+          setVisibilityToAll((data as any).visible_to_all ?? true);
+          setSelectedUserIds(new Set((data as any).visible_to_user_ids || []));
         } else {
           setVisibilityToAll(true);
           setSelectedUserIds(new Set());
         }
       }
-    } catch (error) {
-      console.error('[VISIBILITY] Load error:', error);
+    } catch (error: any) {
+      console.error('[VISIBILITY] Load error:', error?.message || error);
       setVisibilityToAll(true);
       setSelectedUserIds(new Set());
     }
@@ -611,7 +613,7 @@ export default function LibraryScreen() {
         if (existing) {
           const { error } = await supabase
             .from('media_folders')
-            .update(updateData)
+            .update(updateData as any)
             .eq('folder_path', visibilityItem.path);
 
           if (error) throw error;
@@ -623,7 +625,7 @@ export default function LibraryScreen() {
               folder_path: visibilityItem.path,
               parent_path: currentPath || null,
               ...updateData,
-            });
+            } as any);
 
           if (error) throw error;
         }
@@ -637,7 +639,7 @@ export default function LibraryScreen() {
         if (existing) {
           const { error } = await supabase
             .from('media_library')
-            .update(updateData)
+            .update(updateData as any)
             .eq('path', visibilityItem.path);
 
           if (error) throw error;
@@ -654,8 +656,8 @@ export default function LibraryScreen() {
       setErrorMessage('Zichtbaarheid bijgewerkt!');
       setTimeout(() => setErrorMessage(null), 3000);
     } catch (error: any) {
-      console.error('[VISIBILITY] Error:', error);
-      const message = error?.message || 'Onbekende fout';
+      console.error('[VISIBILITY] Error:', error?.message || error);
+      const message = error?.message || JSON.stringify(error) || 'Onbekende fout';
       setErrorMessage(`Bijwerken mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
