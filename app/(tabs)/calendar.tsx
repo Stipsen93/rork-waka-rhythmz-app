@@ -23,7 +23,7 @@ const LEGEND_ITEMS: LegendItem[] = [
   { label: 'Extra training', color: '#DC2626', variant: 'dot' },
   { label: 'Optreden', color: '#9333EA', variant: 'outline' },
   { label: 'Geannuleerd optreden', color: '#DC2626', variant: 'outline' },
-  { label: 'Verjaardag', color: '#F97316', variant: 'dot' },
+  { label: 'Verjaardag', color: '#FACC15', variant: 'dot' },
 ];
 
 const formatDateToLocal = (date: Date): string => {
@@ -1647,7 +1647,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F97316',
+    backgroundColor: '#FACC15',
   },
   dayNumberAppointment: {
     borderWidth: 2,
