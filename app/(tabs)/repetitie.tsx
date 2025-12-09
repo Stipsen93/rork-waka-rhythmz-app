@@ -215,14 +215,14 @@ export default function RepetitieScreen() {
   const upcomingTrainings = useMemo(() => {
     if (orderedTrainings.length === 0) return [];
 
-    const upcoming: { date: string; displayDate: string; trainings: Training[] }[] = [];
+    const upcoming: { date: string; displayDate: string; trainings: Training[]; isCancelled: boolean }[] = [];
     const now = new Date();
     let current = new Date(now);
     
     let daysFound = 0;
     let attempts = 0;
     
-    while (daysFound < 4 && attempts < 60) {
+    while (daysFound < 7 && attempts < 60) {
       const dayOfWeek = current.getDay();
       const dateStr = formatDateToLocal(current);
       
@@ -232,12 +232,14 @@ export default function RepetitieScreen() {
         const isCancelled = practiceSchedule.cancelledDates?.some(cd => cd.date === dateStr);
         const isSelectedForCancellation = selectedCancellationDates.includes(dateStr);
         
+        upcoming.push({
+          date: dateStr,
+          displayDate: current.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }),
+          trainings: trainingsOnDay,
+          isCancelled: isCancelled || isSelectedForCancellation
+        });
+        
         if (!isCancelled && !isSelectedForCancellation) {
-             upcoming.push({
-            date: dateStr,
-            displayDate: current.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }),
-            trainings: trainingsOnDay
-          });
           daysFound++;
         }
       }
@@ -741,10 +743,10 @@ export default function RepetitieScreen() {
               
               {showCancellationDropdown && (
                 <View style={styles.dropdownContent}>
-                  {upcomingTrainings.length === 0 ? (
+                  {upcomingTrainings.filter(item => !item.isCancelled).length === 0 ? (
                     <Text style={styles.emptyText}>Geen komende trainingen gevonden</Text>
                   ) : (
-                    upcomingTrainings.map((item) => {
+                    upcomingTrainings.filter(item => !item.isCancelled).map((item) => {
                       const isSelected = selectedCancellationDates.includes(item.date);
                       return (
                         <TouchableOpacity 
