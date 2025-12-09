@@ -279,14 +279,14 @@ export default function NieuwsScreen() {
           text: t.news.delete,
           style: "destructive",
           onPress: () => {
+            setIsDeleting(true);
+            handleCancelEdit();
             void (async () => {
               try {
-                setIsDeleting(true);
                 console.log('🗑️ [Nieuws] Deleting announcement', announcementId, announcementName);
                 await deleteAnnouncements([announcementId]);
                 await syncAllData();
                 console.log('✅ [Nieuws] Announcement removed and synced', announcementId);
-                handleCancelEdit();
               } catch (error) {
                 console.error('❌ [Nieuws] Failed to delete announcement', error);
                 Alert.alert(t.news.errorTitle, t.news.deleteError ?? 'Verwijderen mislukt. Probeer het opnieuw.');
