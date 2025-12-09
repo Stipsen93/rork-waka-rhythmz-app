@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform, RefreshControl } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform, RefreshControl, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, HardDrive, Plus, Upload, Trash2, CheckCircle2, RefreshCw, Edit2 } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, Plus, Upload, Trash2, CheckCircle2, RefreshCw, Edit2, Eye } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -55,7 +55,7 @@ export default function LibraryScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [items, setItems] = useState<LibraryItem[]>([]);
-  const [storageUsage, setStorageUsage] = useState<{ used: number; total: number } | null>(null);
+
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
@@ -65,6 +65,12 @@ export default function LibraryScreen() {
   const [renameItem, setRenameItem] = useState<LibraryItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
+  const [visibilityItem, setVisibilityItem] = useState<LibraryItem | null>(null);
+  const [visibilityToAll, setVisibilityToAll] = useState(true);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; username: string; isCrownAdmin: boolean }[]>([]);
   const isAdmin = currentUser?.role === 'admin';
   const itemsCacheRef = useRef<Map<string, LibraryItem[]>>(new Map());
   const hasSyncedRef = useRef(false);
@@ -194,15 +200,32 @@ export default function LibraryScreen() {
     loadStorageUsage();
   }, [loadStorageUsage]);
 
+
+
   useEffect(() => {
-    if (!globalStorageUsage) {
-      return;
+    const loadUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, username, is_crown_admin')
+          .order('username', { ascending: true });
+        
+        if (error) throw error;
+        
+        setAllUsers(data?.map(u => ({
+          id: u.id,
+          username: u.username,
+          isCrownAdmin: u.is_crown_admin,
+        })) || []);
+      } catch (error) {
+        console.error('[LIBRARY] Load users error:', error);
+      }
+    };
+    
+    if (isAdmin) {
+      loadUsers();
     }
-    setStorageUsage({
-      used: globalStorageUsage.usageGB,
-      total: globalStorageUsage.maxGB,
-    });
-  }, [globalStorageUsage]);
+  }, [isAdmin]);
 
   const handleBack = () => {
     const parts = currentPath.split('/');
@@ -463,13 +486,7 @@ export default function LibraryScreen() {
     setSelectedItems(new Set());
   }, []);
 
-  const handleToggleSelectionMode = useCallback(() => {
-    if (selectionMode) {
-      handleCancelSelection();
-      return;
-    }
-    setSelectionMode(true);
-  }, [selectionMode, handleCancelSelection]);
+
 
   const handleLongPress = (item: LibraryItem) => {
     if (!isAdmin) {
@@ -520,6 +537,140 @@ export default function LibraryScreen() {
     setRenameItem(item);
     setNewFileName(item.name);
     setShowRenameModal(true);
+  };
+
+  const handleVisibilitySelected = async () => {
+    if (selectedItems.size !== 1) return;
+    
+    const itemPath = Array.from(selectedItems)[0];
+    const item = items.find(i => i.path === itemPath);
+    if (!item) return;
+
+    setVisibilityItem(item);
+    
+    try {
+      if (item.type === 'folder') {
+        const { data, error } = await supabase
+          .from('media_folders')
+          .select('visible_to_all, visible_to_user_ids')
+          .eq('folder_path', item.path)
+          .maybeSingle();
+        
+        if (!error && data) {
+          setVisibilityToAll(data.visible_to_all ?? true);
+          setSelectedUserIds(new Set(data.visible_to_user_ids || []));
+        } else {
+          setVisibilityToAll(true);
+          setSelectedUserIds(new Set());
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('media_library')
+          .select('visible_to_all, visible_to_user_ids')
+          .eq('path', item.path)
+          .maybeSingle();
+        
+        if (!error && data) {
+          setVisibilityToAll(data.visible_to_all ?? true);
+          setSelectedUserIds(new Set(data.visible_to_user_ids || []));
+        } else {
+          setVisibilityToAll(true);
+          setSelectedUserIds(new Set());
+        }
+      }
+    } catch (error) {
+      console.error('[VISIBILITY] Load error:', error);
+      setVisibilityToAll(true);
+      setSelectedUserIds(new Set());
+    }
+    
+    setShowVisibilityModal(true);
+  };
+
+  const handleUpdateVisibility = async () => {
+    if (!visibilityItem) return;
+
+    try {
+      setIsUpdatingVisibility(true);
+      setErrorMessage(null);
+
+      console.log('[VISIBILITY] Updating...', visibilityItem.path);
+
+      const updateData = {
+        visible_to_all: visibilityToAll,
+        visible_to_user_ids: visibilityToAll ? [] : Array.from(selectedUserIds),
+      };
+
+      if (visibilityItem.type === 'folder') {
+        const { data: existing } = await supabase
+          .from('media_folders')
+          .select('id')
+          .eq('folder_path', visibilityItem.path)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('media_folders')
+            .update(updateData)
+            .eq('folder_path', visibilityItem.path);
+
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('media_folders')
+            .insert({
+              name: visibilityItem.name,
+              folder_path: visibilityItem.path,
+              parent_path: currentPath || null,
+              ...updateData,
+            });
+
+          if (error) throw error;
+        }
+      } else {
+        const { data: existing } = await supabase
+          .from('media_library')
+          .select('id')
+          .eq('path', visibilityItem.path)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('media_library')
+            .update(updateData)
+            .eq('path', visibilityItem.path);
+
+          if (error) throw error;
+        }
+      }
+
+      console.log('[VISIBILITY] Success!');
+
+      setShowVisibilityModal(false);
+      setVisibilityItem(null);
+      setVisibilityToAll(true);
+      setSelectedUserIds(new Set());
+      
+      setErrorMessage('Zichtbaarheid bijgewerkt!');
+      setTimeout(() => setErrorMessage(null), 3000);
+    } catch (error: any) {
+      console.error('[VISIBILITY] Error:', error);
+      const message = error?.message || 'Onbekende fout';
+      setErrorMessage(`Bijwerken mislukt: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  };
+
+  const handleToggleUserVisibility = (userId: string) => {
+    const newSelected = new Set(selectedUserIds);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUserIds(newSelected);
   };
 
   const handleRename = async () => {
@@ -661,10 +812,7 @@ export default function LibraryScreen() {
     return currentPath.split('/').join(' > ');
   }, [currentPath]);
 
-  const storagePercentage = useMemo(() => {
-    if (!storageUsage) return 0;
-    return (storageUsage.used / storageUsage.total) * 100;
-  }, [storageUsage]);
+
 
   return (
     <>
@@ -716,45 +864,7 @@ export default function LibraryScreen() {
           </View>
         </View>
 
-        <View style={styles.storageCard}>
-          <View style={styles.storageHeader}>
-            <HardDrive color={Colors.light.primary} size={22} strokeWidth={2.5} />
-            <Text style={styles.storageTitle}>{t.library.storage}</Text>
-          </View>
-          {!storageUsage ? (
-            <View style={styles.storageLoading}>
-              <ActivityIndicator size="small" color={Colors.light.primary} />
-            </View>
-          ) : (
-            <View style={styles.storageMeter}>
-              <View style={styles.storageBar}>
-                <LinearGradient
-                  colors={
-                    storagePercentage > 90
-                      ? ['#DC2626', '#991B1B']
-                      : storagePercentage > 75
-                      ? ['#F59E0B', '#D97706']
-                      : [Colors.light.primary, Colors.light.primaryDark]
-                  }
-                  style={[
-                    styles.storageBarFill,
-                    { width: `${Math.min(storagePercentage, 100)}%` }
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-              </View>
-              <View style={styles.storageTextRow}>
-                <Text style={styles.storageText}>
-                  {storageUsage.used.toFixed(2)} GB {t.library.used}
-                </Text>
-                <Text style={styles.storageTextSecondary}>
-                  {t.library.of} {storageUsage.total} GB
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
+
 
         {errorMessage ? (
           <View style={styles.errorContainer}>
@@ -992,6 +1102,119 @@ export default function LibraryScreen() {
         </Modal>
 
         <Modal
+          visible={showVisibilityModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowVisibilityModal(false);
+            setVisibilityItem(null);
+            setVisibilityToAll(true);
+            setSelectedUserIds(new Set());
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Zichtbaarheid</Text>
+                <Pressable onPress={() => {
+                  setShowVisibilityModal(false);
+                  setVisibilityItem(null);
+                  setVisibilityToAll(true);
+                  setSelectedUserIds(new Set());
+                }} testID="close-visibility-modal">
+                  <X color={Colors.light.muted} size={24} />
+                </Pressable>
+              </View>
+
+              <View style={styles.visibilityContainer}>
+                <Pressable
+                  style={[styles.visibilityOption, visibilityToAll && styles.visibilityOptionActive]}
+                  onPress={() => setVisibilityToAll(true)}
+                  testID="visibility-all"
+                >
+                  <View style={styles.visibilityRadio}>
+                    {visibilityToAll && <View style={styles.visibilityRadioActive} />}
+                  </View>
+                  <Text style={[styles.visibilityOptionText, visibilityToAll && styles.visibilityOptionTextActive]}>
+                    Zichtbaar voor iedereen
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.visibilityOption, !visibilityToAll && styles.visibilityOptionActive]}
+                  onPress={() => setVisibilityToAll(false)}
+                  testID="visibility-specific"
+                >
+                  <View style={styles.visibilityRadio}>
+                    {!visibilityToAll && <View style={styles.visibilityRadioActive} />}
+                  </View>
+                  <Text style={[styles.visibilityOptionText, !visibilityToAll && styles.visibilityOptionTextActive]}>
+                    Zichtbaar voor specifieke leden
+                  </Text>
+                </Pressable>
+
+                {!visibilityToAll && (
+                  <ScrollView style={styles.usersList}>
+                    {allUsers
+                      .filter(u => !u.isCrownAdmin)
+                      .map(user => (
+                        <Pressable
+                          key={user.id}
+                          style={[styles.userItem, selectedUserIds.has(user.id) && styles.userItemSelected]}
+                          onPress={() => handleToggleUserVisibility(user.id)}
+                          testID={`user-${user.id}`}
+                        >
+                          <View style={styles.userCheckbox}>
+                            {selectedUserIds.has(user.id) && <CheckCircle2 color={Colors.light.primary} size={20} strokeWidth={2.5} />}
+                          </View>
+                          <Text style={[styles.userItemText, selectedUserIds.has(user.id) && styles.userItemTextSelected]}>
+                            {user.username}
+                          </Text>
+                        </Pressable>
+                      ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setShowVisibilityModal(false);
+                    setVisibilityItem(null);
+                    setVisibilityToAll(true);
+                    setSelectedUserIds(new Set());
+                  }}
+                  testID="cancel-visibility-button"
+                >
+                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={[styles.actionButton, styles.createButton, isUpdatingVisibility && styles.disabledButton]}
+                  onPress={handleUpdateVisibility}
+                  disabled={isUpdatingVisibility}
+                  testID="confirm-visibility-button"
+                >
+                  <LinearGradient
+                    colors={!isUpdatingVisibility ? [Colors.light.primary, Colors.light.primaryDark] : [Colors.light.surfaceLight, Colors.light.surfaceLight]}
+                    style={styles.createButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    {isUpdatingVisibility ? (
+                      <ActivityIndicator size="small" color={Colors.light.text} />
+                    ) : (
+                      <Text style={styles.createButtonText}>Opslaan</Text>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
           visible={showActionSheet}
           transparent
           animationType="fade"
@@ -1076,15 +1299,26 @@ export default function LibraryScreen() {
             
             <View style={styles.toolbarBottomRow}>
               {selectedItems.size === 1 && (
-                <Pressable 
-                  style={[styles.toolbarActionButton, isRenaming && styles.toolbarButtonDisabled]}
-                  onPress={handleRenameSelected}
-                  disabled={isRenaming}
-                  testID="rename-selected-button"
-                >
-                  <Edit2 color={Colors.light.primary} size={20} strokeWidth={2.5} />
-                  <Text style={styles.toolbarButtonText}>{t.library.rename || 'Hernoemen'}</Text>
-                </Pressable>
+                <>
+                  <Pressable 
+                    style={[styles.toolbarActionButton, isRenaming && styles.toolbarButtonDisabled]}
+                    onPress={handleRenameSelected}
+                    disabled={isRenaming}
+                    testID="rename-selected-button"
+                  >
+                    <Edit2 color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.toolbarButtonText}>{t.library.rename || 'Hernoemen'}</Text>
+                  </Pressable>
+                  
+                  <Pressable 
+                    style={styles.toolbarActionButton}
+                    onPress={handleVisibilitySelected}
+                    testID="visibility-selected-button"
+                  >
+                    <Eye color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.toolbarButtonText}>Zichtbaarheid</Text>
+                  </Pressable>
+                </>
               )}
               
               <Pressable 
@@ -1162,58 +1396,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500" as const,
   },
-  storageCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    backgroundColor: Colors.light.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-  },
-  storageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  storageTitle: {
-    color: Colors.light.text,
-    fontSize: 15,
-    fontWeight: '700' as const,
-  },
-  storageMeter: {
-    gap: 8,
-  },
-  storageBar: {
-    height: 8,
-    backgroundColor: Colors.light.darkGray,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  storageBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  storageText: {
-    color: Colors.light.text,
-    fontSize: 14,
-    fontWeight: '700' as const,
-  },
-  storageTextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  storageTextSecondary: {
-    color: Colors.light.muted,
-    fontSize: 13,
-    fontWeight: '600' as const,
-  },
-  storageLoading: {
-    paddingVertical: 8,
-    alignItems: 'flex-start',
-  },
+
   backButton: { 
     marginHorizontal: 20, 
     marginBottom: 16,
@@ -1566,6 +1749,80 @@ const styles = StyleSheet.create({
   toolbarText: {
     color: Colors.light.text,
     fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  visibilityContainer: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  visibilityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  visibilityOptionActive: {
+    borderColor: Colors.light.primary,
+    backgroundColor: `${Colors.light.primary}15`,
+  },
+  visibilityRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  visibilityRadioActive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.light.primary,
+  },
+  visibilityOptionText: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  visibilityOptionTextActive: {
+    fontWeight: '700' as const,
+  },
+  usersList: {
+    maxHeight: 300,
+    marginTop: 8,
+  },
+  userItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  userItemSelected: {
+    borderColor: Colors.light.primary,
+    backgroundColor: `${Colors.light.primary}15`,
+  },
+  userCheckbox: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userItemText: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  userItemTextSelected: {
     fontWeight: '700' as const,
   },
   headerTop: {

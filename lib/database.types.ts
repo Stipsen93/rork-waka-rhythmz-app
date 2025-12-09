@@ -344,6 +344,8 @@ export type Database = {
           mime_type: string
           storage_path: string
           uploaded_by: string | null
+          visible_to_all: boolean
+          visible_to_user_ids: string[] | null
           created_at: string
           updated_at: string
         }
@@ -357,6 +359,8 @@ export type Database = {
           mime_type: string
           storage_path: string
           uploaded_by?: string | null
+          visible_to_all?: boolean
+          visible_to_user_ids?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -370,6 +374,8 @@ export type Database = {
           mime_type?: string
           storage_path?: string
           uploaded_by?: string | null
+          visible_to_all?: boolean
+          visible_to_user_ids?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -421,6 +427,8 @@ export type Database = {
           folder_path: string
           parent_path: string | null
           created_by: string | null
+          visible_to_all: boolean
+          visible_to_user_ids: string[] | null
           created_at: string
           updated_at: string
         }
@@ -430,6 +438,8 @@ export type Database = {
           folder_path: string
           parent_path?: string | null
           created_by?: string | null
+          visible_to_all?: boolean
+          visible_to_user_ids?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -439,6 +449,8 @@ export type Database = {
           folder_path?: string
           parent_path?: string | null
           created_by?: string | null
+          visible_to_all?: boolean
+          visible_to_user_ids?: string[] | null
           created_at?: string
           updated_at?: string
         }
