@@ -250,7 +250,7 @@ export interface AppStateValue {
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (settings: NotificationSettings) => void;
   mediaLibrary: MediaLibraryItem[];
-  uploadMedia: (input: { name: string; folderPath: string; fileType: string; fileSize: number; mimeType: string; base64Data: string }) => Promise<MediaLibraryItem>;
+  uploadMedia: (input: { name: string; folderPath: string; fileType: string; fileSize: number; mimeType: string; base64Data: string; onProgress?: (progress: number) => void }) => Promise<MediaLibraryItem>;
   deleteMedia: (ids: string[]) => Promise<void>;
   deleteFolder: (folderPath: string) => Promise<void>;
   renameMedia: (id: string, newName: string) => Promise<void>;
@@ -1903,7 +1903,8 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     fileType: string; 
     fileSize: number; 
     mimeType: string; 
-    base64Data: string 
+    base64Data: string;
+    onProgress?: (progress: number) => void;
   }): Promise<MediaLibraryItem> => {
     console.log('💾 [UPLOAD] Uploading media directly to Supabase...');
     console.log('💾 [UPLOAD] Input:', {
@@ -1916,12 +1917,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     });
     
     try {
+      if (input.onProgress) {
+        input.onProgress(10);
+      }
+      
       const storagePath = input.folderPath ? `${input.folderPath}/${input.name}` : input.name;
       
       const binaryString = atob(input.base64Data);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      if (input.onProgress) {
+        input.onProgress(30);
       }
       
       console.log('💾 [UPLOAD] Uploading to storage path:', storagePath);
@@ -1935,6 +1944,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       if (uploadError) {
         console.error('❌ [UPLOAD] Storage upload error:', uploadError);
         throw uploadError;
+      }
+      
+      if (input.onProgress) {
+        input.onProgress(70);
       }
       
       console.log('💾 [UPLOAD] Storage upload successful, creating database entry...');
@@ -1972,7 +1985,17 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         throw dbError;
       }
       
+      if (input.onProgress) {
+        input.onProgress(90);
+      }
+      
       setMediaLibrary(prev => [mediaItem, ...prev]);
+      await refreshStorageUsage();
+      
+      if (input.onProgress) {
+        input.onProgress(100);
+      }
+      
       console.log('✅ [UPLOAD] Media uploaded successfully');
       return mediaItem;
     } catch (error: any) {
@@ -1984,7 +2007,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }));
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
-  }, [currentUser]);
+  }, [currentUser, refreshStorageUsage]);
 
   const deleteMedia = useCallback(async (ids: string[]) => {
     console.log('💾 [DELETE_MEDIA] Starting delete for IDs:', ids);

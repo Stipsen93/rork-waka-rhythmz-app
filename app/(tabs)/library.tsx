@@ -51,6 +51,7 @@ export default function LibraryScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [items, setItems] = useState<LibraryItem[]>([]);
@@ -296,9 +297,11 @@ export default function LibraryScreen() {
             fileSize: file.size,
             mimeType: file.type,
             base64Data,
+            onProgress: (progress) => setUploadProgress(progress),
           });
 
           setIsUploading(false);
+          setUploadProgress(0);
           setErrorMessage('Upload succesvol!');
           setTimeout(() => setErrorMessage(null), 3000);
           itemsCacheRef.current.clear();
@@ -306,6 +309,7 @@ export default function LibraryScreen() {
         } catch (error: any) {
           console.error('[UPLOAD WEB] Error:', error);
           setIsUploading(false);
+          setUploadProgress(0);
           const message = error?.message || 'Onbekende fout';
           setErrorMessage(`Upload mislukt: ${message}`);
           setTimeout(() => setErrorMessage(null), 5000);
@@ -313,6 +317,7 @@ export default function LibraryScreen() {
       };
       reader.onerror = () => {
         setIsUploading(false);
+        setUploadProgress(0);
         setErrorMessage('Bestand lezen mislukt');
         setTimeout(() => setErrorMessage(null), 5000);
       };
@@ -320,6 +325,7 @@ export default function LibraryScreen() {
     } catch (error: any) {
       console.error('[UPLOAD WEB] Error:', error);
       setIsUploading(false);
+      setUploadProgress(0);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
@@ -433,9 +439,11 @@ export default function LibraryScreen() {
         fileSize: blob.size,
         mimeType: mimeType || 'application/octet-stream',
         base64Data,
+        onProgress: (progress) => setUploadProgress(progress),
       });
 
       setIsUploading(false);
+      setUploadProgress(0);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
       itemsCacheRef.current.clear();
@@ -443,6 +451,7 @@ export default function LibraryScreen() {
     } catch (error: any) {
       console.error('[UPLOAD NATIVE] Error:', error);
       setIsUploading(false);
+      setUploadProgress(0);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
@@ -1030,13 +1039,19 @@ export default function LibraryScreen() {
                 </View>
                 <View style={styles.actionSheetTextContainer}>
                   <Text style={styles.actionSheetTitle}>
-                    {isUploading ? t.library.uploading : t.library.uploadMedia}
+                    {isUploading ? `Uploaden... ${uploadProgress}%` : t.library.uploadMedia}
                   </Text>
-                  <Text style={styles.actionSheetSubtitle}>
-                    {t.library.uploadDescription}
-                  </Text>
+                  {isUploading && uploadProgress > 0 ? (
+                    <View style={{ width: '100%', height: 4, backgroundColor: Colors.light.darkGray, borderRadius: 2, marginTop: 4, overflow: 'hidden' as const }}>
+                      <View style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: Colors.light.primary }} />
+                    </View>
+                  ) : (
+                    <Text style={styles.actionSheetSubtitle}>
+                      {t.library.uploadDescription}
+                    </Text>
+                  )}
                 </View>
-                <ChevronRight color={Colors.light.muted} size={20} />
+                {!isUploading && <ChevronRight color={Colors.light.muted} size={20} />}
               </TouchableOpacity>
             </View>
           </Pressable>
