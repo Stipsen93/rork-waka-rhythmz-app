@@ -11,6 +11,7 @@ import VideoPlayerModal from '@/components/VideoPlayerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppState } from "@/providers/AppState";
+import { useUploadProgress } from "@/providers/UploadProgressProvider";
 
 type FolderItem = {
   name: string;
@@ -44,6 +45,7 @@ export default function LibraryScreen() {
     uploadMedia,
     currentUser,
   } = useAppState();
+  const { startUpload, updateProgress, completeUpload, cancelUpload } = useUploadProgress();
   const [currentPath, setCurrentPath] = useState<string>("");
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -51,7 +53,6 @@ export default function LibraryScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [items, setItems] = useState<LibraryItem[]>([]);
@@ -298,11 +299,15 @@ export default function LibraryScreen() {
   };
 
   const uploadFileWeb = async (file: File) => {
+    let uploadId: string | null = null;
+    
     try {
       setIsUploading(true);
       setErrorMessage(null);
 
       console.log('[UPLOAD WEB] Starting upload...', file.name);
+      
+      uploadId = startUpload(file.name);
       
       const reader = new FileReader();
       reader.onloadend = async () => {
@@ -322,35 +327,48 @@ export default function LibraryScreen() {
             fileSize: file.size,
             mimeType: file.type,
             base64Data,
-            onProgress: (progress) => setUploadProgress(progress),
+            onProgress: (progress) => {
+              if (uploadId) {
+                updateProgress(uploadId, progress);
+              }
+            },
           });
 
+          if (uploadId) {
+            completeUpload(uploadId);
+          }
+          
           setIsUploading(false);
-          setUploadProgress(0);
           setErrorMessage('Upload succesvol!');
           setTimeout(() => setErrorMessage(null), 3000);
           itemsCacheRef.current.clear();
           await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
         } catch (error: any) {
           console.error('[UPLOAD WEB] Error:', error);
+          if (uploadId) {
+            cancelUpload(uploadId);
+          }
           setIsUploading(false);
-          setUploadProgress(0);
           const message = error?.message || 'Onbekende fout';
           setErrorMessage(`Upload mislukt: ${message}`);
           setTimeout(() => setErrorMessage(null), 5000);
         }
       };
       reader.onerror = () => {
+        if (uploadId) {
+          cancelUpload(uploadId);
+        }
         setIsUploading(false);
-        setUploadProgress(0);
         setErrorMessage('Bestand lezen mislukt');
         setTimeout(() => setErrorMessage(null), 5000);
       };
       reader.readAsDataURL(file);
     } catch (error: any) {
       console.error('[UPLOAD WEB] Error:', error);
+      if (uploadId) {
+        cancelUpload(uploadId);
+      }
       setIsUploading(false);
-      setUploadProgress(0);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
@@ -422,6 +440,8 @@ export default function LibraryScreen() {
   };
 
   const uploadFileNative = async (uri: string, fileName: string, mimeType: string | undefined) => {
+    let uploadId: string | null = null;
+    
     try {
       setIsUploading(true);
       setErrorMessage(null);
@@ -430,6 +450,8 @@ export default function LibraryScreen() {
       console.log('[UPLOAD NATIVE] URI:', uri);
       console.log('[UPLOAD NATIVE] Name:', fileName);
       console.log('[UPLOAD NATIVE] Type:', mimeType);
+
+      uploadId = startUpload(fileName);
 
       const response = await fetch(uri);
       if (!response.ok) {
@@ -464,19 +486,28 @@ export default function LibraryScreen() {
         fileSize: blob.size,
         mimeType: mimeType || 'application/octet-stream',
         base64Data,
-        onProgress: (progress) => setUploadProgress(progress),
+        onProgress: (progress) => {
+          if (uploadId) {
+            updateProgress(uploadId, progress);
+          }
+        },
       });
 
+      if (uploadId) {
+        completeUpload(uploadId);
+      }
+      
       setIsUploading(false);
-      setUploadProgress(0);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
       itemsCacheRef.current.clear();
       await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
     } catch (error: any) {
       console.error('[UPLOAD NATIVE] Error:', error);
+      if (uploadId) {
+        cancelUpload(uploadId);
+      }
       setIsUploading(false);
-      setUploadProgress(0);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
@@ -1264,17 +1295,11 @@ export default function LibraryScreen() {
                 </View>
                 <View style={styles.actionSheetTextContainer}>
                   <Text style={styles.actionSheetTitle}>
-                    {isUploading ? `Uploaden... ${uploadProgress}%` : t.library.uploadMedia}
+                    {t.library.uploadMedia}
                   </Text>
-                  {isUploading && uploadProgress > 0 ? (
-                    <View style={{ width: '100%', height: 4, backgroundColor: Colors.light.darkGray, borderRadius: 2, marginTop: 4, overflow: 'hidden' as const }}>
-                      <View style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: Colors.light.primary }} />
-                    </View>
-                  ) : (
-                    <Text style={styles.actionSheetSubtitle}>
-                      {t.library.uploadDescription}
-                    </Text>
-                  )}
+                  <Text style={styles.actionSheetSubtitle}>
+                    {t.library.uploadDescription}
+                  </Text>
                 </View>
                 {!isUploading && <ChevronRight color={Colors.light.muted} size={20} />}
               </TouchableOpacity>
