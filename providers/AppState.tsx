@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from "@/constants/translations";
 import { translations } from "@/constants/translations";
 import { trpcClient } from "@/lib/trpc";
+import { AppState } from 'react-native';
 
 export type Role = "admin" | "member";
 
@@ -564,6 +565,30 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return () => {
       console.log('🔌 [AUTO-SYNC] Clearing auto-sync interval');
       clearInterval(syncInterval);
+    };
+  }, [isInitialized, syncAllData]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    console.log('🔄 [APP-STATE-SYNC] Setting up AppState listener for automatic data sync');
+    
+    const handleAppStateChange = (nextAppState: string) => {
+      console.log('🔄 [APP-STATE-SYNC] App state changed to:', nextAppState);
+      
+      if (nextAppState === 'active') {
+        console.log('🔄 [APP-STATE-SYNC] App became active, syncing all data...');
+        syncAllData();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    syncAllData();
+
+    return () => {
+      console.log('🔌 [APP-STATE-SYNC] Removing AppState listener');
+      subscription.remove();
     };
   }, [isInitialized, syncAllData]);
 
