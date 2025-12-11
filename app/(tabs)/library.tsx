@@ -42,7 +42,7 @@ export default function LibraryScreen() {
     refreshStorageUsage: refreshStorageUsageFromApp,
     storageUsage: globalStorageUsage,
     createFolder,
-    uploadMedia,
+    uploadMedia: uploadMediaFromAppState,
     currentUser,
   } = useAppState();
   const { startUpload, updateProgress, completeUpload, cancelUpload } = useUploadProgress();
@@ -320,7 +320,11 @@ export default function LibraryScreen() {
           else if (file.type.startsWith('image/')) fileType = 'image';
           else if (file.type.startsWith('audio/')) fileType = 'audio';
 
-          await uploadMedia({
+          if (!uploadMediaFromAppState) {
+            throw new Error('Upload functie niet beschikbaar');
+          }
+          
+          await uploadMediaFromAppState({
             name: file.name,
             folderPath: currentPath,
             fileType,
@@ -479,7 +483,11 @@ export default function LibraryScreen() {
       else if (mimeType?.startsWith('image/')) fileType = 'image';
       else if (mimeType?.startsWith('audio/')) fileType = 'audio';
 
-      await uploadMedia({
+      if (!uploadMediaFromAppState) {
+        throw new Error('Upload functie niet beschikbaar');
+      }
+      
+      await uploadMediaFromAppState({
         name: fileName,
         folderPath: currentPath,
         fileType,
