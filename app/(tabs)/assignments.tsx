@@ -63,11 +63,8 @@ export default function AssignmentsScreen() {
   const nextAppointment = upcomingAppointments[0];
 
   const resolvedTrainings = React.useMemo(() => {
-    if (trainings.length > 0) {
-      return trainings;
-    }
-    return practiceSchedule.trainings ?? [];
-  }, [trainings, practiceSchedule.trainings]);
+    return trainings;
+  }, [trainings]);
 
   const getNextPracticeDate = React.useCallback(() => {
     const today = new Date();
