@@ -170,22 +170,8 @@ export default function CalendarScreen() {
   }, [performances]);
 
   const resolvedTrainings = useMemo<Training[]>(() => {
-    if (trainings.length > 0) {
-      return trainings;
-    }
-    if (practiceSchedule.trainings && practiceSchedule.trainings.length > 0) {
-      return practiceSchedule.trainings;
-    }
-    return (practiceSchedule.regularDays ?? []).map((day, index) => ({
-      id: `regular-${index}`,
-      name: `Training ${index + 1}`,
-      dayOfWeek: day.dayOfWeek,
-      time: day.time,
-      location: practiceSchedule.location,
-      isOneTime: false,
-      repeatMode: 'none',
-    }));
-  }, [trainings, practiceSchedule]);
+    return trainings;
+  }, [trainings]);
 
   const practiceDates = useMemo(() => {
     const dates = new Set<string>();
@@ -200,6 +186,8 @@ export default function CalendarScreen() {
     const cancelledDates = practiceSchedule.cancelledDates ?? [];
     
     resolvedTrainings.forEach((training) => {
+      if (training.isOneTime) return;
+      
       let currentDay = new Date(firstDay);
       while (currentDay <= lastDay) {
         if (currentDay.getDay() === training.dayOfWeek) {
