@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder, Dimensions, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
-import { Pause, Play, X } from 'lucide-react-native';
+import { Pause, Play, X, Volume2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -10,22 +10,22 @@ type VideoPlayerModalProps = {
   visible: boolean;
   videoUrl: string;
   onClose: () => void;
+  isAudio?: boolean;
 };
 
-export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPlayerModalProps) {
+export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio = false }: VideoPlayerModalProps) {
   const videoRef = useRef<Video>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const progressBarRef = useRef<View>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1.0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
   const [progressBarLayout, setProgressBarLayout] = useState({ x: 0, width: 0 });
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const controlsTimeout = useRef<NodeJS.Timeout | null>(null);
-  const dimensions = useWindowDimensions();
+  const controlsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hideControls = useCallback(() => {
     Animated.timing(fadeAnim, {
@@ -47,6 +47,43 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
     }, 2000);
   }, [hideControls]);
 
+  const onAudioPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setIsPlaying(status.isPlaying);
+      if (!isSeeking) {
+        setPosition(status.positionMillis);
+        setDuration(status.durationMillis || 0);
+      }
+    }
+  }, [isSeeking]);
+
+  const loadAudio = useCallback(async () => {
+    try {
+      console.log('[AudioPlayer] Loading audio:', videoUrl);
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: videoUrl },
+        { shouldPlay: true, rate: playbackRate, shouldCorrectPitch: true },
+        onAudioPlaybackStatusUpdate
+      );
+      soundRef.current = sound;
+      console.log('[AudioPlayer] Audio loaded successfully');
+    } catch (error) {
+      console.error('[AudioPlayer] Error loading audio:', error);
+    }
+  }, [videoUrl, playbackRate, onAudioPlaybackStatusUpdate]);
+
+  const unloadAudio = useCallback(async () => {
+    if (soundRef.current) {
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      } catch (error) {
+        console.error('[AudioPlayer] Error unloading audio:', error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (visible) {
       Audio.setAudioModeAsync({
@@ -57,12 +94,19 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
       setShowControls(true);
       setIsPlaying(true);
       startControlsTimer();
+      
+      if (isAudio) {
+        loadAudio();
+      }
     } else {
       setIsPlaying(false);
-      setIsFullscreen(false);
       setPosition(0);
       setDuration(0);
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      
+      if (isAudio && soundRef.current) {
+        unloadAudio();
+      }
     }
 
     return () => {
@@ -70,7 +114,7 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
         clearTimeout(controlsTimeout.current);
       }
     };
-  }, [visible, startControlsTimer]);
+  }, [visible, startControlsTimer, isAudio, loadAudio, unloadAudio]);
 
   const showControlsTemporarily = () => {
     setShowControls(true);
@@ -78,34 +122,41 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
     startControlsTimer();
   };
 
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      videoRef.current?.pauseAsync();
-      setIsPlaying(false);
-      if (controlsTimeout.current) {
-        clearTimeout(controlsTimeout.current);
+  const handlePlayPause = async () => {
+    if (isAudio && soundRef.current) {
+      if (isPlaying) {
+        await soundRef.current.pauseAsync();
+        setIsPlaying(false);
+        if (controlsTimeout.current) {
+          clearTimeout(controlsTimeout.current);
+        }
+      } else {
+        await soundRef.current.playAsync();
+        setIsPlaying(true);
+        startControlsTimer();
       }
     } else {
-      videoRef.current?.playAsync();
-      setIsPlaying(true);
-      startControlsTimer();
+      if (isPlaying) {
+        videoRef.current?.pauseAsync();
+        setIsPlaying(false);
+        if (controlsTimeout.current) {
+          clearTimeout(controlsTimeout.current);
+        }
+      } else {
+        videoRef.current?.playAsync();
+        setIsPlaying(true);
+        startControlsTimer();
+      }
     }
   };
 
-  const handleSlowMotion = () => {
+  const handleSlowMotion = async () => {
     const newRate = playbackRate === 1.0 ? 0.5 : 1.0;
     setPlaybackRate(newRate);
-    videoRef.current?.setRateAsync(newRate, true);
-    showControlsTemporarily();
-  };
-
-  const handleFullscreen = async () => {
-    if (!isFullscreen) {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      setIsFullscreen(true);
+    if (isAudio && soundRef.current) {
+      await soundRef.current.setRateAsync(newRate, true);
     } else {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-      setIsFullscreen(false);
+      videoRef.current?.setRateAsync(newRate, true);
     }
     showControlsTemporarily();
   };
@@ -123,7 +174,6 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
 
   const handleClose = async () => {
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    setIsFullscreen(false);
     onClose();
   };
 
@@ -153,7 +203,11 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
 
   const handleSeekEnd = async () => {
     setIsSeeking(false);
-    await videoRef.current?.setPositionAsync(position);
+    if (isAudio && soundRef.current) {
+      await soundRef.current.setPositionAsync(position);
+    } else {
+      await videoRef.current?.setPositionAsync(position);
+    }
     showControlsTemporarily();
   };
 
@@ -161,7 +215,7 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
     setPosition(newPosition);
   };
 
-  const handleProgressBarPress = (evt: any) => {
+  const handleProgressBarPress = async (evt: any) => {
     if (!progressBarLayout.width || duration === 0) return;
     
     const { locationX } = evt.nativeEvent;
@@ -169,7 +223,11 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
     const newPosition = progress * duration;
     
     setPosition(newPosition);
-    videoRef.current?.setPositionAsync(newPosition);
+    if (isAudio && soundRef.current) {
+      await soundRef.current.setPositionAsync(newPosition);
+    } else {
+      videoRef.current?.setPositionAsync(newPosition);
+    }
     showControlsTemporarily();
   };
 
@@ -206,16 +264,32 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
           style={styles.videoContainer} 
           onPress={handleScreenPress}
         >
-          <Video
-            ref={videoRef}
-            source={{ uri: videoUrl }}
-            style={styles.video}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={isPlaying}
-            isLooping
-            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-            rate={playbackRate}
-          />
+          {isAudio ? (
+            <View style={styles.audioVisualization}>
+              <LinearGradient
+                colors={['rgba(220, 38, 38, 0.1)', 'rgba(220, 38, 38, 0.05)']}
+                style={styles.audioGradient}
+              >
+                <Volume2 
+                  color={Colors.light.primary} 
+                  size={80} 
+                  strokeWidth={2} 
+                />
+                <Text style={styles.audioLabel}>Audio Bestand</Text>
+              </LinearGradient>
+            </View>
+          ) : (
+            <Video
+              ref={videoRef}
+              source={{ uri: videoUrl }}
+              style={styles.video}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={isPlaying}
+              isLooping
+              onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+              rate={playbackRate}
+            />
+          )}
 
           {showControls && (
             <Animated.View 
@@ -259,8 +333,7 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose }: VideoPl
                   <View 
                     ref={progressBarRef}
                     style={styles.progressBar}
-                    onLayout={(event) => {
-                      const layout = event.nativeEvent.layout;
+                    onLayout={() => {
                       progressBarRef.current?.measureInWindow((x, y, width, height) => {
                         setProgressBarLayout({ x, width });
                       });
@@ -472,5 +545,27 @@ const styles = StyleSheet.create({
     width: 3,
     backgroundColor: '#ffffff',
     borderRadius: 1.5,
+  },
+  audioVisualization: {
+    width: '90%',
+    height: '70%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(220, 38, 38, 0.2)',
+    gap: 16,
+  },
+  audioLabel: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+    opacity: 0.8,
   },
 });

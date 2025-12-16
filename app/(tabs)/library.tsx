@@ -62,6 +62,7 @@ export default function LibraryScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [videoPlayerVisible, setVideoPlayerVisible] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
+  const [isAudioFile, setIsAudioFile] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameItem, setRenameItem] = useState<LibraryItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
@@ -555,12 +556,11 @@ export default function LibraryScreen() {
     } else {
       if (item.type === 'folder') {
         setCurrentPath(item.path);
-      } else if (item.type === 'file' && item.mimeType.startsWith('video/')) {
-        // Open video player
+      } else if (item.type === 'file' && (item.mimeType.startsWith('video/') || item.mimeType.startsWith('audio/'))) {
         setCurrentVideoUrl(item.url);
+        setIsAudioFile(item.mimeType.startsWith('audio/'));
         setVideoPlayerVisible(true);
       } else {
-        // Open file in new tab
         if (Platform.OS === 'web') {
           window.open(item.url, '_blank');
         }
@@ -1063,9 +1063,11 @@ export default function LibraryScreen() {
         <VideoPlayerModal
           visible={videoPlayerVisible}
           videoUrl={currentVideoUrl}
+          isAudio={isAudioFile}
           onClose={() => {
             setVideoPlayerVisible(false);
             setCurrentVideoUrl('');
+            setIsAudioFile(false);
           }}
         />
 
