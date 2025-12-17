@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Platform, TouchableOpacity, ActivityIndicator, FlatList, Image, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, TouchableOpacity, ActivityIndicator, FlatList, Linking } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -14,6 +14,7 @@ import VideoPlayerModal from "@/components/VideoPlayerModal";
 
 const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const MAX_FILE_SIZE = 400 * 1024 * 1024;
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -23,7 +24,7 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
-  const { addAssignment, updateAssignment, users, groups, uploadMedia } = useAppState();
+  const { addAssignment, updateAssignment, users, groups } = useAppState();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState<string>(editingAssignment?.title ?? "");
   const [description, setDescription] = useState<string>(editingAssignment?.description ?? "");
@@ -106,6 +107,13 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       }
 
       const file = result.assets[0];
+      
+      if (file.size && file.size > MAX_FILE_SIZE) {
+        Alert.alert("Bestand te groot", `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        setIsUploading(false);
+        return;
+      }
+      
       const fileType = file.mimeType?.startsWith('video/')
         ? 'video'
         : file.mimeType?.startsWith('image/')
@@ -114,6 +122,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
             ? 'audio'
             : 'other';
 
+      console.log('[ASSIGNMENT UPLOAD] File size:', file.size, 'bytes');
       console.log('[ASSIGNMENT UPLOAD] Preparing binary payload...');
       const response = await fetch(file.uri);
       const blob = await response.blob();
@@ -836,17 +845,6 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("nl-NL", {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString("nl-NL", {
@@ -948,7 +946,7 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
 
 function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: { visible: boolean; assignment: Assignment; onClose: () => void; currentUserId: string }) {
   const insets = useSafeAreaInsets();
-  const { completeAssignment, users, currentUser, uploadMedia } = useAppState();
+  const { completeAssignment, users, currentUser } = useAppState();
   const [isCompleting, setIsCompleting] = useState(false);
   const [uploadedMediaUri, setUploadedMediaUri] = useState<string>("");
   const [uploadedMediaType, setUploadedMediaType] = useState<'video' | 'image' | 'audio' | undefined>(undefined);
@@ -1033,18 +1031,21 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
 
       const file = result.assets[0];
       
-      let fileType = 'other';
-      if (file.mimeType?.startsWith('video/')) fileType = 'video';
-      else if (file.mimeType?.startsWith('image/')) fileType = 'image';
-      else if (file.mimeType?.startsWith('audio/')) fileType = 'audio';
-
+      if (file.size && file.size > MAX_FILE_SIZE) {
+        Alert.alert("Bestand te groot", `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        setIsUploadingMedia(false);
+        return;
+      }
+      
+      console.log('[MEMBER UPLOAD] File size:', file.size, 'bytes');
+      console.log('[MEMBER UPLOAD] Preparing binary payload...');
       const response = await fetch(file.uri);
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
       const fileBytes = new Uint8Array(buffer);
 
       const fileName = `${Date.now()}-${file.name}`;
-      const filePath = `huiswerk-uploads/${fileName}`;
+      const filePath = `assignments/${fileName}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('assignment-submissions')

@@ -95,9 +95,18 @@ CREATE POLICY "Anyone can delete media"
 -- STORAGE BUCKET
 -- =====================================================
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('media-library', 'media-library', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'media-library', 
+  'media-library', 
+  true,
+  419430400,
+  ARRAY['image/*', 'video/*', 'audio/*']
+)
+ON CONFLICT (id) DO UPDATE SET 
+  public = true,
+  file_size_limit = 419430400,
+  allowed_mime_types = ARRAY['image/*', 'video/*', 'audio/*'];
 
 -- =====================================================
 -- STORAGE POLICIES - PUBLIC ACCESS
