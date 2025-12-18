@@ -123,9 +123,10 @@ export default function MeldingenScreen() {
       case 'performances': newSettings.performancesHoursAdvance = hours; break;
     }
     
+    const key = category === 'trainings' ? 'trainingHoursAdvance' : `${category}HoursAdvance`;
     setLocalNotificationSettings(prev => ({
       ...prev,
-      [`${category}HoursAdvance`]: hours,
+      [key]: hours,
     }));
     
     await updateNotificationSettings(newSettings);
