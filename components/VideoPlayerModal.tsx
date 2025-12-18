@@ -411,8 +411,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   video: {
-    width: '90%',
-    height: '70%',
+    width: '100%',
+    aspectRatio: 16 / 9,
+    maxHeight: '80%',
   },
   controlsOverlay: {
     position: 'absolute',
