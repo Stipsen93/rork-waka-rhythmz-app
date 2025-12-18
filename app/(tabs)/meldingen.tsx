@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState } from "@/providers/AppState";
 import { useNotifications } from "@/providers/NotificationProvider";
-import { Bell, Newspaper, FileText, Calendar, AlertCircle, Plus, X, Users, ChevronDown } from "lucide-react-native";
+import { Bell, Newspaper, FileText, Calendar, AlertCircle, Users, ChevronDown } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { translations } from "@/constants/translations";
@@ -15,7 +15,7 @@ type TimeOption = { label: string; hours: number };
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
   const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences, language } = useAppState();
-  const { isRegistered, expoPushToken } = useNotifications();
+  const { isRegistered, isLoading, permissionStatus, registerForPushNotifications } = useNotifications();
   const t = translations[language];
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
   
@@ -79,7 +79,7 @@ export default function MeldingenScreen() {
     { label: t.notifications.timeOptions.hour48, hours: 48 },
     { label: t.notifications.timeOptions.day3, hours: 72 },
     { label: t.notifications.timeOptions.day7, hours: 168 },
-  ], [language]);
+  ], [t]);
 
   const getTimeLabel = (hours: number): string => {
     const option = TIME_OPTIONS.find(opt => opt.hours === hours);
@@ -161,11 +161,31 @@ export default function MeldingenScreen() {
           <Text style={styles.subtitle}>{t.notifications.subtitle}</Text>
           
           <View style={styles.statusBanner}>
-            <View style={[styles.statusDot, isRegistered && styles.statusDotActive]} />
-            <Text style={styles.statusText}>
-              {isRegistered ? '✓ Push notificaties actief' : '○ Push notificaties niet actief'}
-            </Text>
+            <View style={styles.statusBannerLeft}>
+              <View style={[styles.statusDot, isRegistered && styles.statusDotActive]} />
+              <Text style={styles.statusText}>
+                {isLoading ? '⏳ Bezig met activeren...' : isRegistered ? '✓ Push notificaties actief' : '○ Push notificaties niet actief'}
+              </Text>
+            </View>
+            {!isRegistered && !isLoading && (
+              <TouchableOpacity 
+                style={styles.activateButton}
+                onPress={async () => {
+                  await registerForPushNotifications();
+                }}
+              >
+                <Text style={styles.activateButtonText}>Activeren</Text>
+              </TouchableOpacity>
+            )}
           </View>
+          {permissionStatus === 'denied' && (
+            <View style={styles.permissionWarning}>
+              <AlertCircle color="#FF6B6B" size={16} strokeWidth={2.5} />
+              <Text style={styles.permissionWarningText}>
+                Push notificaties zijn uitgeschakeld in je apparaat instellingen. Ga naar Instellingen → OneBand → Meldingen om ze in te schakelen.
+              </Text>
+            </View>
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -965,7 +985,8 @@ const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    gap: 8,
+    justifyContent: "space-between" as const,
+    gap: 12,
     marginTop: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -973,6 +994,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
+  },
+  statusBannerLeft: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    flex: 1,
   },
   statusDot: {
     width: 8,
@@ -1000,6 +1027,35 @@ const styles = StyleSheet.create({
   },
   chevronExpanded: {
     transform: [{ rotate: '180deg' }],
+  },
+  activateButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 8,
+  },
+  activateButtonText: {
+    color: Colors.light.text,
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+  permissionWarning: {
+    flexDirection: "row" as const,
+    alignItems: "flex-start" as const,
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "#FFF5F5" as const,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FFE0E0" as const,
+  },
+  permissionWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#FF6B6B" as const,
+    fontWeight: "500" as const,
+    lineHeight: 16,
   },
   settingRow: {
     marginBottom: 16,

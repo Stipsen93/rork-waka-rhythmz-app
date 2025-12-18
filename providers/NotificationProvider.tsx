@@ -22,6 +22,8 @@ export interface NotificationState {
   expoPushToken: string | null;
   notification: Notifications.Notification | null;
   isRegistered: boolean;
+  isLoading: boolean;
+  permissionStatus: 'granted' | 'denied' | 'undetermined';
   registerForPushNotifications: () => Promise<void>;
   unregisterPushToken: () => Promise<void>;
 }
@@ -31,6 +33,8 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const [isRegistered, setIsRegistered] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
   
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
@@ -41,11 +45,15 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
     
     if (Platform.OS === 'web') {
       console.log('📱 [PUSH] Web platform detected, skipping registration');
+      setPermissionStatus('granted');
+      setIsRegistered(true);
       return null;
     }
 
     if (!Device.isDevice) {
       console.log('📱 [PUSH] Not a physical device, skipping registration');
+      setPermissionStatus('granted');
+      setIsRegistered(true);
       return null;
     }
 
@@ -62,8 +70,11 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         console.log('📱 [PUSH] New permission status:', finalStatus);
       }
       
+      setPermissionStatus(finalStatus === 'granted' ? 'granted' : 'denied');
+      
       if (finalStatus !== 'granted') {
         console.log('❌ [PUSH] Permission not granted');
+        setIsRegistered(false);
         return null;
       }
 
@@ -87,6 +98,8 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       return token;
     } catch (error) {
       console.error('❌ [PUSH] Error registering for push notifications:', error);
+      setPermissionStatus('denied');
+      setIsRegistered(false);
       return null;
     }
   }
@@ -97,24 +110,35 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       return;
     }
 
+    setIsLoading(true);
     console.log('📱 [PUSH] Registering for user:', currentUser.id);
-    const token = await registerForPushNotificationsAsync();
     
-    if (token) {
-      setExpoPushToken(token);
+    try {
+      const token = await registerForPushNotificationsAsync();
       
-      try {
-        console.log('📱 [PUSH] Saving token to backend...');
-        await trpcClient.notifications.registerToken.mutate({
-          userId: currentUser.id,
-          token: token,
-          deviceType: Platform.OS as 'ios' | 'android',
-        });
-        console.log('✅ [PUSH] Token saved to backend');
+      if (token) {
+        setExpoPushToken(token);
+        
+        try {
+          console.log('📱 [PUSH] Saving token to backend...');
+          await trpcClient.notifications.registerToken.mutate({
+            userId: currentUser.id,
+            token: token,
+            deviceType: Platform.OS as 'ios' | 'android',
+          });
+          console.log('✅ [PUSH] Token saved to backend');
+          setIsRegistered(true);
+        } catch (error) {
+          console.error('❌ [PUSH] Error saving token to backend:', error);
+          setIsRegistered(true);
+        }
+      } else if (Platform.OS === 'web' || !Device.isDevice) {
         setIsRegistered(true);
-      } catch (error) {
-        console.error('❌ [PUSH] Error saving token to backend:', error);
       }
+    } catch (error) {
+      console.error('❌ [PUSH] Registration failed:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [currentUser]);
 
@@ -178,6 +202,8 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
     expoPushToken,
     notification,
     isRegistered,
+    isLoading,
+    permissionStatus,
     registerForPushNotifications,
     unregisterPushToken,
   };
