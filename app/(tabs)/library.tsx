@@ -8,6 +8,7 @@ import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
 import VideoPlayerModal from '@/components/VideoPlayerModal';
+import AudioPlayerModal from '@/components/AudioPlayerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppState } from "@/providers/AppState";
@@ -40,7 +41,6 @@ export default function LibraryScreen() {
     t,
     syncAllData,
     refreshStorageUsage: refreshStorageUsageFromApp,
-    storageUsage: globalStorageUsage,
     createFolder,
     uploadMedia: uploadMediaFromAppState,
     currentUser,
@@ -62,7 +62,9 @@ export default function LibraryScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [videoPlayerVisible, setVideoPlayerVisible] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
-  const [isAudioFile, setIsAudioFile] = useState(false);
+  const [audioPlayerVisible, setAudioPlayerVisible] = useState(false);
+  const [currentAudioUrl, setCurrentAudioUrl] = useState('');
+  const [currentAudioTitle, setCurrentAudioTitle] = useState('');
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameItem, setRenameItem] = useState<LibraryItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
@@ -528,8 +530,6 @@ export default function LibraryScreen() {
     setSelectedItems(new Set());
   }, []);
 
-
-
   const handleLongPress = (item: LibraryItem) => {
     if (!isAdmin) {
       return;
@@ -556,13 +556,18 @@ export default function LibraryScreen() {
     } else {
       if (item.type === 'folder') {
         setCurrentPath(item.path);
-      } else if (item.type === 'file' && (item.mimeType.startsWith('video/') || item.mimeType.startsWith('audio/'))) {
-        setCurrentVideoUrl(item.url);
-        setIsAudioFile(item.mimeType.startsWith('audio/'));
-        setVideoPlayerVisible(true);
-      } else {
-        if (Platform.OS === 'web') {
-          window.open(item.url, '_blank');
+      } else if (item.type === 'file') {
+        if (item.mimeType.startsWith('video/')) {
+          setCurrentVideoUrl(item.url);
+          setVideoPlayerVisible(true);
+        } else if (item.mimeType.startsWith('audio/')) {
+          setCurrentAudioUrl(item.url);
+          setCurrentAudioTitle(item.name);
+          setAudioPlayerVisible(true);
+        } else {
+          if (Platform.OS === 'web') {
+            window.open(item.url, '_blank');
+          }
         }
       }
     }
@@ -652,7 +657,7 @@ export default function LibraryScreen() {
         if (existing) {
           const { error } = await supabase
             .from('media_folders')
-            .update(updateData as any)
+            .update(updateData)
             .eq('folder_path', visibilityItem.path);
 
           if (error) throw error;
@@ -664,7 +669,7 @@ export default function LibraryScreen() {
               folder_path: visibilityItem.path,
               parent_path: currentPath || null,
               ...updateData,
-            } as any);
+            });
 
           if (error) throw error;
         }
@@ -678,7 +683,7 @@ export default function LibraryScreen() {
         if (existing) {
           const { error } = await supabase
             .from('media_library')
-            .update(updateData as any)
+            .update(updateData)
             .eq('path', visibilityItem.path);
 
           if (error) throw error;
@@ -1060,16 +1065,7 @@ export default function LibraryScreen() {
           onClose={() => setShowMenuModal(false)}
         />
 
-        <VideoPlayerModal
-          visible={videoPlayerVisible}
-          videoUrl={currentVideoUrl}
-          isAudio={isAudioFile}
-          onClose={() => {
-            setVideoPlayerVisible(false);
-            setCurrentVideoUrl('');
-            setIsAudioFile(false);
-          }}
-        />
+
 
         <Modal
           visible={showRenameModal}
@@ -1391,6 +1387,28 @@ export default function LibraryScreen() {
             </LinearGradient>
           </Pressable>
         ) : null}
+
+        <VideoPlayerModal
+          visible={videoPlayerVisible}
+          videoUrl={currentVideoUrl}
+          onClose={() => {
+            setVideoPlayerVisible(false);
+            setCurrentVideoUrl('');
+          }}
+        />
+
+        <AudioPlayerModal
+          visible={audioPlayerVisible}
+          audioUri={currentAudioUrl}
+          audioTitle={currentAudioTitle}
+          onClose={() => {
+            setAudioPlayerVisible(false);
+            setCurrentAudioUrl('');
+            setCurrentAudioTitle('');
+          }}
+        />
+
+        <MenuModal visible={showMenuModal} onClose={() => setShowMenuModal(false)} />
       </View>
     </>
   );

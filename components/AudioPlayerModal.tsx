@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, PanResponder, Animated } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import { X, Play, Pause, Volume2, SkipBack, SkipForward } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -19,6 +19,9 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [position, setPosition] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
+  const [isSeeking, setIsSeeking] = useState<boolean>(false);
+  const progressBarWidth = useRef<number>(0);
+  const thumbPosition = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     return () => {
@@ -30,39 +33,60 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
   }, [sound]);
 
   useEffect(() => {
-    if (visible && audioUri) {
-      loadAudio();
-    } else {
-      unloadAudio();
+    if (!visible || !audioUri) {
+      return;
     }
+
+    const loadAudio = async () => {
+      try {
+        setIsLoading(true);
+        console.log('[AudioPlayer] Loading audio:', audioUri);
+        
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: audioUri },
+          { shouldPlay: false },
+          onPlaybackStatusUpdate
+        );
+        
+        setSound(newSound);
+        setIsLoading(false);
+        console.log('[AudioPlayer] Audio loaded successfully');
+      } catch (error) {
+        console.error('[AudioPlayer] Error loading audio:', error);
+        setIsLoading(false);
+      }
+    };
+
+    loadAudio();
   }, [visible, audioUri]);
 
-  const loadAudio = async () => {
-    try {
-      setIsLoading(true);
-      console.log('[AudioPlayer] Loading audio:', audioUri);
-      
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
+  useEffect(() => {
+    if (visible) return;
 
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { shouldPlay: false },
-        onPlaybackStatusUpdate
-      );
-      
-      setSound(newSound);
-      setIsLoading(false);
-      console.log('[AudioPlayer] Audio loaded successfully');
-    } catch (error) {
-      console.error('[AudioPlayer] Error loading audio:', error);
-      setIsLoading(false);
-    }
-  };
+    const cleanup = async () => {
+      if (sound) {
+        try {
+          await sound.stopAsync();
+          await sound.unloadAsync();
+          setSound(null);
+          setIsPlaying(false);
+          setPosition(0);
+          setDuration(0);
+        } catch (error) {
+          console.error('[AudioPlayer] Error unloading audio:', error);
+        }
+      }
+    };
+
+    cleanup();
+  }, [visible, sound]);
 
   const unloadAudio = async () => {
     if (sound) {
@@ -121,6 +145,42 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
     await sound.setPositionAsync(newPosition);
   };
 
+  const seekToPosition = async (seekPosition: number) => {
+    if (!sound || duration === 0) return;
+    try {
+      await sound.setPositionAsync(seekPosition);
+    } catch (error) {
+      console.error('[AudioPlayer] Error seeking:', error);
+    }
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (_, gestureState) => {
+      setIsSeeking(true);
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (progressBarWidth.current === 0 || duration === 0) return;
+      const currentThumbPos = (position / duration) * progressBarWidth.current;
+      const newPosition = Math.max(0, Math.min(progressBarWidth.current, currentThumbPos + gestureState.dx));
+      thumbPosition.setValue(newPosition);
+      const seekPosition = (newPosition / progressBarWidth.current) * duration;
+      setPosition(seekPosition);
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (progressBarWidth.current === 0 || duration === 0) {
+        setIsSeeking(false);
+        return;
+      }
+      const currentThumbPos = (position / duration) * progressBarWidth.current;
+      const newPosition = Math.max(0, Math.min(progressBarWidth.current, currentThumbPos + gestureState.dx));
+      const seekPosition = (newPosition / progressBarWidth.current) * duration;
+      seekToPosition(seekPosition);
+      setIsSeeking(false);
+    },
+  });
+
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -134,6 +194,17 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
   };
 
   const progressPercentage = duration > 0 ? (position / duration) * 100 : 0;
+
+  useEffect(() => {
+    if (!isSeeking && duration > 0 && progressBarWidth.current > 0) {
+      const newThumbPosition = (position / duration) * progressBarWidth.current;
+      Animated.timing(thumbPosition, {
+        toValue: newThumbPosition,
+        duration: 100,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [position, duration, isSeeking, thumbPosition]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -157,8 +228,24 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
             ) : (
               <>
                 <View style={styles.progressContainer}>
-                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${progressPercentage}%` }]} />
+                  <View 
+                    style={styles.progressBarContainer}
+                    onLayout={(e) => {
+                      progressBarWidth.current = e.nativeEvent.layout.width;
+                    }}
+                  >
+                    <View style={styles.progressBar}>
+                      <View style={[styles.progressFill, { width: `${progressPercentage}%` }]} />
+                    </View>
+                    <Animated.View
+                      style={[
+                        styles.progressThumb,
+                        {
+                          left: thumbPosition,
+                        },
+                      ]}
+                      {...panResponder.panHandlers}
+                    />
                   </View>
                   <View style={styles.timeContainer}>
                     <Text style={styles.timeText}>{formatTime(position)}</Text>
@@ -240,11 +327,28 @@ const styles = StyleSheet.create({
   progressContainer: {
     gap: 8,
   },
+  progressBarContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
   progressBar: {
     height: 6,
     backgroundColor: Colors.light.darkGray,
     borderRadius: 3,
     overflow: 'hidden',
+  },
+  progressThumb: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.light.primary,
+    marginLeft: -8,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
   progressFill: {
     height: '100%',
