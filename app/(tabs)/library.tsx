@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, Touchabl
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, Plus, Upload, Trash2, CheckCircle2, RefreshCw, Edit2, Eye } from "lucide-react-native";
+import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, Plus, Upload, Trash2, CheckCircle2, RefreshCw, Edit2, Eye, EyeOff } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +18,9 @@ type FolderItem = {
   name: string;
   path: string;
   type: 'folder';
+  visibleToAll?: boolean;
+  visibleToUserIds?: string[];
+  hiddenBy?: string;
 };
 
 type FileItem = {
@@ -27,6 +30,9 @@ type FileItem = {
   size: number;
   mimeType: string;
   url: string;
+  visibleToAll?: boolean;
+  visibleToUserIds?: string[];
+  hiddenBy?: string;
 };
 
 type LibraryItem = FolderItem | FileItem;
@@ -75,6 +81,8 @@ export default function LibraryScreen() {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const [allUsers, setAllUsers] = useState<{ id: string; username: string; isCrownAdmin: boolean }[]>([]);
+  const [showVisibilityDetailModal, setShowVisibilityDetailModal] = useState(false);
+  const [visibilityDetailItem, setVisibilityDetailItem] = useState<LibraryItem | null>(null);
   const isAdmin = currentUser?.role === 'admin';
   const itemsCacheRef = useRef<Map<string, LibraryItem[]>>(new Map());
   const hasSyncedRef = useRef(false);
@@ -167,10 +175,84 @@ export default function LibraryScreen() {
       });
 
       console.log('[LIBRARY] Parsed storage items:', parsedItems.length);
-      itemsCacheRef.current.set(cacheKey, parsedItems);
+
+      // Load visibility info from database
+      const folderPaths = parsedItems.filter(i => i.type === 'folder').map(i => i.path);
+      const filePaths = parsedItems.filter(i => i.type === 'file').map(i => i.path);
+
+      let folderVisibility: Record<string, { visibleToAll: boolean; visibleToUserIds: string[]; uploadedBy?: string }> = {};
+      let fileVisibility: Record<string, { visibleToAll: boolean; visibleToUserIds: string[]; uploadedBy?: string }> = {};
+
+      if (folderPaths.length > 0) {
+        const { data: folderData } = await supabase
+          .from('media_folders')
+          .select('folder_path, visible_to_all, visible_to_user_ids, created_by')
+          .in('folder_path', folderPaths);
+        
+        if (folderData) {
+          folderData.forEach((f: any) => {
+            folderVisibility[f.folder_path] = {
+              visibleToAll: f.visible_to_all ?? true,
+              visibleToUserIds: f.visible_to_user_ids || [],
+              uploadedBy: f.created_by,
+            };
+          });
+        }
+      }
+
+      if (filePaths.length > 0) {
+        const { data: fileData } = await supabase
+          .from('media_library')
+          .select('path, visible_to_all, visible_to_user_ids, uploaded_by')
+          .in('path', filePaths);
+        
+        if (fileData) {
+          fileData.forEach((f: any) => {
+            fileVisibility[f.path] = {
+              visibleToAll: f.visible_to_all ?? true,
+              visibleToUserIds: f.visible_to_user_ids || [],
+              uploadedBy: f.uploaded_by,
+            };
+          });
+        }
+      }
+
+      // Attach visibility info and filter based on current user
+      const itemsWithVisibility = parsedItems.map(item => {
+        if (item.type === 'folder') {
+          const vis = folderVisibility[item.path];
+          return {
+            ...item,
+            visibleToAll: vis?.visibleToAll ?? true,
+            visibleToUserIds: vis?.visibleToUserIds ?? [],
+            hiddenBy: vis?.uploadedBy,
+          };
+        } else {
+          const vis = fileVisibility[item.path];
+          return {
+            ...item,
+            visibleToAll: vis?.visibleToAll ?? true,
+            visibleToUserIds: vis?.visibleToUserIds ?? [],
+            hiddenBy: vis?.uploadedBy,
+          };
+        }
+      });
+
+      // Filter items based on visibility and current user
+      const filteredItems = isAdmin 
+        ? itemsWithVisibility 
+        : itemsWithVisibility.filter(item => {
+            if (item.visibleToAll) {
+              return true;
+            }
+            return item.visibleToUserIds?.includes(currentUser?.id ?? '');
+          });
+
+      console.log('[LIBRARY] Filtered items:', filteredItems.length);
+      itemsCacheRef.current.set(cacheKey, filteredItems);
 
       if (latestPathRef.current === pathForRequest) {
-        setItems(parsedItems);
+        setItems(filteredItems);
       }
     } catch (error: any) {
       console.error('[LIBRARY] Load error:', error);
@@ -182,7 +264,7 @@ export default function LibraryScreen() {
       }
       setIsRefreshing(false);
     }
-  }, [currentPath, syncAllData]);
+  }, [currentPath, syncAllData, isAdmin, currentUser?.id]);
 
   const loadStorageUsage = useCallback(async () => {
     try {
@@ -987,6 +1069,19 @@ export default function LibraryScreen() {
                         : `${(item.size / (1024 * 1024)).toFixed(1)} MB`}
                     </Text>
                   </View>
+                  {!selectionMode && !item.visibleToAll && isAdmin && (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setVisibilityDetailItem(item);
+                        setShowVisibilityDetailModal(true);
+                      }}
+                      style={styles.visibilityIndicatorButton}
+                      testID={`visibility-indicator-${item.path}`}
+                    >
+                      <EyeOff color={Colors.light.muted} size={18} strokeWidth={2.5} />
+                    </Pressable>
+                  )}
                   {!selectionMode && <ChevronRight color={Colors.light.muted} size={20} />}
                 </Pressable>
               );
@@ -1407,6 +1502,101 @@ export default function LibraryScreen() {
             setCurrentAudioTitle('');
           }}
         />
+
+        <Modal
+          visible={showVisibilityDetailModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowVisibilityDetailModal(false);
+            setVisibilityDetailItem(null);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Zichtbaarheidsdetails</Text>
+                <Pressable onPress={() => {
+                  setShowVisibilityDetailModal(false);
+                  setVisibilityDetailItem(null);
+                }} testID="close-visibility-detail-modal">
+                  <X color={Colors.light.muted} size={24} />
+                </Pressable>
+              </View>
+
+              <View style={styles.visibilityDetailContainer}>
+                <Text style={styles.visibilityDetailLabel}>Item:</Text>
+                <Text style={styles.visibilityDetailValue}>{visibilityDetailItem?.name}</Text>
+
+                <Text style={[styles.visibilityDetailLabel, { marginTop: 16 }]}>Type:</Text>
+                <Text style={styles.visibilityDetailValue}>
+                  {visibilityDetailItem?.type === 'folder' ? 'Map' : 'Bestand'}
+                </Text>
+
+                {visibilityDetailItem?.hiddenBy && (
+                  <>
+                    <Text style={[styles.visibilityDetailLabel, { marginTop: 16 }]}>Ingesteld door:</Text>
+                    <Text style={styles.visibilityDetailValue}>
+                      {allUsers.find(u => u.id === visibilityDetailItem.hiddenBy)?.username || 'Onbekend'}
+                    </Text>
+                  </>
+                )}
+
+                <Text style={[styles.visibilityDetailLabel, { marginTop: 16 }]}>Zichtbaar voor:</Text>
+                {visibilityDetailItem?.visibleToAll ? (
+                  <Text style={styles.visibilityDetailValue}>Iedereen</Text>
+                ) : (
+                  <ScrollView style={styles.visibilityDetailUsersList}>
+                    {visibilityDetailItem?.visibleToUserIds && visibilityDetailItem.visibleToUserIds.length > 0 ? (
+                      visibilityDetailItem.visibleToUserIds.map(userId => {
+                        const user = allUsers.find(u => u.id === userId);
+                        return (
+                          <View key={userId} style={styles.visibilityDetailUserItem}>
+                            <Text style={styles.visibilityDetailUserText}>
+                              {user?.username || 'Onbekende gebruiker'}
+                            </Text>
+                          </View>
+                        );
+                      })
+                    ) : (
+                      <Text style={styles.visibilityDetailValue}>Niemand (alleen admins)</Text>
+                    )}
+                  </ScrollView>
+                )}
+
+                {!visibilityDetailItem?.visibleToAll && (
+                  <>
+                    <Text style={[styles.visibilityDetailLabel, { marginTop: 16 }]}>Verborgen voor:</Text>
+                    <ScrollView style={styles.visibilityDetailUsersList}>
+                      {allUsers
+                        .filter(u => !u.isCrownAdmin && !visibilityDetailItem?.visibleToUserIds?.includes(u.id))
+                        .map(user => (
+                          <View key={user.id} style={styles.visibilityDetailUserItem}>
+                            <Text style={styles.visibilityDetailUserText}>
+                              {user.username}
+                            </Text>
+                          </View>
+                        ))}
+                    </ScrollView>
+                  </>
+                )}
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.actionButton, styles.cancelButton, { flex: 1 }]}
+                  onPress={() => {
+                    setShowVisibilityDetailModal(false);
+                    setVisibilityDetailItem(null);
+                  }}
+                  testID="close-visibility-detail-button"
+                >
+                  <Text style={styles.cancelButtonText}>Sluiten</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <MenuModal visible={showMenuModal} onClose={() => setShowMenuModal(false)} />
       </View>
@@ -1879,6 +2069,38 @@ const styles = StyleSheet.create({
   },
   userItemTextSelected: {
     fontWeight: '700' as const,
+  },
+  visibilityIndicatorButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  visibilityDetailContainer: {
+    marginBottom: 24,
+  },
+  visibilityDetailLabel: {
+    color: Colors.light.muted,
+    fontSize: 13,
+    fontWeight: '600' as const,
+    marginBottom: 6,
+  },
+  visibilityDetailValue: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  visibilityDetailUsersList: {
+    maxHeight: 200,
+  },
+  visibilityDetailUserItem: {
+    backgroundColor: Colors.light.darkGray,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  visibilityDetailUserText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   headerTop: {
     flexDirection: 'row',
