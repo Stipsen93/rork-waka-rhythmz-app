@@ -240,6 +240,7 @@ export interface AppStateValue {
   practiceSchedule: PracticeSchedule;
   updatePracticeSchedule: (schedule: PracticeSchedule) => void;
   getRecentMedia: () => MediaItem[];
+  clearRecentMediaList: () => Promise<void>;
   announcements: Announcement[];
   addAnnouncement: (announcement: Omit<Announcement, 'id' | 'createdAt'>) => void;
   updateAnnouncement: (id: string, announcement: Partial<Omit<Announcement, 'id' | 'createdAt'>>) => void;
@@ -351,6 +352,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [groups, setGroups] = useState<Group[]>([]);
   const [language, setLanguageState] = useState<Language>('nl');
   const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(false);
+  const [clearedMediaIds, setClearedMediaIds] = useState<Set<string>>(new Set());
 
   const refreshStorageUsage = useCallback(async () => {
     console.log('💾 Refreshing storage usage via tRPC...');
@@ -395,6 +397,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }
     };
     loadBiometricSetting();
+  }, []);
+
+  useEffect(() => {
+    const loadClearedMedia = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('cleared_recent_media');
+        if (saved) {
+          setClearedMediaIds(new Set(JSON.parse(saved)));
+        }
+      } catch (error) {
+        console.error('Error loading cleared media:', error);
+      }
+    };
+    loadClearedMedia();
   }, []);
 
   useEffect(() => {
@@ -1554,8 +1570,37 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     };
     
     collectMedia(library);
-    return allMedia.slice(0, 5);
-  }, [library]);
+    return allMedia.filter(m => !clearedMediaIds.has(m.id)).slice(0, 5);
+  }, [library, clearedMediaIds]);
+
+  const clearRecentMediaList = useCallback(async () => {
+    console.log('🗑️ Clearing recent media list...');
+    const allMedia: MediaItem[] = [];
+    
+    const collectMedia = (nodes: CategoryNode[]) => {
+      for (const node of nodes) {
+        if (node.media) {
+          allMedia.push(...node.media);
+        }
+        if (node.children) {
+          collectMedia(node.children);
+        }
+      }
+    };
+    
+    collectMedia(library);
+    const allIds = allMedia.map(m => m.id);
+    const newClearedSet = new Set([...clearedMediaIds, ...allIds]);
+    
+    setClearedMediaIds(newClearedSet);
+    
+    try {
+      await AsyncStorage.setItem('cleared_recent_media', JSON.stringify(Array.from(newClearedSet)));
+      console.log('✅ Recent media list cleared');
+    } catch (error) {
+      console.error('❌ Error saving cleared media:', error);
+    }
+  }, [library, clearedMediaIds]);
 
   const addAssignment = useCallback(async (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>) => {
     console.log('💾 Adding assignment to Supabase...');
@@ -2426,6 +2471,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     practiceSchedule,
     updatePracticeSchedule,
     getRecentMedia,
+    clearRecentMediaList,
     announcements,
     addAnnouncement,
     updateAnnouncement,
