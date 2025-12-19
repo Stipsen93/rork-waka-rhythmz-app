@@ -862,12 +862,20 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
 
   const isCompleted = currentUserId ? assignment.completedBy.some(c => c.userId === currentUserId) : false;
   
-  const completionInfo = isAdmin && assignment.completedBy.length > 0 
-    ? assignment.completedBy.map(c => {
-        const user = users.find(u => u.id === c.userId);
+  const assignedUsers = assignment.assignedUserIds.length > 0
+    ? users.filter(u => assignment.assignedUserIds.includes(u.id))
+    : users;
+  
+  const showDetailedCompletion = isAdmin && assignedUsers.length >= 2;
+  
+  const completionDetails = showDetailedCompletion
+    ? assignedUsers.map(user => {
+        const completionRecord = assignment.completedBy.find(c => c.userId === user.id);
         return {
-          username: user?.username || 'Onbekend',
-          completedAt: c.completedAt,
+          userId: user.id,
+          username: user.username,
+          isCompleted: !!completionRecord,
+          completedAt: completionRecord?.completedAt,
         };
       })
     : [];
@@ -924,17 +932,24 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
           </View>
         )}
       
-        {isAdmin && completionInfo.length > 0 && (
+        {showDetailedCompletion && (
           <View style={styles.completionInfoContainer}>
-            {completionInfo.map((info, idx) => (
-              <View key={idx} style={styles.completionInfoRow}>
-                <CheckCircle2 color={Colors.light.success} size={12} strokeWidth={2.5} />
-                <Text style={styles.completionInfoText}>
-                  {info.username}
+            <Text style={styles.completionInfoTitle}>Status:</Text>
+            {completionDetails.map((detail) => (
+              <View key={detail.userId} style={styles.completionInfoRow}>
+                {detail.isCompleted ? (
+                  <CheckCircle2 color={Colors.light.success} size={14} strokeWidth={2.5} />
+                ) : (
+                  <View style={styles.notCompletedIcon} />
+                )}
+                <Text style={[styles.completionInfoText, !detail.isCompleted && styles.notCompletedText]}>
+                  {detail.username}
                 </Text>
-                <Text style={styles.completionDateText}>
-                  {formatDateTime(info.completedAt)}
-                </Text>
+                {detail.isCompleted && detail.completedAt && (
+                  <Text style={styles.completionDateText}>
+                    {formatDateTime(detail.completedAt)}
+                  </Text>
+                )}
               </View>
             ))}
           </View>
@@ -1706,25 +1721,46 @@ const styles = StyleSheet.create({
   completionInfoContainer: {
     backgroundColor: Colors.light.darkGray,
     borderRadius: 10,
-    padding: 10,
-    gap: 8,
+    padding: 12,
+    gap: 10,
     marginTop: 4,
+  },
+  completionInfoTitle: {
+    fontSize: 11,
+    color: Colors.light.muted,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   completionInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     flexWrap: 'wrap' as const,
   },
   completionInfoText: {
     fontSize: 13,
     color: Colors.light.text,
     fontWeight: '700' as const,
+    minWidth: 80,
+  },
+  notCompletedText: {
+    color: Colors.light.muted,
+    fontWeight: '600' as const,
+  },
+  notCompletedIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: Colors.light.muted,
   },
   completionDateText: {
     fontSize: 12,
     color: Colors.light.muted,
     fontWeight: '600' as const,
+    flex: 1,
   },
   fab: {
     position: "absolute",
