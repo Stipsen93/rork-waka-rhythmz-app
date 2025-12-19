@@ -388,7 +388,9 @@ export default function AssignmentsScreen() {
           </View>
         </TouchableOpacity>
 
-
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>versie 1.0</Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -829,5 +831,16 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 4,
+  },
+  versionContainer: {
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    paddingTop: 32,
+    paddingBottom: 16,
+  },
+  versionText: {
+    color: Colors.light.muted,
+    fontSize: 12,
+    fontWeight: "500" as const,
   },
 });
