@@ -494,10 +494,10 @@ export default function LibraryScreen() {
         const asset = result.assets[0];
         console.log('[UPLOAD NATIVE] Selected:', asset.uri, asset.fileSize);
 
-        if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024 && type === 'video') {
+        if (asset.fileSize && asset.fileSize > 400 * 1024 * 1024 && type === 'video') {
           Alert.alert(
             'Bestand te groot',
-            'Video bestanden moeten kleiner zijn dan 50MB. Probeer de video te comprimeren voordat je het uploadt.',
+            'Video bestanden moeten kleiner zijn dan 400MB. Probeer de video te comprimeren voordat je het uploadt.',
             [{ text: 'OK' }]
           );
           return;
