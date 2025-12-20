@@ -26,6 +26,7 @@ export interface NotificationState {
   permissionStatus: 'granted' | 'denied' | 'undetermined';
   registerForPushNotifications: () => Promise<void>;
   unregisterPushToken: () => Promise<void>;
+  checkPermissionStatus: () => Promise<void>;
 }
 
 export const [NotificationProvider, useNotifications] = createContextHook<NotificationState>(() => {
@@ -162,6 +163,33 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
     }
   }, [currentUser, expoPushToken]);
 
+  const checkPermissionStatus = useCallback(async () => {
+    if (Platform.OS === 'web' || !Device.isDevice) {
+      console.log('📱 [PUSH] Web/Simulator detected, marking as registered');
+      setPermissionStatus('granted');
+      setIsRegistered(true);
+      return;
+    }
+
+    try {
+      console.log('📱 [PUSH] Checking current permission status...');
+      const { status } = await Notifications.getPermissionsAsync();
+      console.log('📱 [PUSH] Current permission status:', status);
+      
+      setPermissionStatus(status === 'granted' ? 'granted' : 'denied');
+      
+      if (status === 'granted' && !isRegistered && !isLoading && currentUser) {
+        console.log('📱 [PUSH] Permission granted but not registered, auto-registering...');
+        await registerForPushNotifications();
+      } else if (status !== 'granted') {
+        console.log('📱 [PUSH] Permission not granted, marking as not registered');
+        setIsRegistered(false);
+      }
+    } catch (error) {
+      console.error('❌ [PUSH] Error checking permission status:', error);
+    }
+  }, [currentUser, isRegistered, isLoading, registerForPushNotifications]);
+
   useEffect(() => {
     if (currentUser && Platform.OS !== 'web') {
       console.log('📱 [PUSH] User logged in, registering for notifications...');
@@ -206,5 +234,6 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
     permissionStatus,
     registerForPushNotifications,
     unregisterPushToken,
+    checkPermissionStatus,
   };
 });

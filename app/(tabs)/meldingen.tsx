@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,9 +15,14 @@ type TimeOption = { label: string; hours: number };
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
   const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences, language } = useAppState();
-  const { isRegistered, isLoading, permissionStatus, registerForPushNotifications } = useNotifications();
+  const { isRegistered, isLoading, permissionStatus, registerForPushNotifications, checkPermissionStatus } = useNotifications();
   const t = translations[language];
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    console.log('📱 [MELDINGEN] Checking permission status on mount...');
+    checkPermissionStatus();
+  }, [checkPermissionStatus]);
   
   const currentUser = useAppState().currentUser;
   
