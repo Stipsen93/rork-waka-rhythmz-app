@@ -1,11 +1,18 @@
 import { Hono } from "hono";
 import { trpcServer } from "@hono/trpc-server";
 import { cors } from "hono/cors";
+import { bodyLimit } from "hono/body-limit";
 import { appRouter } from "@/backend/trpc/app-router";
 import { createContext } from "@/backend/trpc/create-context";
-import superjson from "superjson";
 
 const app = new Hono();
+
+app.use("*", bodyLimit({
+  maxSize: 500 * 1024 * 1024,
+  onError: (c) => {
+    return c.text('Bestand is te groot. Maximum toegestane grootte is 400MB', 413);
+  },
+}));
 
 app.use("*", async (c, next) => {
   console.log('[HONO REQUEST]', c.req.method, c.req.url);

@@ -391,6 +391,13 @@ export default function LibraryScreen() {
       setIsUploading(true);
       setErrorMessage(null);
 
+      if (file.size > 400 * 1024 * 1024) {
+        setIsUploading(false);
+        setErrorMessage('Bestand is te groot. Maximum toegestane grootte is 400MB.');
+        setTimeout(() => setErrorMessage(null), 5000);
+        return;
+      }
+
       console.log('[UPLOAD WEB] Starting upload...', file.name);
       
       uploadId = startUpload(file.name);
@@ -494,10 +501,10 @@ export default function LibraryScreen() {
         const asset = result.assets[0];
         console.log('[UPLOAD NATIVE] Selected:', asset.uri, asset.fileSize);
 
-        if (asset.fileSize && asset.fileSize > 400 * 1024 * 1024 && type === 'video') {
+        if (asset.fileSize && asset.fileSize > 400 * 1024 * 1024) {
           Alert.alert(
             'Bestand te groot',
-            'Video bestanden moeten kleiner zijn dan 400MB. Probeer de video te comprimeren voordat je het uploadt.',
+            'Bestanden moeten kleiner zijn dan 400MB. Probeer het bestand te comprimeren voordat je het uploadt.',
             [{ text: 'OK' }]
           );
           return;
@@ -559,7 +566,11 @@ export default function LibraryScreen() {
 
       uploadId = startUpload(fileName);
 
-      const response = await fetch(uri);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600000);
+      
+      const response = await fetch(uri, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!response.ok) {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
       }

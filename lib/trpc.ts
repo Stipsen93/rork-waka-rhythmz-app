@@ -113,7 +113,13 @@ export const trpcClient = trpc.createClient({
       fetch(url, options) {
         console.log("[TRPC FETCH] URL:", url);
         console.log("[TRPC FETCH] Method:", options?.method);
-        return fetch(url, options)
+        
+        const modifiedOptions = {
+          ...options,
+          signal: undefined,
+        };
+        
+        return fetch(url, modifiedOptions)
           .then(async (response) => {
             console.log("[TRPC RESPONSE] Status:", response.status);
             console.log("[TRPC RESPONSE] Headers:", JSON.stringify([...response.headers.entries()]));
