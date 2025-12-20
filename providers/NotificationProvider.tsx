@@ -71,7 +71,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         console.log('📱 [PUSH] New permission status:', finalStatus);
       }
       
-      setPermissionStatus(finalStatus === 'granted' ? 'granted' : 'denied');
+      setPermissionStatus(finalStatus as 'granted' | 'denied' | 'undetermined');
       
       if (finalStatus !== 'granted') {
         console.log('❌ [PUSH] Permission not granted');
@@ -176,14 +176,19 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       const { status } = await Notifications.getPermissionsAsync();
       console.log('📱 [PUSH] Current permission status:', status);
       
-      setPermissionStatus(status === 'granted' ? 'granted' : 'denied');
+      setPermissionStatus(status as 'granted' | 'denied' | 'undetermined');
       
-      if (status === 'granted' && !isRegistered && !isLoading && currentUser) {
-        console.log('📱 [PUSH] Permission granted but not registered, auto-registering...');
-        await registerForPushNotifications();
-      } else if (status !== 'granted') {
-        console.log('📱 [PUSH] Permission not granted, marking as not registered');
+      if (status === 'granted') {
+        console.log('✅ [PUSH] Permission is granted');
+        if (!isRegistered && !isLoading && currentUser) {
+          console.log('📱 [PUSH] Not registered yet, auto-registering...');
+          await registerForPushNotifications();
+        }
+      } else if (status === 'denied') {
+        console.log('❌ [PUSH] Permission explicitly denied');
         setIsRegistered(false);
+      } else {
+        console.log('⚠️ [PUSH] Permission status is:', status);
       }
     } catch (error) {
       console.error('❌ [PUSH] Error checking permission status:', error);
@@ -192,8 +197,8 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
   useEffect(() => {
     if (currentUser && Platform.OS !== 'web') {
-      console.log('📱 [PUSH] User logged in, registering for notifications...');
-      registerForPushNotifications();
+      console.log('📱 [PUSH] User logged in, checking permission and registering...');
+      checkPermissionStatus();
 
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
         console.log('📱 [PUSH] Notification received:', notification);
@@ -206,8 +211,8 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
       appStateListener.current = RNAppState.addEventListener('change', (nextAppState) => {
         if (nextAppState === 'active') {
-          console.log('📱 [PUSH] App became active, refreshing registration...');
-          registerForPushNotifications();
+          console.log('📱 [PUSH] App became active, checking permission status...');
+          checkPermissionStatus();
         }
       });
 
@@ -224,7 +229,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         }
       };
     }
-  }, [currentUser, registerForPushNotifications]);
+  }, [currentUser, checkPermissionStatus]);
 
   return {
     expoPushToken,

@@ -184,7 +184,7 @@ export default function MeldingenScreen() {
               </TouchableOpacity>
             )}
           </View>
-          {permissionStatus === 'denied' && (
+          {(permissionStatus === 'denied' && !isRegistered) && (
             <View style={styles.permissionWarning}>
               <AlertCircle color="#FF6B6B" size={16} strokeWidth={2.5} />
               <Text style={styles.permissionWarningText}>
