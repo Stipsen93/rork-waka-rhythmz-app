@@ -756,7 +756,7 @@ export default function LibraryScreen() {
         if (existing) {
           const { error } = await supabase
             .from('media_folders')
-            .update(updateData)
+            .update(updateData as any)
             .eq('folder_path', visibilityItem.path);
 
           if (error) throw error;
@@ -768,7 +768,7 @@ export default function LibraryScreen() {
               folder_path: visibilityItem.path,
               parent_path: currentPath || null,
               ...updateData,
-            });
+            } as any);
 
           if (error) throw error;
         }
@@ -782,8 +782,23 @@ export default function LibraryScreen() {
         if (existing) {
           const { error } = await supabase
             .from('media_library')
-            .update(updateData)
+            .update(updateData as any)
             .eq('path', visibilityItem.path);
+
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('media_library')
+            .insert({
+              name: visibilityItem.name,
+              path: visibilityItem.path,
+              folder_path: currentPath || '',
+              file_type: visibilityItem.mimeType.startsWith('video/') ? 'video' : visibilityItem.mimeType.startsWith('image/') ? 'image' : visibilityItem.mimeType.startsWith('audio/') ? 'audio' : 'other',
+              file_size: visibilityItem.size,
+              mime_type: visibilityItem.mimeType,
+              storage_path: visibilityItem.path,
+              ...updateData,
+            } as any);
 
           if (error) throw error;
         }
@@ -795,6 +810,11 @@ export default function LibraryScreen() {
       setVisibilityItem(null);
       setVisibilityToAll(true);
       setSelectedUserIds(new Set());
+      setSelectionMode(false);
+      setSelectedItems(new Set());
+      
+      itemsCacheRef.current.clear();
+      await loadItems({ forceSync: true });
       
       setErrorMessage('Zichtbaarheid bijgewerkt!');
       setTimeout(() => setErrorMessage(null), 3000);

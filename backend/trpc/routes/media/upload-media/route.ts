@@ -107,6 +107,8 @@ export const uploadMediaRoute = publicProcedure
         mime_type: input.mimeType,
         storage_path: storagePath,
         uploaded_by: null,
+        visible_to_all: true,
+        visible_to_user_ids: [],
       };
       
       const { data: mediaData, error: dbError } = await supabaseAdmin
