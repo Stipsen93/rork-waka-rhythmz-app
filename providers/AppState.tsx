@@ -239,7 +239,7 @@ export interface AppStateValue {
   updatePerformance: (id: string, perf: Partial<Performance>) => void;
   practiceSchedule: PracticeSchedule;
   updatePracticeSchedule: (schedule: PracticeSchedule) => void;
-  getRecentMedia: () => MediaItem[];
+  getRecentMedia: () => MediaLibraryItem[];
   clearRecentMediaList: () => Promise<void>;
   announcements: Announcement[];
   addAnnouncement: (announcement: Omit<Announcement, 'id' | 'createdAt'>) => void;
@@ -1555,41 +1555,16 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Practice schedule updated');
   }, [practiceSchedule]);
 
-  const getRecentMedia = useCallback((): MediaItem[] => {
-    const allMedia: MediaItem[] = [];
-    
-    const collectMedia = (nodes: CategoryNode[]) => {
-      for (const node of nodes) {
-        if (node.media) {
-          allMedia.push(...node.media);
-        }
-        if (node.children) {
-          collectMedia(node.children);
-        }
-      }
-    };
-    
-    collectMedia(library);
-    return allMedia.filter(m => !clearedMediaIds.has(m.id)).slice(0, 5);
-  }, [library, clearedMediaIds]);
+  const getRecentMedia = useCallback((): MediaLibraryItem[] => {
+    return mediaLibrary
+      .filter(m => !clearedMediaIds.has(m.id))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+  }, [mediaLibrary, clearedMediaIds]);
 
   const clearRecentMediaList = useCallback(async () => {
     console.log('🗑️ Clearing recent media list...');
-    const allMedia: MediaItem[] = [];
-    
-    const collectMedia = (nodes: CategoryNode[]) => {
-      for (const node of nodes) {
-        if (node.media) {
-          allMedia.push(...node.media);
-        }
-        if (node.children) {
-          collectMedia(node.children);
-        }
-      }
-    };
-    
-    collectMedia(library);
-    const allIds = allMedia.map(m => m.id);
+    const allIds = mediaLibrary.map(m => m.id);
     const newClearedSet = new Set([...clearedMediaIds, ...allIds]);
     
     setClearedMediaIds(newClearedSet);
@@ -1600,7 +1575,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     } catch (error) {
       console.error('❌ Error saving cleared media:', error);
     }
-  }, [library, clearedMediaIds]);
+  }, [mediaLibrary, clearedMediaIds]);
 
   const addAssignment = useCallback(async (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>) => {
     console.log('💾 Adding assignment to Supabase...');
