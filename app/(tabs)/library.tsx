@@ -376,6 +376,7 @@ export default function LibraryScreen() {
         [
           { text: 'Video', onPress: () => handleMediaSelection('video') },
           { text: 'Foto', onPress: () => handleMediaSelection('photo') },
+          { text: 'Audio', onPress: () => handleMediaSelection('audio') },
           { text: 'Document', onPress: () => handleMediaSelection('document') },
           { text: 'Annuleren', style: 'cancel' }
         ]
@@ -464,7 +465,7 @@ export default function LibraryScreen() {
     }
   };
 
-  const handleMediaSelection = async (type: 'video' | 'photo' | 'document') => {
+  const handleMediaSelection = async (type: 'video' | 'photo' | 'audio' | 'document') => {
     try {
       setErrorMessage(null);
 
@@ -503,6 +504,22 @@ export default function LibraryScreen() {
         }
 
         await uploadFileNative(asset.uri, asset.fileName || (type === 'video' ? 'video.mp4' : 'image.jpg'), asset.mimeType);
+      } else if (type === 'audio') {
+        console.log('[UPLOAD NATIVE] Opening audio picker...');
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'audio/*',
+          copyToCacheDirectory: true,
+        });
+
+        if (result.canceled) {
+          console.log('[UPLOAD NATIVE] Canceled');
+          return;
+        }
+
+        const file = result.assets[0];
+        console.log('[UPLOAD NATIVE] Audio selected:', file.name, file.mimeType, file.size);
+
+        await uploadFileNative(file.uri, file.name, file.mimeType || 'audio/mpeg');
       } else {
         console.log('[UPLOAD NATIVE] Opening document picker...');
         const result = await DocumentPicker.getDocumentAsync({
