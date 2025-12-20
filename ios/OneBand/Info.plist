@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>oneband</string>
-          <string>com.oneband</string>
+          <string>com.onebandmusic</string>
         </array>
       </dict>
     </array>

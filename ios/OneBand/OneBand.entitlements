@@ -8,7 +8,7 @@
     <string>Production</string>
     <key>com.apple.developer.icloud-container-identifiers</key>
     <array>
-      <string>iCloud.com.oneband</string>
+      <string>iCloud.com.onebandmusic</string>
     </array>
     <key>com.apple.developer.icloud-services</key>
     <array>
@@ -16,9 +16,9 @@
     </array>
     <key>com.apple.developer.ubiquity-container-identifiers</key>
     <array>
-      <string>iCloud.com.oneband</string>
+      <string>iCloud.com.onebandmusic</string>
     </array>
     <key>com.apple.developer.ubiquity-kvstore-identifier</key>
-    <string>$(TeamIdentifierPrefix)com.oneband</string>
+    <string>$(TeamIdentifierPrefix)com.onebandmusic</string>
   </dict>
 </plist>
