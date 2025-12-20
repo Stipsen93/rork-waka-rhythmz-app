@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
   const { assignments, getRecentMedia, clearRecentMediaList, practiceSchedule, announcements, appointments, currentUser, syncAllData, users } = useAppState();
+  const isAdmin = currentUser?.role === 'admin';
   const { trainings, isLoading: trainingsLoading } = useTrainings();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -230,7 +231,7 @@ export default function AssignmentsScreen() {
                 <Video color={Colors.light.primary} size={20} strokeWidth={2.5} />
               </View>
               <Text style={styles.widgetTitle}>Recente Media</Text>
-              {recentMedia.length > 0 && (
+              {isAdmin && (
                 <TouchableOpacity 
                   onPress={handleClearRecentMedia}
                   style={styles.clearButton}
