@@ -1556,16 +1556,26 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, [practiceSchedule]);
 
   const getRecentMedia = useCallback((): MediaLibraryItem[] => {
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
     return mediaLibrary
-      .filter(m => !clearedMediaIds.has(m.id))
+      .filter(m => {
+        const itemTime = new Date(m.created_at).getTime();
+        return itemTime >= tenMinutesAgo && !clearedMediaIds.has(m.id);
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5);
   }, [mediaLibrary, clearedMediaIds]);
 
   const clearRecentMediaList = useCallback(async () => {
     console.log('🗑️ Clearing recent media list...');
-    const allIds = mediaLibrary.map(m => m.id);
-    const newClearedSet = new Set([...clearedMediaIds, ...allIds]);
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    const recentIds = mediaLibrary
+      .filter(m => {
+        const itemTime = new Date(m.created_at).getTime();
+        return itemTime >= tenMinutesAgo;
+      })
+      .map(m => m.id);
+    const newClearedSet = new Set([...clearedMediaIds, ...recentIds]);
     
     setClearedMediaIds(newClearedSet);
     

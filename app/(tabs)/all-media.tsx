@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppState, MediaItem, CategoryNode, MediaLibraryItem } from "@/providers/AppState";
+import { useAppState, MediaLibraryItem } from "@/providers/AppState";
 import { Video, Image as ImageIcon, Music, ArrowLeft } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -18,7 +18,13 @@ export default function AllMediaScreen() {
   const [audioModalVisible, setAudioModalVisible] = useState<boolean>(false);
   const [selectedAudio, setSelectedAudio] = useState<{ uri: string; title: string } | null>(null);
 
-  const allMedia = mediaLibrary;
+  const allMedia = useMemo(() => {
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    return mediaLibrary.filter(item => {
+      const itemTime = new Date(item.created_at).getTime();
+      return itemTime >= tenMinutesAgo;
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [mediaLibrary]);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -52,7 +58,7 @@ export default function AllMediaScreen() {
       />
       
       <View style={styles.header}>
-        <Pressable onPress={() => router.push("/(tabs)/assignments")} style={styles.backButton}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
         <View style={styles.headerTextContainer}>
