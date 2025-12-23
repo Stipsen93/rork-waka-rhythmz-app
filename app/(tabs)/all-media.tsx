@@ -1,15 +1,18 @@
-import React, { useState, useMemo } from "react";
-import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
+import React, { useState, useMemo, useEffect } from "react";
+import { FlatList, StyleSheet, Text, View, Pressable, Alert, Platform } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, MediaLibraryItem } from "@/providers/AppState";
-import { Video, Image as ImageIcon, Music, ArrowLeft } from "lucide-react-native";
+import { Video, Image as ImageIcon, Music, ArrowLeft, Trash2 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import AudioPlayerModal from "@/components/AudioPlayerModal";
 import { supabase } from "@/lib/supabase";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
+
+const LAST_CLEARED_KEY = 'recentMediaLastCleared';
 
 export default function AllMediaScreen() {
   const { mediaLibrary } = useAppState();
@@ -17,14 +20,57 @@ export default function AllMediaScreen() {
   const router = useRouter();
   const [audioModalVisible, setAudioModalVisible] = useState<boolean>(false);
   const [selectedAudio, setSelectedAudio] = useState<{ uri: string; title: string } | null>(null);
+  const [lastClearedTimestamp, setLastClearedTimestamp] = useState<number>(0);
+
+  useEffect(() => {
+    const loadLastCleared = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(LAST_CLEARED_KEY);
+        if (stored) {
+          setLastClearedTimestamp(parseInt(stored, 10));
+        }
+      } catch (error) {
+        console.error('[ALL_MEDIA] Load last cleared error:', error);
+      }
+    };
+    loadLastCleared();
+  }, []);
 
   const allMedia = useMemo(() => {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
     return mediaLibrary.filter(item => {
       const itemTime = new Date(item.created_at).getTime();
-      return itemTime >= tenMinutesAgo;
+      return itemTime >= tenMinutesAgo && itemTime > lastClearedTimestamp;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [mediaLibrary]);
+  }, [mediaLibrary, lastClearedTimestamp]);
+
+  const handleClearList = async () => {
+    const confirmClear = async () => {
+      try {
+        const now = Date.now();
+        await AsyncStorage.setItem(LAST_CLEARED_KEY, now.toString());
+        setLastClearedTimestamp(now);
+        console.log('[ALL_MEDIA] List cleared');
+      } catch (error) {
+        console.error('[ALL_MEDIA] Clear error:', error);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (confirm('Weet je zeker dat je de recente media lijst wilt legen?')) {
+        await confirmClear();
+      }
+    } else {
+      Alert.alert(
+        'Lijst legen',
+        'Weet je zeker dat je de recente media lijst wilt legen?',
+        [
+          { text: 'Annuleren', style: 'cancel' },
+          { text: 'Legen', style: 'destructive', onPress: confirmClear },
+        ]
+      );
+    }
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -66,6 +112,13 @@ export default function AllMediaScreen() {
           <Text style={styles.title}>Alle Media</Text>
           <Text style={styles.subtitle}>{allMedia.length} items</Text>
         </View>
+        <Pressable 
+          onPress={handleClearList} 
+          style={styles.trashButton}
+          testID="clear-recent-media"
+        >
+          <Trash2 color={Colors.light.primary} size={22} strokeWidth={2.5} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -144,6 +197,17 @@ const styles = StyleSheet.create({
   },
   headerTextContainer: {
     flex: 1,
+  },
+  trashButton: {
+    paddingTop: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   appName: { 
     color: Colors.light.primary, 
