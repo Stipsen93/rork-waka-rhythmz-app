@@ -392,7 +392,7 @@ export default function AssignmentsScreen() {
         </TouchableOpacity>
 
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>versie 1.2</Text>
+          <Text style={styles.versionText}>versie 1.5</Text>
         </View>
       </ScrollView>
     </View>
