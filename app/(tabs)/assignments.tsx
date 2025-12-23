@@ -4,7 +4,7 @@ import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
 import { useTrainings } from "@/hooks/useTrainings";
-import { Clock, Video, Music, Calendar, AlertCircle, Trash2 } from "lucide-react-native";
+import { Clock, Video, Music, Calendar, AlertCircle, Trash2, Image as ImageIcon } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
@@ -242,12 +242,14 @@ export default function AssignmentsScreen() {
               )}
             </View>
             <View style={styles.widgetContent}>
-              {recentMedia.slice(0, 3).map((media, idx) => (
-                <View key={media.id} style={styles.mediaItem}>
-                  <View style={styles.mediaBullet} />
-                  <Text style={styles.mediaText} numberOfLines={1}>{media.title}</Text>
+              {recentMedia.length > 0 && (
+                <View style={styles.latestMediaContainer}>
+                  {recentMedia[0].file_type === 'video' && <Video color={Colors.light.primary} size={18} strokeWidth={2} />}
+                  {recentMedia[0].file_type === 'image' && <ImageIcon color={Colors.light.primary} size={18} strokeWidth={2} />}
+                  {recentMedia[0].file_type === 'audio' && <Music color={Colors.light.primary} size={18} strokeWidth={2} />}
+                  <Text style={styles.latestMediaText} numberOfLines={1}>{recentMedia[0].name}</Text>
                 </View>
-              ))}
+              )}
               {recentMedia.length === 0 && (
                 <Text style={styles.emptyText}>Geen recente media</Text>
               )}
@@ -843,5 +845,20 @@ const styles = StyleSheet.create({
     color: Colors.light.muted,
     fontSize: 12,
     fontWeight: "500" as const,
+  },
+  latestMediaContainer: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    backgroundColor: Colors.light.darkGray,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  latestMediaText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: "600" as const,
+    flex: 1,
   },
 });

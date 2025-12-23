@@ -38,9 +38,10 @@ export default function AllMediaScreen() {
 
   const allMedia = useMemo(() => {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
     return mediaLibrary.filter(item => {
       const itemTime = new Date(item.created_at).getTime();
-      return itemTime >= tenMinutesAgo && itemTime > lastClearedTimestamp;
+      return itemTime >= tenMinutesAgo && itemTime > lastClearedTimestamp && itemTime >= fourteenDaysAgo;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [mediaLibrary, lastClearedTimestamp]);
 

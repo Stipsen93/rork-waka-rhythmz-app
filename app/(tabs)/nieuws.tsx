@@ -40,6 +40,8 @@ export default function NieuwsScreen() {
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
   const [editPickerMonth, setEditPickerMonth] = useState<Date>(new Date());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewAnnouncement, setPreviewAnnouncement] = useState<Announcement | null>(null);
 
   const isAdmin = currentUser?.role === "admin" || isCrownAdmin;
 
@@ -354,14 +356,15 @@ export default function NieuwsScreen() {
                       item.status === 'cancelled' && styles.cancelledCard,
                     ]}
                     onPress={() => {
-                      if (isAdmin && !item.isBirthday) {
-                        if (item.type === 'announcement') {
-                          const announcement = announcements.find(a => a.id === item.id);
-                          if (announcement) handleOpenEditModal(announcement);
+                      if (!item.isBirthday && item.type === 'announcement') {
+                        const announcement = announcements.find(a => a.id === item.id);
+                        if (announcement) {
+                          setPreviewAnnouncement(announcement);
+                          setShowPreviewModal(true);
                         }
                       }
                     }}
-                    activeOpacity={(isAdmin && !item.isBirthday) ? 0.7 : 1}
+                    activeOpacity={(!item.isBirthday && item.type === 'announcement') ? 0.7 : 1}
                   >
                     <View style={styles.announcementHeader}>
                       <View style={styles.announcementNameContainer}>
@@ -435,14 +438,15 @@ export default function NieuwsScreen() {
                           item.status === 'cancelled' && styles.cancelledCard,
                         ]}
                         onPress={() => {
-                          if (isAdmin && !item.isBirthday) {
-                            if (item.type === 'announcement') {
-                              const announcement = announcements.find(a => a.id === item.id);
-                              if (announcement) handleOpenEditModal(announcement);
+                          if (!item.isBirthday && item.type === 'announcement') {
+                            const announcement = announcements.find(a => a.id === item.id);
+                            if (announcement) {
+                              setPreviewAnnouncement(announcement);
+                              setShowPreviewModal(true);
                             }
                           }
                         }}
-                        activeOpacity={(isAdmin && !item.isBirthday) ? 0.7 : 1}
+                        activeOpacity={(!item.isBirthday && item.type === 'announcement') ? 0.7 : 1}
                       >
                         <View style={styles.announcementHeader}>
                           <View style={styles.announcementNameContainer}>
@@ -767,6 +771,86 @@ export default function NieuwsScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPreviewModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPreviewModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Nieuws Overzicht</Text>
+            <TouchableOpacity onPress={() => setShowPreviewModal(false)} style={styles.closeButton}>
+              <X color={Colors.light.text} size={24} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
+            {previewAnnouncement && (
+              <>
+                <View style={styles.previewSection}>
+                  <Text style={styles.previewTitle}>{previewAnnouncement.name}</Text>
+                  <Text style={styles.previewDescription}>{previewAnnouncement.description}</Text>
+                  <View style={styles.previewDateContainer}>
+                    <Calendar color={Colors.light.primary} size={20} strokeWidth={2.5} />
+                    <Text style={styles.previewDateText}>
+                      {new Date(previewAnnouncement.date).toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+
+                {isAdmin && (
+                  <View style={styles.previewActions}>
+                    <TouchableOpacity
+                      style={styles.previewEditButton}
+                      onPress={() => {
+                        setShowPreviewModal(false);
+                        handleOpenEditModal(previewAnnouncement);
+                      }}
+                    >
+                      <Edit2 color={Colors.light.background} size={20} strokeWidth={2.5} />
+                      <Text style={styles.previewEditButtonText}>Bewerken</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.previewDeleteButton}
+                      onPress={() => {
+                        setShowPreviewModal(false);
+                        Alert.alert(
+                          t.news.deleteAnnouncement,
+                          t.news.confirmDelete,
+                          [
+                            { text: t.news.cancel, style: "cancel" },
+                            {
+                              text: t.news.delete,
+                              style: "destructive",
+                              onPress: async () => {
+                                try {
+                                  await deleteAnnouncements([previewAnnouncement.id]);
+                                  await syncAllData();
+                                } catch (error) {
+                                  Alert.alert(t.news.errorTitle, t.news.deleteError ?? 'Verwijderen mislukt.');
+                                }
+                              }
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Trash2 color={Colors.light.background} size={20} strokeWidth={2.5} />
+                      <Text style={styles.previewDeleteButtonText}>Verwijderen</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
         </View>
       </Modal>
       <MenuModal 
@@ -1155,5 +1239,67 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     marginTop: 8,
     fontStyle: 'italic' as const,
+  },
+  previewSection: {
+    padding: 20,
+    gap: 16,
+  },
+  previewTitle: {
+    fontSize: 28,
+    fontWeight: '800' as const,
+    color: Colors.light.text,
+    lineHeight: 34,
+  },
+  previewDescription: {
+    fontSize: 17,
+    color: Colors.light.text,
+    lineHeight: 26,
+  },
+  previewDateContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    backgroundColor: Colors.light.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignSelf: 'flex-start' as const,
+  },
+  previewDateText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  previewActions: {
+    padding: 20,
+    gap: 12,
+  },
+  previewEditButton: {
+    backgroundColor: Colors.light.primary,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  previewEditButtonText: {
+    color: Colors.light.background,
+    fontSize: 17,
+    fontWeight: '700' as const,
+  },
+  previewDeleteButton: {
+    backgroundColor: Colors.light.error,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  previewDeleteButtonText: {
+    color: Colors.light.background,
+    fontSize: 17,
+    fontWeight: '700' as const,
   },
 });

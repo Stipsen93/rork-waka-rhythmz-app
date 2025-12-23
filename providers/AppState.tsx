@@ -767,34 +767,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             confirmed: (a as any).confirmed ?? false,
             cancelledBy: (a as any).cancelled_by ?? undefined,
           })));
-          if (appointmentsRes.data.length === 0) {
-            const defaultAppointment: Database['public']['Tables']['appointments']['Insert'] = {
-              id: "ap_example",
-              name: "Optreden FC Eindhoven",
-              category: "Feestje",
-              date: "2025-12-20",
-              time: "21:30",
-              location: "FC Eindhoven",
-              member_ids: [],
-              created_by: "u_admin",
-            };
-            await supabase.from('appointments').insert(defaultAppointment);
-            setAppointments([{
-              id: defaultAppointment.id,
-              name: defaultAppointment.name,
-              category: defaultAppointment.category,
-              date: defaultAppointment.date,
-              time: defaultAppointment.time,
-              location: defaultAppointment.location,
-              memberIds: defaultAppointment.member_ids ?? [],
-              createdAt: new Date().toISOString(),
-              createdBy: defaultAppointment.created_by,
-              status: 'active',
-              forUserId: undefined,
-              confirmed: false,
-              cancelledBy: undefined,
-            }]);
-          }
         }
 
         if (mediaLibraryRes.data) {
