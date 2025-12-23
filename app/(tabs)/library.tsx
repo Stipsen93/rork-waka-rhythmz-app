@@ -575,28 +575,46 @@ export default function LibraryScreen() {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
       }
       
-      console.log('[UPLOAD NATIVE] Preparing binary payload...');
+      console.log('[UPLOAD NATIVE] Reading file...');
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
-      const fileBytes = new Uint8Array(buffer);
+      const bytes = new Uint8Array(buffer);
+      
+      let base64String = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        const binaryString = Array.from(chunk)
+          .map(byte => String.fromCharCode(byte))
+          .join('');
+        base64String += btoa(binaryString);
+      }
 
       console.log('[UPLOAD NATIVE] File size:', blob.size, 'bytes');
-      console.log('[UPLOAD NATIVE] Uploading to media-library bucket...');
 
-      const timestamp = Date.now();
-      const finalFileName = `${timestamp}-${fileName}`;
-      const filePath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('media-library')
-        .upload(filePath, fileBytes, {
-          contentType: mimeType || 'application/octet-stream',
-          upsert: false,
-        });
-      
-      if (uploadError) {
-        throw new Error(`Upload error: ${uploadError.message}`);
+      let fileType = 'other';
+      if (mimeType?.startsWith('video/')) fileType = 'video';
+      else if (mimeType?.startsWith('image/')) fileType = 'image';
+      else if (mimeType?.startsWith('audio/')) fileType = 'audio';
+
+      if (!uploadMediaFromAppState) {
+        throw new Error('Upload functie niet beschikbaar');
       }
+      
+      console.log('[UPLOAD NATIVE] Uploading via tRPC...');
+      await uploadMediaFromAppState({
+        name: fileName,
+        folderPath: currentPath,
+        fileType,
+        fileSize: blob.size,
+        mimeType: mimeType || 'application/octet-stream',
+        base64Data: base64String,
+        onProgress: (progress) => {
+          if (uploadId) {
+            updateProgress(uploadId, progress);
+          }
+        },
+      });
 
       console.log('[UPLOAD NATIVE] Upload successful!');
 
