@@ -1,5 +1,5 @@
 import { createTRPCReact } from "@trpc/react-query";
-import { httpLink } from "@trpc/client";
+import { httpBatchLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { supabase } from "@/lib/supabase";
@@ -101,9 +101,10 @@ const getBaseUrl = () => {
 
 export const trpcClient = trpc.createClient({
   links: [
-    httpLink({
+    httpBatchLink({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
+      maxURLLength: 2083,
       async headers() {
         const { data: { session } } = await supabase.auth.getSession();
         return {
@@ -119,10 +120,10 @@ export const trpcClient = trpc.createClient({
           signal: undefined,
         };
         
-        return fetch(url, modifiedOptions)
-          .then(async (response) => {
+        const attemptFetch = async (retryCount = 0): Promise<Response> => {
+          try {
+            const response = await fetch(url, modifiedOptions);
             console.log("[TRPC RESPONSE] Status:", response.status);
-            console.log("[TRPC RESPONSE] Headers:", JSON.stringify([...response.headers.entries()]));
 
             if (!response.ok) {
               const text = await response.clone().text();
@@ -134,12 +135,21 @@ export const trpcClient = trpc.createClient({
             }
 
             return response;
-          })
-          .catch((error) => {
-            console.error("[TRPC FETCH ERROR]:", error);
-            console.error("[TRPC] Backend might not be running. Make sure the server is started.");
+          } catch (error: any) {
+            console.error(`[TRPC FETCH ERROR] Attempt ${retryCount + 1}:`, error.message);
+            
+            if (retryCount < 2) {
+              console.log(`[TRPC] Retrying in ${(retryCount + 1) * 1000}ms...`);
+              await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000));
+              return attemptFetch(retryCount + 1);
+            }
+            
+            console.error("[TRPC] All retry attempts failed. Backend might not be running.");
             throw error;
-          });
+          }
+        };
+        
+        return attemptFetch();
       },
     }),
   ],
