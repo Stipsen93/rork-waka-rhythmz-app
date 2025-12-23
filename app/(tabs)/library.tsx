@@ -575,44 +575,30 @@ export default function LibraryScreen() {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
       }
       
+      console.log('[UPLOAD NATIVE] Preparing binary payload...');
       const blob = await response.blob();
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (!reader.result) {
-            reject(new Error('FileReader resultaat is leeg'));
-            return;
-          }
-          const result = reader.result as string;
-          const base64 = result.includes(',') ? result.split(',')[1] : result;
-          resolve(base64);
-        };
-        reader.onerror = () => reject(new Error(`FileReader fout: ${reader.error?.message || 'Onbekende fout'}`));
-        reader.readAsDataURL(blob);
-      });
+      const buffer = await blob.arrayBuffer();
+      const fileBytes = new Uint8Array(buffer);
 
-      let fileType = 'other';
-      if (mimeType?.startsWith('video/')) fileType = 'video';
-      else if (mimeType?.startsWith('image/')) fileType = 'image';
-      else if (mimeType?.startsWith('audio/')) fileType = 'audio';
+      console.log('[UPLOAD NATIVE] File size:', blob.size, 'bytes');
+      console.log('[UPLOAD NATIVE] Uploading to media-library bucket...');
 
-      if (!uploadMediaFromAppState) {
-        throw new Error('Upload functie niet beschikbaar');
-      }
+      const timestamp = Date.now();
+      const finalFileName = `${timestamp}-${fileName}`;
+      const filePath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
       
-      await uploadMediaFromAppState({
-        name: fileName,
-        folderPath: currentPath,
-        fileType,
-        fileSize: blob.size,
-        mimeType: mimeType || 'application/octet-stream',
-        base64Data,
-        onProgress: (progress) => {
-          if (uploadId) {
-            updateProgress(uploadId, progress);
-          }
-        },
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('media-library')
+        .upload(filePath, fileBytes, {
+          contentType: mimeType || 'application/octet-stream',
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        throw new Error(`Upload error: ${uploadError.message}`);
+      }
+
+      console.log('[UPLOAD NATIVE] Upload successful!');
 
       if (uploadId) {
         completeUpload(uploadId);
