@@ -1,16 +1,15 @@
 import React, { useState, useCallback } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl, Alert } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
 import { useTrainings } from "@/hooks/useTrainings";
-import { Clock, Video, Music, Calendar, AlertCircle, Trash2, Image as ImageIcon } from "lucide-react-native";
+import { Clock, Video, Music, Calendar, AlertCircle, Image as ImageIcon } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 export default function AssignmentsScreen() {
-  const { assignments, getRecentMedia, clearRecentMediaList, practiceSchedule, announcements, appointments, currentUser, syncAllData, users } = useAppState();
-  const isAdmin = currentUser?.role === 'admin';
+  const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser, syncAllData, users } = useAppState();
   const { trainings, isLoading: trainingsLoading } = useTrainings();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -110,26 +109,6 @@ export default function AssignmentsScreen() {
   }, [resolvedTrainings, practiceSchedule.cancelledDates]);
 
   const nextPractice = React.useMemo(() => getNextPracticeDate(), [getNextPracticeDate]);
-
-  const handleClearRecentMedia = useCallback(() => {
-    Alert.alert(
-      'Recente media wissen',
-      'Weet je zeker dat je de recente media lijst wilt wissen? De bestanden zelf worden niet verwijderd.',
-      [
-        {
-          text: 'Annuleren',
-          style: 'cancel'
-        },
-        {
-          text: 'Wissen',
-          style: 'destructive',
-          onPress: async () => {
-            await clearRecentMediaList();
-          }
-        }
-      ]
-    );
-  }, [clearRecentMediaList]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="assignments-screen">
@@ -231,15 +210,6 @@ export default function AssignmentsScreen() {
                 <Video color={Colors.light.primary} size={20} strokeWidth={2.5} />
               </View>
               <Text style={styles.widgetTitle}>Recente Media</Text>
-              {isAdmin && (
-                <TouchableOpacity 
-                  onPress={handleClearRecentMedia}
-                  style={styles.clearButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Trash2 color={Colors.light.muted} size={16} strokeWidth={2} />
-                </TouchableOpacity>
-              )}
             </View>
             <View style={styles.widgetContent}>
               {recentMedia.length > 0 && (
