@@ -10,6 +10,42 @@ export const trpc = createTRPCReact<AppRouter>();
 
 const sanitizeUrl = (value: string) => value.replace(/\/$/, "");
 
+const ensureProtocol = (raw: string) => {
+  const trimmed = raw.trim();
+  if (/^https?:\/\//.test(trimmed)) {
+    return trimmed;
+  }
+
+  const host = trimmed.replace(/^[^/]+:\/\//, "").split("/")[0].split(":")[0] ?? "";
+  const useHttps = shouldUseHttps(trimmed, host, trimmed.split(":")[1]);
+  return `${useHttps ? "https" : "http"}://${trimmed}`;
+};
+
+const maybeUpgradeToHttps = (rawBaseUrl: string) => {
+  if (Platform.OS !== "web" || typeof window === "undefined") {
+    return rawBaseUrl;
+  }
+
+  const pageProtocol = window.location.protocol;
+  if (pageProtocol !== "https:") {
+    return rawBaseUrl;
+  }
+
+  try {
+    const parsed = new URL(rawBaseUrl);
+    if (parsed.protocol === "http:") {
+      const upgraded = `https://${parsed.host}${parsed.pathname}`;
+      console.warn("[TRPC] Upgrading base URL to HTTPS to avoid mixed content:", upgraded);
+      return upgraded;
+    }
+  } catch {
+    console.warn("[TRPC] Unable to parse base URL for HTTPS upgrade:", rawBaseUrl);
+  }
+
+  return rawBaseUrl;
+};
+
+
 const isLocalHost = (host: string) => {
   if (!host) {
     return false;
@@ -76,26 +112,30 @@ const getBaseUrl = () => {
   }
 
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
-    cachedBaseUrl = sanitizeUrl(process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
+    const raw = ensureProtocol(process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
+    cachedBaseUrl = maybeUpgradeToHttps(sanitizeUrl(raw));
     console.log("[TRPC] Using RORK API URL:", cachedBaseUrl);
+    console.log("[TRPC] Full tRPC URL:", `${cachedBaseUrl}/api/trpc`);
     return cachedBaseUrl;
   }
 
   if (Platform.OS === "web" && typeof window !== "undefined") {
     cachedBaseUrl = sanitizeUrl(`${window.location.protocol}//${window.location.host}`);
     console.log("[TRPC] Using window location as base URL:", cachedBaseUrl);
+    console.log("[TRPC] Full tRPC URL:", `${cachedBaseUrl}/api/trpc`);
     return cachedBaseUrl;
   }
 
   const devServerUrl = deriveDevServerUrl();
   if (devServerUrl) {
-    cachedBaseUrl = sanitizeUrl(devServerUrl);
+    cachedBaseUrl = maybeUpgradeToHttps(sanitizeUrl(devServerUrl));
     console.log("[TRPC] Using dev server host as base URL:", cachedBaseUrl);
+    console.log("[TRPC] Full tRPC URL:", `${cachedBaseUrl}/api/trpc`);
     return cachedBaseUrl;
   }
 
   console.warn("[TRPC] Unable to determine API base URL. Using fallback.");
-  cachedBaseUrl = "http://localhost:8081";
+  cachedBaseUrl = maybeUpgradeToHttps("http://localhost:8081");
   return cachedBaseUrl;
 };
 
@@ -114,9 +154,11 @@ export const trpcClient = trpc.createClient({
       fetch(url, options) {
         console.log("[TRPC FETCH] URL:", url);
         console.log("[TRPC FETCH] Method:", options?.method);
-        
-        const modifiedOptions = {
+        console.log("[TRPC FETCH] Mode:", (options as any)?.mode);
+
+        const modifiedOptions: RequestInit = {
           ...options,
+          mode: "cors",
           signal: undefined,
         };
         
