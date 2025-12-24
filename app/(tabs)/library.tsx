@@ -769,21 +769,21 @@ export default function LibraryScreen() {
           .maybeSingle();
 
         if (existing) {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('media_folders')
-            .update(updateData as any)
+            .update(updateData)
             .eq('folder_path', visibilityItem.path);
 
           if (error) throw error;
         } else {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('media_folders')
             .insert({
               name: visibilityItem.name,
               folder_path: visibilityItem.path,
               parent_path: currentPath || null,
               ...updateData,
-            } as any);
+            });
 
           if (error) throw error;
         }
@@ -795,14 +795,14 @@ export default function LibraryScreen() {
           .maybeSingle();
 
         if (existing) {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('media_library')
-            .update(updateData as any)
+            .update(updateData)
             .eq('path', visibilityItem.path);
 
           if (error) throw error;
         } else {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('media_library')
             .insert({
               name: visibilityItem.name,
@@ -813,7 +813,7 @@ export default function LibraryScreen() {
               mime_type: visibilityItem.mimeType,
               storage_path: visibilityItem.path,
               ...updateData,
-            } as any);
+            });
 
           if (error) throw error;
         }
