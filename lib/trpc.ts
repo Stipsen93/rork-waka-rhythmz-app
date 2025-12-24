@@ -45,6 +45,26 @@ const maybeUpgradeToHttps = (rawBaseUrl: string) => {
   return rawBaseUrl;
 };
 
+const normalizeBaseUrl = (rawBaseUrl: string) => {
+  const sanitized = sanitizeUrl(rawBaseUrl.trim());
+  if (!sanitized) {
+    return sanitized;
+  }
+
+  if (sanitized.endsWith("/api")) {
+    return sanitized.slice(0, -4);
+  }
+
+  return sanitized;
+};
+
+const buildTrpcUrl = (rawBaseUrl: string) => {
+  const normalized = normalizeBaseUrl(rawBaseUrl);
+  if (!normalized) {
+    return "";
+  }
+  return `${normalized}/api/trpc`;
+};
 
 const isLocalHost = (host: string) => {
   if (!host) {
@@ -113,84 +133,105 @@ const getBaseUrl = () => {
 
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     const raw = ensureProtocol(process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
-    cachedBaseUrl = maybeUpgradeToHttps(sanitizeUrl(raw));
+    cachedBaseUrl = maybeUpgradeToHttps(normalizeBaseUrl(raw));
     console.log("[TRPC] Using RORK API URL:", cachedBaseUrl);
-    console.log("[TRPC] Full tRPC URL:", `${cachedBaseUrl}/api/trpc`);
+    console.log("[TRPC] Full tRPC URL:", buildTrpcUrl(cachedBaseUrl));
     return cachedBaseUrl;
   }
 
   if (Platform.OS === "web" && typeof window !== "undefined") {
-    cachedBaseUrl = sanitizeUrl(`${window.location.protocol}//${window.location.host}`);
+    cachedBaseUrl = normalizeBaseUrl(`${window.location.protocol}//${window.location.host}`);
     console.log("[TRPC] Using window location as base URL:", cachedBaseUrl);
-    console.log("[TRPC] Full tRPC URL:", `${cachedBaseUrl}/api/trpc`);
+    console.log("[TRPC] Full tRPC URL:", buildTrpcUrl(cachedBaseUrl));
     return cachedBaseUrl;
   }
 
   const devServerUrl = deriveDevServerUrl();
   if (devServerUrl) {
-    cachedBaseUrl = maybeUpgradeToHttps(sanitizeUrl(devServerUrl));
+    cachedBaseUrl = maybeUpgradeToHttps(normalizeBaseUrl(devServerUrl));
     console.log("[TRPC] Using dev server host as base URL:", cachedBaseUrl);
-    console.log("[TRPC] Full tRPC URL:", `${cachedBaseUrl}/api/trpc`);
+    console.log("[TRPC] Full tRPC URL:", buildTrpcUrl(cachedBaseUrl));
     return cachedBaseUrl;
   }
 
   console.warn("[TRPC] Unable to determine API base URL. Using fallback.");
-  cachedBaseUrl = maybeUpgradeToHttps("http://localhost:8081");
+  cachedBaseUrl = maybeUpgradeToHttps(normalizeBaseUrl("http://localhost:8081"));
   return cachedBaseUrl;
 };
 
 export const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: `${getBaseUrl()}/api/trpc`,
+      url: buildTrpcUrl(getBaseUrl()),
       transformer: superjson,
       maxURLLength: 2083,
       async headers() {
-        const { data: { session } } = await supabase.auth.getSession();
-        return {
-          authorization: session?.access_token ? `Bearer ${session.access_token}` : "",
-        };
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          return {
+            authorization: session?.access_token ? `Bearer ${session.access_token}` : "",
+          };
+        } catch (err) {
+          console.error("[TRPC HEADERS] Failed to read Supabase session:", err);
+          return { authorization: "" };
+        }
       },
       fetch(url, options) {
-        console.log("[TRPC FETCH] URL:", url);
+        const baseUrl = getBaseUrl();
+        const intendedTrpcUrl = buildTrpcUrl(baseUrl);
+        const finalUrl = typeof url === "string" ? url : String(url);
+
+        console.log("[TRPC FETCH] Base URL:", baseUrl);
+        console.log("[TRPC FETCH] Intended tRPC URL:", intendedTrpcUrl);
+        console.log("[TRPC FETCH] Final URL:", finalUrl);
         console.log("[TRPC FETCH] Method:", options?.method);
-        console.log("[TRPC FETCH] Mode:", (options as any)?.mode);
 
         const modifiedOptions: RequestInit = {
           ...options,
-          mode: "cors",
-          signal: undefined,
+          ...(Platform.OS === "web" ? { mode: "cors" as const } : null),
         };
-        
+
         const attemptFetch = async (retryCount = 0): Promise<Response> => {
           try {
-            const response = await fetch(url, modifiedOptions);
+            const response = await fetch(finalUrl, modifiedOptions);
             console.log("[TRPC RESPONSE] Status:", response.status);
 
             if (!response.ok) {
               const text = await response.clone().text();
               console.error("[TRPC RESPONSE] Error body:", text.substring(0, 500));
-              
+
               if (text.includes("<!DOCTYPE html>") || text.includes("<html>")) {
-                console.error("[TRPC] Received HTML instead of JSON. Backend may not be running or URL is incorrect.");
+                console.error(
+                  "[TRPC] Received HTML instead of JSON. Backend may not be running or base URL is incorrect.",
+                );
               }
             }
 
             return response;
           } catch (error: any) {
-            console.error(`[TRPC FETCH ERROR] Attempt ${retryCount + 1}:`, error.message);
-            
+            const message = String(error?.message ?? error);
+            console.error(`[TRPC FETCH ERROR] Attempt ${retryCount + 1}:`, message);
+
             if (retryCount < 2) {
-              console.log(`[TRPC] Retrying in ${(retryCount + 1) * 1000}ms...`);
-              await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000));
+              const delayMs = (retryCount + 1) * 1000;
+              console.log(`[TRPC] Retrying in ${delayMs}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
               return attemptFetch(retryCount + 1);
             }
-            
+
             console.error("[TRPC] All retry attempts failed. Backend might not be running.");
+            console.error("[TRPC] Debug info:", {
+              platform: Platform.OS,
+              baseUrl,
+              intendedTrpcUrl,
+              finalUrl,
+            });
             throw error;
           }
         };
-        
+
         return attemptFetch();
       },
     }),
