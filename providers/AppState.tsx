@@ -1933,7 +1933,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     base64Data: string;
     onProgress?: (progress: number) => void;
   }): Promise<MediaLibraryItem> => {
-    console.log('💾 [UPLOAD] Uploading media directly to Supabase...');
+    console.log('💾 [UPLOAD] Uploading media via backend (tRPC)...');
     console.log('💾 [UPLOAD] Input:', {
       name: input.name,
       folderPath: input.folderPath,
@@ -1942,96 +1942,48 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       mimeType: input.mimeType,
       base64Length: input.base64Data.length,
     });
-    
+
     try {
-      if (input.onProgress) {
-        input.onProgress(10);
-      }
-      
-      const storagePath = input.folderPath ? `${input.folderPath}/${input.name}` : input.name;
-      
-      const binaryString = atob(input.base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      
-      if (input.onProgress) {
-        input.onProgress(30);
-      }
-      
-      console.log('💾 [UPLOAD] Uploading to storage path:', storagePath);
-      const { error: uploadError } = await supabase.storage
-        .from('media-library')
-        .upload(storagePath, bytes, {
-          contentType: input.mimeType,
-          upsert: false,
-        });
-      
-      if (uploadError) {
-        console.error('❌ [UPLOAD] Storage upload error:', uploadError);
-        throw uploadError;
-      }
-      
-      if (input.onProgress) {
-        input.onProgress(70);
-      }
-      
-      console.log('💾 [UPLOAD] Storage upload successful, creating database entry...');
-      
-      const mediaId = genId('m');
-      const mediaItem: MediaLibraryItem = {
-        id: mediaId,
+      input.onProgress?.(10);
+
+      const base64Data = input.base64Data.includes(',') ? input.base64Data.split(',')[1] : input.base64Data;
+
+      input.onProgress?.(40);
+
+      const result = await trpcClient.media.uploadMedia.mutate({
         name: input.name,
-        path: storagePath,
-        folder_path: input.folderPath,
-        file_type: input.fileType,
-        file_size: input.fileSize,
-        mime_type: input.mimeType,
-        storage_path: storagePath,
-        uploaded_by: currentUser?.id ?? null,
-        created_at: new Date().toISOString(),
+        folderPath: input.folderPath,
+        fileType: input.fileType,
+        fileSize: input.fileSize,
+        mimeType: input.mimeType,
+        base64Data,
+        uploadedBy: currentUser?.id ?? undefined,
+      });
+
+      input.onProgress?.(85);
+
+      const mediaItem: MediaLibraryItem = {
+        id: result.id,
+        name: result.name,
+        path: result.path,
+        folder_path: result.folder_path,
+        file_type: result.file_type,
+        file_size: result.file_size,
+        mime_type: result.mime_type,
+        storage_path: result.storage_path,
+        uploaded_by: result.uploaded_by ?? null,
+        created_at: result.created_at,
       };
-      
-      const insertData: Database['public']['Tables']['media_library']['Insert'] = {
-        id: mediaItem.id,
-        name: mediaItem.name,
-        path: mediaItem.path,
-        folder_path: mediaItem.folder_path,
-        file_type: mediaItem.file_type,
-        file_size: mediaItem.file_size,
-        mime_type: mediaItem.mime_type,
-        storage_path: mediaItem.storage_path,
-        uploaded_by: mediaItem.uploaded_by,
-      };
-      
-      const { error: dbError } = await supabase.from('media_library').insert(insertData);
-      if (dbError) {
-        console.error('❌ [UPLOAD] Database insert error:', dbError);
-        await supabase.storage.from('media-library').remove([storagePath]);
-        throw dbError;
-      }
-      
-      if (input.onProgress) {
-        input.onProgress(90);
-      }
-      
-      setMediaLibrary(prev => [mediaItem, ...prev]);
+
+      setMediaLibrary((prev) => [mediaItem, ...prev]);
       await refreshStorageUsage();
-      
-      if (input.onProgress) {
-        input.onProgress(100);
-      }
-      
-      console.log('✅ [UPLOAD] Media uploaded successfully');
+
+      input.onProgress?.(100);
+
+      console.log('✅ [UPLOAD] Media uploaded successfully (tRPC)');
       return mediaItem;
     } catch (error: any) {
-      console.error('❌ [UPLOAD] Upload error:', error);
-      console.error('❌ [UPLOAD] Error details:', JSON.stringify({
-        message: error?.message,
-        cause: error?.cause,
-        name: error?.name,
-      }));
+      console.error('❌ [UPLOAD] Upload error (tRPC):', error);
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
   }, [currentUser, refreshStorageUsage]);

@@ -24,7 +24,7 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
-  const { addAssignment, updateAssignment, users, groups } = useAppState();
+  const { addAssignment, updateAssignment, users, groups, uploadMedia } = useAppState();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState<string>(editingAssignment?.title ?? "");
   const [description, setDescription] = useState<string>(editingAssignment?.description ?? "");
@@ -96,70 +96,69 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
   const pickAndUploadMedia = async () => {
     try {
       setIsUploading(true);
+
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'video/*', 'audio/*'],
         copyToCacheDirectory: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
-        setIsUploading(false);
         return;
       }
 
       const file = result.assets[0];
-      
+
       if (file.size && file.size > MAX_FILE_SIZE) {
-        Alert.alert("Bestand te groot", `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
-        setIsUploading(false);
+        Alert.alert(
+          "Bestand te groot",
+          `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+        );
         return;
       }
-      
-      const fileType = file.mimeType?.startsWith('video/')
+
+      const mimeType = file.mimeType || 'application/octet-stream';
+      const fileType = mimeType.startsWith('video/')
         ? 'video'
-        : file.mimeType?.startsWith('image/')
+        : mimeType.startsWith('image/')
           ? 'image'
-          : file.mimeType?.startsWith('audio/')
+          : mimeType.startsWith('audio/')
             ? 'audio'
             : 'other';
 
-      console.log('[ASSIGNMENT UPLOAD] File size:', file.size, 'bytes');
-      console.log('[ASSIGNMENT UPLOAD] Preparing binary payload...');
+      console.log('[ASSIGNMENT MEDIA] reading file bytes...');
       const response = await fetch(file.uri);
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
-      const fileBytes = new Uint8Array(buffer);
+      const bytes = new Uint8Array(buffer);
 
-      console.log('[ASSIGNMENT UPLOAD] Uploading to assignment-submissions bucket...');
-      
-      const fileName = `${Date.now()}-${file.name}`;
-      const filePath = `assignments/${fileName}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('assignment-submissions')
-        .upload(filePath, fileBytes, {
-          contentType: file.mimeType || 'application/octet-stream',
-          upsert: false,
-        });
-      
-      if (uploadError) {
-        throw new Error(`Upload error: ${uploadError.message}`);
+      console.log('[ASSIGNMENT MEDIA] converting to base64...');
+      let base64String = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        const binaryString = Array.from(chunk)
+          .map(byte => String.fromCharCode(byte))
+          .join('');
+        base64String += btoa(binaryString);
       }
-      
-      const { data } = supabase.storage
-        .from('assignment-submissions')
-        .getPublicUrl(uploadData.path);
 
+      console.log('[ASSIGNMENT MEDIA] uploading via AppState.uploadMedia...');
+      const uploaded = await uploadMedia({
+        name: file.name,
+        folderPath: 'assignments',
+        fileType,
+        fileSize: blob.size,
+        mimeType,
+        base64Data: base64String,
+      });
+
+      const { data } = supabase.storage.from('media-library').getPublicUrl(uploaded.storage_path);
       setMediaUri(data.publicUrl);
 
-      if (fileType === 'video') {
-        setMediaType('video');
-      } else if (fileType === 'image') {
-        setMediaType('image');
-      } else if (fileType === 'audio') {
-        setMediaType('audio');
-      } else {
-        setMediaType(undefined);
-      }
+      if (fileType === 'video') setMediaType('video');
+      else if (fileType === 'image') setMediaType('image');
+      else if (fileType === 'audio') setMediaType('audio');
+      else setMediaType(undefined);
 
       Alert.alert("Succes", "Media is succesvol geüpload!");
     } catch (error) {
