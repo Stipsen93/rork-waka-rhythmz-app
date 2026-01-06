@@ -436,7 +436,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       ]);
 
       if (usersRes.data) {
-        const mappedUsers = usersRes.data.map(u => ({
+        const mappedUsers = usersRes.data.map((u: any) => ({
           id: u.id,
           username: u.username,
           password: u.password,
