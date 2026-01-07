@@ -58,12 +58,43 @@ const normalizeBaseUrl = (rawBaseUrl: string) => {
   return sanitized;
 };
 
-const buildTrpcUrl = (rawBaseUrl: string) => {
+export const buildTrpcUrl = (rawBaseUrl: string) => {
   const normalized = normalizeBaseUrl(rawBaseUrl);
   if (!normalized) {
     return "";
   }
   return `${normalized}/api/trpc`;
+};
+
+const maskSecret = (value: string) => {
+  const trimmed = value.trim();
+  if (trimmed.length <= 12) {
+    return `${trimmed.slice(0, 3)}…${trimmed.slice(-2)}`;
+  }
+  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
+};
+
+const logEnvPresence = () => {
+  const apiBase = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+  console.log("[ENV] EXPO_PUBLIC_RORK_API_BASE_URL:", apiBase ? maskSecret(apiBase) : "<missing>");
+
+  const supaUrl = (process.env as Record<string, string | undefined>).EXPO_PUBLIC_SUPABASE_URL;
+  const supaAnon = (process.env as Record<string, string | undefined>).EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  console.log("[ENV] EXPO_PUBLIC_SUPABASE_URL:", supaUrl ? sanitizeUrl(supaUrl) : "<missing>");
+  console.log("[ENV] EXPO_PUBLIC_SUPABASE_ANON_KEY:", supaAnon ? maskSecret(supaAnon) : "<missing>");
+
+  const nextPublicSupaUrl = (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SUPABASE_URL;
+  const nextPublicSupaAnon = (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  console.log("[ENV] NEXT_PUBLIC_SUPABASE_URL:", nextPublicSupaUrl ? sanitizeUrl(nextPublicSupaUrl) : "<missing>");
+  console.log("[ENV] NEXT_PUBLIC_SUPABASE_ANON_KEY:", nextPublicSupaAnon ? maskSecret(nextPublicSupaAnon) : "<missing>");
+
+  const supabaseUrl = (process.env as Record<string, string | undefined>).SUPABASE_URL;
+  const supabaseService = (process.env as Record<string, string | undefined>).SUPABASE_SERVICE_ROLE_KEY;
+
+  console.log("[ENV] SUPABASE_URL:", supabaseUrl ? sanitizeUrl(supabaseUrl) : "<missing>");
+  console.log("[ENV] SUPABASE_SERVICE_ROLE_KEY:", supabaseService ? maskSecret(supabaseService) : "<missing>");
 };
 
 const isLocalHost = (host: string) => {
@@ -126,10 +157,12 @@ const deriveDevServerUrl = () => {
 
 let cachedBaseUrl: string | null = null;
 
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
+
+  logEnvPresence();
 
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     const raw = ensureProtocol(process.env.EXPO_PUBLIC_RORK_API_BASE_URL);

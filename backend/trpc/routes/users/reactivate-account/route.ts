@@ -17,7 +17,7 @@ export const reactivateAccountProcedure = publicProcedure
         deleted_at: null,
         password: input.newPassword,
         password_changed_by_user: false
-      })
+      } as any)
       .eq('id', input.userId);
     
     if (error) {

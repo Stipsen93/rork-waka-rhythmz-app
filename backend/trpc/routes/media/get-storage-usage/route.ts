@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/backend/supabaseAdmin";
 
 export const getStorageUsageRoute = publicProcedure.query(async () => {
   console.log('[Media] Getting storage usage from media-library bucket');

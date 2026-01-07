@@ -18,15 +18,17 @@ export const requestPasswordResetProcedure = publicProcedure
       .eq("username", username.trim())
       .single();
 
-    if (userError || !users) {
+    const userRow = users as any;
+
+    if (userError || !userRow) {
       return { success: false, message: "User not found" };
     }
 
     const { error } = await supabase.from("password_reset_requests").insert({
-      user_id: users.id,
+      user_id: userRow.id,
       requested_username: username.trim(),
       device_last_login: deviceLastLogin || null,
-    });
+    } as any);
 
     if (error) {
       console.error("Error creating password reset request:", error);

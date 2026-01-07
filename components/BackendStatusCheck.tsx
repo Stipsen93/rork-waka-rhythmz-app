@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Colors from '@/constants/colors';
+import { getBaseUrl } from '@/lib/trpc';
 
 export function BackendStatusCheck() {
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
@@ -9,12 +10,11 @@ export function BackendStatusCheck() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL || 
-                       (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : 'http://localhost:8081');
-        
-        console.log('[BACKEND CHECK] Testing:', `${baseUrl}/api`);
-        
-        const response = await fetch(`${baseUrl}/api`, {
+        const baseUrl = getBaseUrl();
+
+        console.log('[BACKEND CHECK] Testing:', `${baseUrl}/healthz`);
+
+        const response = await fetch(`${baseUrl}/healthz`, {
           method: 'GET',
           headers: { 'Accept': 'application/json' }
         });

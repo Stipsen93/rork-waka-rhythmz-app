@@ -20,11 +20,32 @@ app.use("*", async (c, next) => {
   console.log('[HONO RESPONSE]', c.res.status);
 });
 
-app.use("*", cors({
-  origin: '*',
-  allowHeaders: ['Content-Type', 'Authorization'],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-}));
+app.options("*", (c) => {
+  const origin = c.req.header("origin") ?? "*";
+  c.header("Access-Control-Allow-Origin", origin);
+  c.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  c.header(
+    "Access-Control-Allow-Headers",
+    "content-type,authorization,x-client-info,apikey",
+  );
+  c.header("Access-Control-Allow-Credentials", "true");
+  return c.body(null, 204);
+});
+
+app.use(
+  "*",
+  cors({
+    origin: (origin) => origin ?? "*",
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-client-info",
+      "apikey",
+    ],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  }),
+);
 
 app.use(
   "/api/trpc/*",
@@ -42,6 +63,10 @@ app.use(
 
 app.get("/", (c) => {
   return c.json({ status: "ok", message: "API is running" });
+});
+
+app.get("/healthz", (c) => {
+  return c.json({ ok: true });
 });
 
 app.onError((err, c) => {

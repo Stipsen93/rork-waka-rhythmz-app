@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/backend/supabaseAdmin";
 
 export const getFoldersRoute = publicProcedure.query(async () => {
   console.log('[Media] Getting all folders');
@@ -16,7 +16,7 @@ export const getFoldersRoute = publicProcedure.query(async () => {
   
   const folderSet = new Set<string>();
   
-  foldersFromDb?.forEach((folder: { folder_path: string }) => {
+  (foldersFromDb as any[] | null | undefined)?.forEach((folder: any) => {
     folderSet.add(folder.folder_path);
   });
   
@@ -25,7 +25,7 @@ export const getFoldersRoute = publicProcedure.query(async () => {
     .select('folder_path');
   
   if (!mediaError && mediaFiles) {
-    mediaFiles.forEach((item: { folder_path: string | null }) => {
+    (mediaFiles as any[]).forEach((item: any) => {
       if (item.folder_path) {
         const parts = item.folder_path.split('/').filter(Boolean);
         let currentPath = '';

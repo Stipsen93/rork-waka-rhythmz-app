@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/backend/supabaseAdmin";
 import { z } from "zod";
 import type { Database } from "@/lib/database.types";
 import { TRPCError } from "@trpc/server";

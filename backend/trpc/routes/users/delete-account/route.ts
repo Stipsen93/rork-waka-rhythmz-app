@@ -14,7 +14,7 @@ export const deleteAccountProcedure = publicProcedure
       .update({ 
         deleted_by_user: true,
         deleted_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', input.userId);
     
     if (error) {

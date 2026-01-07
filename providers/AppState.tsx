@@ -173,6 +173,25 @@ export interface NotificationSettings {
   performancesHoursAdvance: number;
 }
 
+type TranslationsDict = typeof translations.nl | typeof translations.en;
+
+function toNotificationSettings(raw: any | null | undefined): NotificationSettings {
+  return {
+    newsEnabled: raw?.news_enabled ?? true,
+    newsReminderEnabled: raw?.news_reminder_enabled ?? true,
+    newsHoursAdvance: raw?.news_hours_advance ?? 24,
+    assignmentsEnabled: raw?.assignments_enabled ?? true,
+    assignmentsReminderEnabled: raw?.assignments_reminder_enabled ?? false,
+    assignmentsHoursAdvance: raw?.assignments_hours_advance ?? 24,
+    trainingCancellationEnabled: raw?.training_cancellation_enabled ?? true,
+    trainingsReminderEnabled: raw?.trainings_reminder_enabled ?? true,
+    trainingHoursAdvance: raw?.training_hours_advance ?? 2,
+    performancesEnabled: raw?.performances_enabled ?? true,
+    performancesReminderEnabled: raw?.performances_reminder_enabled ?? true,
+    performancesHoursAdvance: raw?.performances_hours_advance ?? 48,
+  };
+}
+
 export interface MediaLibraryItem {
   id: string;
   name: string;
@@ -205,7 +224,7 @@ export interface AppStateValue {
   currentUser: User | null;
   isInitialized: boolean;
   language: Language;
-  t: typeof translations['nl'];
+  t: TranslationsDict;
   setLanguage: (lang: Language) => Promise<void>;
   biometricEnabled: boolean;
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
@@ -436,7 +455,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       ]);
 
       if (usersRes.data) {
-        const mappedUsers = usersRes.data.map((u: any) => ({
+        const mappedUsers = (usersRes.data as any[]).map((u: any) => ({
           id: u.id,
           username: u.username,
           password: u.password,
@@ -460,7 +479,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }
 
       if (assignmentsRes.data) {
-        setAssignments(assignmentsRes.data.map(a => ({
+        setAssignments((assignmentsRes.data as any[]).map((a: any) => ({
           id: a.id,
           title: a.title,
           description: a.description,
@@ -476,7 +495,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }
 
       if (announcementsRes.data) {
-        setAnnouncements(announcementsRes.data.map(a => ({
+        setAnnouncements((announcementsRes.data as any[]).map((a: any) => ({
           id: a.id,
           name: a.name,
           description: a.description,
@@ -507,7 +526,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           regularDays: (scheduleRes.data.regular_days as any) ?? [],
           location: scheduleRes.data.location,
           cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
-          isActive: scheduleRes.data.is_active,
+          isActive: scheduleRes.data.is_active ?? true,
           trainings: trainingsRes.data.map(t => ({
             id: t.id,
             name: t.name,
@@ -522,15 +541,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }
 
       if (settingsRes.data) {
-        setNotificationSettings({
-          newsEnabled: settingsRes.data.news_enabled,
-          newsHoursAdvance: settingsRes.data.news_hours_advance,
-          assignmentsEnabled: settingsRes.data.assignments_enabled,
-          trainingCancellationEnabled: settingsRes.data.training_cancellation_enabled,
-          trainingHoursAdvance: settingsRes.data.training_hours_advance,
-          performancesEnabled: settingsRes.data.performances_enabled,
-          performancesHoursAdvance: settingsRes.data.performances_hours_advance,
-        });
+        setNotificationSettings(toNotificationSettings(settingsRes.data));
       }
 
       if (mediaLibraryRes.data) {
@@ -694,7 +705,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             regularDays: (scheduleRes.data.regular_days as any) ?? [],
             location: scheduleRes.data.location,
             cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
-            isActive: scheduleRes.data.is_active,
+            isActive: scheduleRes.data.is_active ?? true,
             trainings: trainingsRes.data.map(t => ({
               id: t.id,
               name: t.name,
@@ -728,7 +739,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             regularDays: (defaultSchedule.regular_days as any) ?? [],
             location: defaultSchedule.location,
             cancelledDates: (defaultSchedule.cancelled_dates as any) ?? [],
-            isActive: defaultSchedule.is_active,
+            isActive: defaultSchedule.is_active ?? true,
             trainings: defaultTrainings.map(t => ({
               id: t.training_id ?? '',
               name: t.name,
@@ -799,15 +810,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         }
 
         if (settingsRes.data) {
-          setNotificationSettings({
-            newsEnabled: settingsRes.data.news_enabled,
-            newsHoursAdvance: settingsRes.data.news_hours_advance,
-            assignmentsEnabled: settingsRes.data.assignments_enabled,
-            trainingCancellationEnabled: settingsRes.data.training_cancellation_enabled,
-            trainingHoursAdvance: settingsRes.data.training_hours_advance,
-            performancesEnabled: settingsRes.data.performances_enabled,
-            performancesHoursAdvance: settingsRes.data.performances_hours_advance,
-          });
+          setNotificationSettings(toNotificationSettings(settingsRes.data));
         } else {
           const defaultSettings: Database['public']['Tables']['notification_settings']['Insert'] = {
             news_enabled: true,
@@ -819,15 +822,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             performances_hours_advance: 48,
           };
           await supabase.from('notification_settings').insert(defaultSettings);
-          setNotificationSettings({
-            newsEnabled: defaultSettings.news_enabled,
-            newsHoursAdvance: defaultSettings.news_hours_advance,
-            assignmentsEnabled: defaultSettings.assignments_enabled,
-            trainingCancellationEnabled: defaultSettings.training_cancellation_enabled,
-            trainingHoursAdvance: defaultSettings.training_hours_advance,
-            performancesEnabled: defaultSettings.performances_enabled,
-            performancesHoursAdvance: defaultSettings.performances_hours_advance,
-          });
+          setNotificationSettings(toNotificationSettings(defaultSettings));
         }
 
         console.log('✅ Data loaded from Supabase');
@@ -984,7 +979,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               regularDays: (scheduleRes.data.regular_days as any) ?? [],
               location: scheduleRes.data.location,
               cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
-              isActive: scheduleRes.data.is_active,
+              isActive: scheduleRes.data.is_active ?? true,
               trainings: trainingsRes.data
                 .filter(t => !t.deleted_at)
                 .map(t => ({
@@ -1016,7 +1011,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               regularDays: (scheduleRes.data.regular_days as any) ?? [],
               location: scheduleRes.data.location,
               cancelledDates: (scheduleRes.data.cancelled_dates as any) ?? [],
-              isActive: scheduleRes.data.is_active,
+              isActive: scheduleRes.data.is_active ?? true,
               trainings: trainingsRes.data
                 .filter(t => !t.deleted_at)
                 .map(t => ({
@@ -1041,15 +1036,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
         console.log('🔄 Settings changed, reloading...');
         supabase.from('notification_settings').select('*').single().then(res => {
           if (res.data) {
-            setNotificationSettings({
-              newsEnabled: res.data.news_enabled,
-              newsHoursAdvance: res.data.news_hours_advance,
-              assignmentsEnabled: res.data.assignments_enabled,
-              trainingCancellationEnabled: res.data.training_cancellation_enabled,
-              trainingHoursAdvance: res.data.training_hours_advance,
-              performancesEnabled: res.data.performances_enabled,
-              performancesHoursAdvance: res.data.performances_hours_advance,
-            });
+            setNotificationSettings(toNotificationSettings(res.data));
           }
         });
       })
@@ -2346,7 +2333,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     currentUser,
     isInitialized,
     language,
-    t: translations[language],
+    t: translations[language] as TranslationsDict,
     setLanguage,
     biometricEnabled,
     setBiometricEnabled,

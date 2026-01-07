@@ -18,7 +18,7 @@ export function useProfiles() {
 
       if (error) throw error;
 
-      return data.map((p): UserProfile & { passwordChangedByUser: boolean } => ({
+      return (data as any[]).map((p: any): UserProfile & { passwordChangedByUser: boolean } => ({
         id: p.id,
         email: p.email,
         role: p.role as 'admin' | 'member',

@@ -1,4 +1,4 @@
-import { createTRPCRouter } from "@/backend/trpc/create-context";
+import { createTRPCRouter, publicProcedure } from "@/backend/trpc/create-context";
 import hiRoute from "@/backend/trpc/routes/example/hi/route";
 import { getStorageUsageRoute } from "@/backend/trpc/routes/media/get-storage-usage/route";
 import { getMediaListRoute } from "@/backend/trpc/routes/media/get-media-list/route";
@@ -16,6 +16,9 @@ import { getUserTokensProcedure } from "@/backend/trpc/routes/notifications/get-
 import { sendNotificationProcedure } from "@/backend/trpc/routes/notifications/send-notification/route";
 
 export const appRouter = createTRPCRouter({
+  ping: publicProcedure.query(() => {
+    return { pong: true, now: new Date().toISOString() };
+  }),
   example: createTRPCRouter({
     hi: hiRoute,
   }),

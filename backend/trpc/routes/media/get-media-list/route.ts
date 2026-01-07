@@ -1,5 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/backend/supabaseAdmin";
 import { z } from "zod";
 
 export const getMediaListRoute = publicProcedure
@@ -22,5 +22,5 @@ export const getMediaListRoute = publicProcedure
     
     console.log(`[Media] Found ${data?.length || 0} items`);
     
-    return data || [];
+    return (data ?? []) as any[];
   });
