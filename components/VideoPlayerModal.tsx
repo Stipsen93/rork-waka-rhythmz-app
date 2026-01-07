@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder } from 'react-native';
+import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
-import { Pause, Play, X, Volume2 } from 'lucide-react-native';
+import { Pause, Play, X, Volume2, Download } from 'lucide-react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -23,6 +25,7 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio =
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [progressBarLayout, setProgressBarLayout] = useState({ x: 0, width: 0 });
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const controlsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -177,6 +180,43 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio =
     onClose();
   };
 
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    
+    try {
+      setIsDownloading(true);
+      console.log('[VideoPlayer] Starting download:', videoUrl);
+      
+      if (Platform.OS === 'web') {
+        const link = document.createElement('a');
+        link.href = videoUrl;
+        link.download = isAudio ? 'audio.mp3' : 'video.mp4';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        Alert.alert('Download gestart', 'Het bestand wordt gedownload');
+      } else {
+        const filename = `media_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`;
+        const destination = new File(Paths.cache, filename);
+        
+        const downloadedFile = await File.downloadFileAsync(videoUrl, destination, { idempotent: true });
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadedFile.uri);
+        } else {
+          Alert.alert('Download voltooid', `Bestand opgeslagen: ${filename}`);
+        }
+      }
+      
+      console.log('[VideoPlayer] Download completed');
+    } catch (error) {
+      console.error('[VideoPlayer] Download error:', error);
+      Alert.alert('Download mislukt', 'Er is een fout opgetreden bij het downloaden');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsPlaying(status.isPlaying);
@@ -300,14 +340,29 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio =
                 }
               ]}
             >
-              <Pressable 
-                style={styles.closeButton}
-                onPress={handleClose}
-              >
-                <View style={styles.closeButtonInner}>
-                  <X color="#ffffff" size={24} strokeWidth={2.5} />
-                </View>
-              </Pressable>
+              <View style={styles.topButtons}>
+                <Pressable 
+                  style={styles.topButton}
+                  onPress={handleDownload}
+                  disabled={isDownloading}
+                >
+                  <View style={styles.topButtonInner}>
+                    {isDownloading ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Download color="#ffffff" size={24} strokeWidth={2.5} />
+                    )}
+                  </View>
+                </Pressable>
+                <Pressable 
+                  style={styles.topButton}
+                  onPress={handleClose}
+                >
+                  <View style={styles.topButtonInner}>
+                    <X color="#ffffff" size={24} strokeWidth={2.5} />
+                  </View>
+                </Pressable>
+              </View>
 
               <Pressable 
                 style={styles.playButton}
@@ -424,13 +479,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeButton: {
+  topButtons: {
     position: 'absolute',
     top: 50,
     right: 20,
     zIndex: 10,
+    flexDirection: 'row',
+    gap: 12,
   },
-  closeButtonInner: {
+  topButton: {
+    width: 44,
+    height: 44,
+  },
+  topButtonInner: {
     width: 44,
     height: 44,
     borderRadius: 22,

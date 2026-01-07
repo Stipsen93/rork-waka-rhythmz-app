@@ -1,7 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, Modal, Pressable, PanResponder, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Modal, Pressable, PanResponder, Animated, Dimensions, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { X } from 'lucide-react-native';
+import { X, Download } from 'lucide-react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import Colors from '@/constants/colors';
 
 type ImageViewerModalProps = {
@@ -20,6 +22,7 @@ export default function ImageViewerModal({ visible, imageUrl, onClose }: ImageVi
   const [currentScale, setCurrentScale] = useState(1);
   const [currentTranslateX, setCurrentTranslateX] = useState(0);
   const [currentTranslateY, setCurrentTranslateY] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const lastScale = useRef(1);
   const lastTranslateX = useRef(0);
@@ -46,6 +49,43 @@ export default function ImageViewerModal({ visible, imageUrl, onClose }: ImageVi
     resetZoom();
     onClose();
   }, [resetZoom, onClose]);
+
+  const handleDownload = useCallback(async () => {
+    if (isDownloading) return;
+    
+    try {
+      setIsDownloading(true);
+      console.log('[ImageViewer] Starting download:', imageUrl);
+      
+      if (Platform.OS === 'web') {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = 'image.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        Alert.alert('Download gestart', 'Het bestand wordt gedownload');
+      } else {
+        const filename = `image_${Date.now()}.jpg`;
+        const destination = new File(Paths.cache, filename);
+        
+        const downloadedFile = await File.downloadFileAsync(imageUrl, destination, { idempotent: true });
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadedFile.uri);
+        } else {
+          Alert.alert('Download voltooid', `Bestand opgeslagen: ${filename}`);
+        }
+      }
+      
+      console.log('[ImageViewer] Download completed');
+    } catch (error) {
+      console.error('[ImageViewer] Download error:', error);
+      Alert.alert('Download mislukt', 'Er is een fout opgetreden bij het downloaden');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [imageUrl, isDownloading]);
 
   const calculateDistance = (touches: any[]) => {
     const [touch1, touch2] = touches;
@@ -144,14 +184,29 @@ export default function ImageViewerModal({ visible, imageUrl, onClose }: ImageVi
       <View style={styles.container}>
         <Pressable style={styles.backdrop} onPress={handleClose} />
         
-        <Pressable 
-          style={styles.closeButton}
-          onPress={handleClose}
-        >
-          <View style={styles.closeButtonBg}>
-            <X color={Colors.light.text} size={24} strokeWidth={2.5} />
-          </View>
-        </Pressable>
+        <View style={styles.topButtons}>
+          <Pressable 
+            style={styles.topButton}
+            onPress={handleDownload}
+            disabled={isDownloading}
+          >
+            <View style={styles.topButtonBg}>
+              {isDownloading ? (
+                <ActivityIndicator size="small" color={Colors.light.text} />
+              ) : (
+                <Download color={Colors.light.text} size={24} strokeWidth={2.5} />
+              )}
+            </View>
+          </Pressable>
+          <Pressable 
+            style={styles.topButton}
+            onPress={handleClose}
+          >
+            <View style={styles.topButtonBg}>
+              <X color={Colors.light.text} size={24} strokeWidth={2.5} />
+            </View>
+          </Pressable>
+        </View>
 
         <View style={styles.imageContainer} {...panResponder.panHandlers}>
           <Animated.View
@@ -186,13 +241,19 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
-  closeButton: {
+  topButtons: {
     position: 'absolute',
     top: 50,
     right: 20,
     zIndex: 10,
+    flexDirection: 'row',
+    gap: 12,
   },
-  closeButtonBg: {
+  topButton: {
+    width: 44,
+    height: 44,
+  },
+  topButtonBg: {
     width: 44,
     height: 44,
     borderRadius: 22,

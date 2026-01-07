@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, PanResponder, Animated } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, PanResponder, Animated, Platform, Alert } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Audio, AVPlaybackStatus } from 'expo-av';
-import { X, Play, Pause, Volume2, SkipBack, SkipForward } from 'lucide-react-native';
+import { X, Play, Pause, Volume2, SkipBack, SkipForward, Download } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,6 +22,7 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
   const [position, setPosition] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [isSeeking, setIsSeeking] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const progressBarWidth = useRef<number>(0);
   const thumbPosition = useRef(new Animated.Value(0)).current;
 
@@ -193,6 +196,43 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
     onClose();
   };
 
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    
+    try {
+      setIsDownloading(true);
+      console.log('[AudioPlayer] Starting download:', audioUri);
+      
+      if (Platform.OS === 'web') {
+        const link = document.createElement('a');
+        link.href = audioUri;
+        link.download = audioTitle || 'audio.mp3';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        Alert.alert('Download gestart', 'Het bestand wordt gedownload');
+      } else {
+        const filename = audioTitle.replace(/[^a-z0-9]/gi, '_') + '.mp3';
+        const destination = new File(Paths.cache, filename);
+        
+        const downloadedFile = await File.downloadFileAsync(audioUri, destination, { idempotent: true });
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadedFile.uri);
+        } else {
+          Alert.alert('Download voltooid', `Bestand opgeslagen: ${filename}`);
+        }
+      }
+      
+      console.log('[AudioPlayer] Download completed');
+    } catch (error) {
+      console.error('[AudioPlayer] Download error:', error);
+      Alert.alert('Download mislukt', 'Er is een fout opgetreden bij het downloaden');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const progressPercentage = duration > 0 ? (position / duration) * 100 : 0;
 
   useEffect(() => {
@@ -212,9 +252,18 @@ export default function AudioPlayerModal({ visible, audioUri, audioTitle, onClos
         <View style={[styles.modalContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.header}>
             <Text style={styles.title}>{audioTitle}</Text>
-            <TouchableOpacity onPress={handleClose}>
-              <X color={Colors.light.text} size={28} strokeWidth={2.5} />
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity onPress={handleDownload} disabled={isDownloading}>
+                {isDownloading ? (
+                  <ActivityIndicator size="small" color={Colors.light.primary} />
+                ) : (
+                  <Download color={Colors.light.text} size={24} strokeWidth={2.5} />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClose}>
+                <X color={Colors.light.text} size={28} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.playerContainer}>
@@ -300,6 +349,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   title: {
     flex: 1,
