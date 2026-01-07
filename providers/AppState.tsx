@@ -1920,7 +1920,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     base64Data: string;
     onProgress?: (progress: number) => void;
   }): Promise<MediaLibraryItem> => {
-    console.log('💾 [UPLOAD] Uploading media via backend (tRPC)...');
+    console.log('💾 [UPLOAD] Uploading media directly to Supabase Storage...');
     console.log('💾 [UPLOAD] Input:', {
       name: input.name,
       folderPath: input.folderPath,
@@ -1935,31 +1935,69 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
       const base64Data = input.base64Data.includes(',') ? input.base64Data.split(',')[1] : input.base64Data;
 
-      input.onProgress?.(40);
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
 
-      const result = await trpcClient.media.uploadMedia.mutate({
+      input.onProgress?.(30);
+
+      const storagePath = input.folderPath ? `${input.folderPath}/${input.name}` : input.name;
+      console.log('💾 [UPLOAD] Storage path:', storagePath);
+
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('media-library')
+        .upload(storagePath, bytes, {
+          contentType: input.mimeType,
+          upsert: false,
+        });
+
+      if (storageError) {
+        console.error('❌ [UPLOAD] Storage error:', storageError);
+        throw new Error(`Storage upload mislukt: ${storageError.message}`);
+      }
+
+      input.onProgress?.(70);
+
+      const id = genId('m');
+      const insertData: Database['public']['Tables']['media_library']['Insert'] = {
+        id,
         name: input.name,
-        folderPath: input.folderPath,
-        fileType: input.fileType,
-        fileSize: input.fileSize,
-        mimeType: input.mimeType,
-        base64Data,
-        uploadedBy: currentUser?.id ?? undefined,
-      });
+        path: storagePath,
+        folder_path: input.folderPath,
+        file_type: input.fileType,
+        file_size: input.fileSize,
+        mime_type: input.mimeType,
+        storage_path: storageData.path,
+        uploaded_by: currentUser?.id ?? null,
+      };
 
-      input.onProgress?.(85);
+      const { data: dbData, error: dbError } = await supabase
+        .from('media_library')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (dbError) {
+        console.error('❌ [UPLOAD] Database error:', dbError);
+        await supabase.storage.from('media-library').remove([storagePath]);
+        throw new Error(`Database insert mislukt: ${dbError.message}`);
+      }
+
+      input.onProgress?.(90);
 
       const mediaItem: MediaLibraryItem = {
-        id: result.id,
-        name: result.name,
-        path: result.path,
-        folder_path: result.folder_path,
-        file_type: result.file_type,
-        file_size: result.file_size,
-        mime_type: result.mime_type,
-        storage_path: result.storage_path,
-        uploaded_by: result.uploaded_by ?? null,
-        created_at: result.created_at,
+        id: dbData.id,
+        name: dbData.name,
+        path: dbData.path,
+        folder_path: dbData.folder_path,
+        file_type: dbData.file_type,
+        file_size: dbData.file_size,
+        mime_type: dbData.mime_type,
+        storage_path: dbData.storage_path,
+        uploaded_by: dbData.uploaded_by ?? null,
+        created_at: dbData.created_at,
       };
 
       setMediaLibrary((prev) => [mediaItem, ...prev]);
@@ -1967,10 +2005,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
 
       input.onProgress?.(100);
 
-      console.log('✅ [UPLOAD] Media uploaded successfully (tRPC)');
+      console.log('✅ [UPLOAD] Media uploaded successfully (Direct Supabase)');
       return mediaItem;
     } catch (error: any) {
-      console.error('❌ [UPLOAD] Upload error (tRPC):', error);
+      console.error('❌ [UPLOAD] Upload error:', error);
       throw new Error(`Upload mislukt: ${error?.message || 'Onbekende fout'}`);
     }
   }, [currentUser, refreshStorageUsage]);
