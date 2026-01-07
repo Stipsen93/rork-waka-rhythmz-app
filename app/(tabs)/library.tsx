@@ -9,6 +9,7 @@ import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { supabase } from "@/lib/supabase";
 import VideoPlayerModal from '@/components/VideoPlayerModal';
 import AudioPlayerModal from '@/components/AudioPlayerModal';
+import ImageViewerModal from '@/components/ImageViewerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppState } from "@/providers/AppState";
@@ -71,6 +72,8 @@ export default function LibraryScreen() {
   const [audioPlayerVisible, setAudioPlayerVisible] = useState(false);
   const [currentAudioUrl, setCurrentAudioUrl] = useState('');
   const [currentAudioTitle, setCurrentAudioTitle] = useState('');
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameItem, setRenameItem] = useState<LibraryItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
@@ -678,6 +681,9 @@ export default function LibraryScreen() {
           setCurrentAudioUrl(item.url);
           setCurrentAudioTitle(item.name);
           setAudioPlayerVisible(true);
+        } else if (item.mimeType.startsWith('image/')) {
+          setCurrentImageUrl(item.url);
+          setImageViewerVisible(true);
         } else {
           if (Platform.OS === 'web') {
             window.open(item.url, '_blank');
@@ -1552,6 +1558,15 @@ export default function LibraryScreen() {
             setAudioPlayerVisible(false);
             setCurrentAudioUrl('');
             setCurrentAudioTitle('');
+          }}
+        />
+
+        <ImageViewerModal
+          visible={imageViewerVisible}
+          imageUrl={currentImageUrl}
+          onClose={() => {
+            setImageViewerVisible(false);
+            setCurrentImageUrl('');
           }}
         />
 

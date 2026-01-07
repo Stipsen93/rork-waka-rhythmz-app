@@ -11,6 +11,7 @@ import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from "@/lib/supabase";
 import VideoPlayerModal from "@/components/VideoPlayerModal";
+import ImageViewerModal from "@/components/ImageViewerModal";
 
 const DAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
@@ -965,6 +966,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   const [videoPlayerUrl, setVideoPlayerUrl] = useState<string>("");
   const [submissionVideoPlayerVisible, setSubmissionVideoPlayerVisible] = useState<boolean>(false);
   const [submissionVideoPlayerUrl, setSubmissionVideoPlayerUrl] = useState<string>("");
+  const [imageViewerVisible, setImageViewerVisible] = useState<boolean>(false);
+  const [imageViewerUrl, setImageViewerUrl] = useState<string>("");
 
   const isCompleted = assignment.completedBy.some(c => c.userId === currentUserId);
   const hasUploadedMedia = !!uploadedMediaUri;
@@ -978,6 +981,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
       setVideoPlayerUrl("");
       setSubmissionVideoPlayerVisible(false);
       setSubmissionVideoPlayerUrl("");
+      setImageViewerVisible(false);
+      setImageViewerUrl("");
       setNotes("");
     }
   }, [visible]);
@@ -1105,6 +1110,12 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
     if (assignment.mediaType === 'video') {
       setVideoPlayerUrl(assignment.mediaUri);
       setVideoPlayerVisible(true);
+      return;
+    }
+
+    if (assignment.mediaType === 'image') {
+      setImageViewerUrl(assignment.mediaUri);
+      setImageViewerVisible(true);
       return;
     }
     
@@ -1376,6 +1387,15 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         onClose={() => {
           setSubmissionVideoPlayerVisible(false);
           setSubmissionVideoPlayerUrl("");
+        }}
+      />
+
+      <ImageViewerModal
+        visible={imageViewerVisible}
+        imageUrl={imageViewerUrl}
+        onClose={() => {
+          setImageViewerVisible(false);
+          setImageViewerUrl("");
         }}
       />
     </Modal>
