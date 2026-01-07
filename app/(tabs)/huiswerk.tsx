@@ -910,7 +910,7 @@ function AssignmentCard({ assignment, onPress, onLongPress, isSelected, selectio
         {isAdmin && (
           <View style={styles.assignedUsersRow}>
             <Users color={Colors.light.muted} size={14} strokeWidth={2} />
-            <Text style={styles.assignedUsersText} numberOfLines={1}>
+            <Text style={styles.assignedUsersText}>
               {assignedUsernames}
             </Text>
           </View>
@@ -1812,18 +1812,21 @@ const styles = StyleSheet.create({
   },
   assignedUsersRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
     backgroundColor: Colors.light.darkGray,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   assignedUsersText: {
     fontSize: 13,
     color: Colors.light.text,
     fontWeight: '600' as const,
+    flex: 1,
+    flexWrap: 'wrap' as const,
   },
   deadlineDateRow: {
     flexDirection: 'row',
