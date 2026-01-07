@@ -24,7 +24,7 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: boolean; onClose: () => void; editingAssignment?: Assignment }) {
-  const { addAssignment, updateAssignment, users, groups, uploadMedia } = useAppState();
+  const { addAssignment, updateAssignment, users, groups } = useAppState();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState<string>(editingAssignment?.title ?? "");
   const [description, setDescription] = useState<string>(editingAssignment?.description ?? "");
@@ -103,6 +103,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
+        setIsUploading(false);
         return;
       }
 
@@ -113,56 +114,48 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
           "Bestand te groot",
           `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
         );
+        setIsUploading(false);
         return;
       }
 
-      const mimeType = file.mimeType || 'application/octet-stream';
-      const fileType = mimeType.startsWith('video/')
-        ? 'video'
-        : mimeType.startsWith('image/')
-          ? 'image'
-          : mimeType.startsWith('audio/')
-            ? 'audio'
-            : 'other';
-
-      console.log('[ASSIGNMENT MEDIA] reading file bytes...');
+      console.log('[ASSIGNMENT MEDIA] Reading file bytes...');
       const response = await fetch(file.uri);
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
+      const fileBytes = new Uint8Array(buffer);
 
-      console.log('[ASSIGNMENT MEDIA] converting to base64...');
-      let base64String = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.slice(i, i + chunkSize);
-        const binaryString = Array.from(chunk)
-          .map(byte => String.fromCharCode(byte))
-          .join('');
-        base64String += btoa(binaryString);
+      const fileName = `${Date.now()}-${file.name}`;
+      const filePath = `assignments/${fileName}`;
+      
+      console.log('[ASSIGNMENT MEDIA] Uploading directly to Supabase Storage...');
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('media-library')
+        .upload(filePath, fileBytes, {
+          contentType: file.mimeType || 'application/octet-stream',
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        console.error('[ASSIGNMENT MEDIA] Upload error:', uploadError);
+        throw new Error(`Upload error: ${uploadError.message}`);
       }
 
-      console.log('[ASSIGNMENT MEDIA] uploading via AppState.uploadMedia...');
-      const uploaded = await uploadMedia({
-        name: file.name,
-        folderPath: 'assignments',
-        fileType,
-        fileSize: blob.size,
-        mimeType,
-        base64Data: base64String,
-      });
+      const { data } = supabase.storage
+        .from('media-library')
+        .getPublicUrl(uploadData.path);
 
-      const { data } = supabase.storage.from('media-library').getPublicUrl(uploaded.storage_path);
       setMediaUri(data.publicUrl);
 
-      if (fileType === 'video') setMediaType('video');
-      else if (fileType === 'image') setMediaType('image');
-      else if (fileType === 'audio') setMediaType('audio');
+      const mimeType = file.mimeType || 'application/octet-stream';
+      if (mimeType.startsWith('video/')) setMediaType('video');
+      else if (mimeType.startsWith('image/')) setMediaType('image');
+      else if (mimeType.startsWith('audio/')) setMediaType('audio');
       else setMediaType(undefined);
 
+      console.log('[ASSIGNMENT MEDIA] Upload successful!');
       Alert.alert("Succes", "Media is succesvol geüpload!");
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[ASSIGNMENT MEDIA] Upload error:', error);
       Alert.alert("Fout", "Er is een fout opgetreden bij het uploaden van media");
     } finally {
       setIsUploading(false);
