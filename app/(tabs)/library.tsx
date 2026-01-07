@@ -177,11 +177,18 @@ export default function LibraryScreen() {
         return a.type === 'folder' ? -1 : 1;
       });
 
-      console.log('[LIBRARY] Parsed storage items:', parsedItems.length);
+      const filteredParsedItems = parsedItems.filter(item => {
+        if (item.type === 'folder' && (item.name === 'assignments' || item.path === 'assignments')) {
+          return false;
+        }
+        return true;
+      });
+
+      console.log('[LIBRARY] Parsed storage items:', filteredParsedItems.length);
 
       // Load visibility info from database
-      const folderPaths = parsedItems.filter(i => i.type === 'folder').map(i => i.path);
-      const filePaths = parsedItems.filter(i => i.type === 'file').map(i => i.path);
+      const folderPaths = filteredParsedItems.filter(i => i.type === 'folder').map(i => i.path);
+      const filePaths = filteredParsedItems.filter(i => i.type === 'file').map(i => i.path);
 
       let folderVisibility: Record<string, { visibleToAll: boolean; visibleToUserIds: string[]; uploadedBy?: string }> = {};
       let fileVisibility: Record<string, { visibleToAll: boolean; visibleToUserIds: string[]; uploadedBy?: string }> = {};
@@ -221,7 +228,7 @@ export default function LibraryScreen() {
       }
 
       // Attach visibility info and filter based on current user
-      const itemsWithVisibility = parsedItems.map(item => {
+      const itemsWithVisibility = filteredParsedItems.map(item => {
         if (item.type === 'folder') {
           const vis = folderVisibility[item.path];
           return {
