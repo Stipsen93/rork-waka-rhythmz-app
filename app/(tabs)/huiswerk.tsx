@@ -1418,8 +1418,14 @@ export default function HuiswerkScreen() {
   const [activeTab, setActiveTab] = useState<AdminTab>('leden');
 
   const ledenAssignments = useMemo(() => {
-    return assignments;
-  }, [assignments]);
+    if (!currentUser) return [];
+    return assignments.filter(assignment => {
+      if (assignment.assignedUserIds.length === 0) {
+        return true;
+      }
+      return !assignment.assignedUserIds.includes(currentUser.id);
+    });
+  }, [assignments, currentUser]);
 
   const persoonlijkAssignments = useMemo(() => {
     if (!currentUser) return [];
