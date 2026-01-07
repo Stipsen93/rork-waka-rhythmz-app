@@ -130,7 +130,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       
       console.log('[ASSIGNMENT MEDIA] Uploading directly to Supabase Storage...');
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media-library')
+        .from('assignment-submissions')
         .upload(filePath, fileBytes, {
           contentType: file.mimeType || 'application/octet-stream',
           upsert: false,
@@ -142,7 +142,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       }
 
       const { data } = supabase.storage
-        .from('media-library')
+        .from('assignment-submissions')
         .getPublicUrl(uploadData.path);
 
       setMediaUri(data.publicUrl);
