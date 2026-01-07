@@ -1402,6 +1402,8 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   );
 }
 
+type AdminTab = 'leden' | 'persoonlijk';
+
 export default function HuiswerkScreen() {
   const insets = useSafeAreaInsets();
   const { assignments, currentUser, deleteAssignments } = useAppState();
@@ -1413,12 +1415,27 @@ export default function HuiswerkScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [detailAssignment, setDetailAssignment] = useState<Assignment | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<AdminTab>('leden');
+
+  const ledenAssignments = useMemo(() => {
+    return assignments;
+  }, [assignments]);
+
+  const persoonlijkAssignments = useMemo(() => {
+    if (!currentUser) return [];
+    return assignments.filter(assignment => {
+      if (assignment.assignedUserIds.length === 0) {
+        return false;
+      }
+      return assignment.assignedUserIds.includes(currentUser.id);
+    });
+  }, [assignments, currentUser]);
 
   const filteredAssignments = useMemo(() => {
     if (!currentUser) return [];
     
     if (currentUser.role === 'admin') {
-      return assignments;
+      return activeTab === 'leden' ? ledenAssignments : persoonlijkAssignments;
     }
     
     return assignments.filter(assignment => {
@@ -1427,7 +1444,7 @@ export default function HuiswerkScreen() {
       }
       return assignment.assignedUserIds.includes(currentUser.id);
     });
-  }, [assignments, currentUser]);
+  }, [assignments, currentUser, activeTab, ledenAssignments, persoonlijkAssignments]);
 
   return (
     <>
@@ -1449,6 +1466,38 @@ export default function HuiswerkScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Huiswerk</Text>
         </View>
+
+        {currentUser?.role === 'admin' && (
+          <View style={styles.tabsContainer}>
+            <Pressable
+              style={[styles.tab, activeTab === 'leden' && styles.tabActive]}
+              onPress={() => setActiveTab('leden')}
+            >
+              <Text style={[styles.tabText, activeTab === 'leden' && styles.tabTextActive]}>
+                Leden
+              </Text>
+              <View style={[styles.badge, activeTab === 'leden' && styles.badgeActive]}>
+                <Text style={[styles.badgeText, activeTab === 'leden' && styles.badgeTextActive]}>
+                  {ledenAssignments.length}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={[styles.tab, activeTab === 'persoonlijk' && styles.tabActive]}
+              onPress={() => setActiveTab('persoonlijk')}
+            >
+              <Text style={[styles.tabText, activeTab === 'persoonlijk' && styles.tabTextActive]}>
+                Persoonlijk
+              </Text>
+              <View style={[styles.badge, activeTab === 'persoonlijk' && styles.badgeActive]}>
+                <Text style={[styles.badgeText, activeTab === 'persoonlijk' && styles.badgeTextActive]}>
+                  {persoonlijkAssignments.length}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        )}
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {filteredAssignments.length === 0 ? (
@@ -1633,6 +1682,57 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800" as const,
     color: Colors.light.text,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  tabActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.light.muted,
+  },
+  tabTextActive: {
+    color: Colors.light.text,
+  },
+  badge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.light.darkGray,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeActive: {
+    backgroundColor: Colors.light.surface,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.light.muted,
+  },
+  badgeTextActive: {
+    color: Colors.light.primary,
   },
   scrollContent: {
     padding: 20,
