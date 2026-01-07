@@ -66,6 +66,8 @@ export const buildTrpcUrl = (rawBaseUrl: string) => {
   return `${normalized}/api/trpc`;
 };
 
+export const getTrpcBaseUrl = () => buildTrpcUrl(getBaseUrl());
+
 const maskSecret = (value: string) => {
   const trimmed = value.trim();
   if (trimmed.length <= 12) {
@@ -195,7 +197,7 @@ export const getBaseUrl = () => {
 export const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: buildTrpcUrl(getBaseUrl()),
+      url: getTrpcBaseUrl(),
       transformer: superjson,
       maxURLLength: 2083,
       async headers() {
@@ -223,7 +225,7 @@ export const trpcClient = trpc.createClient({
 
         const modifiedOptions: RequestInit = {
           ...options,
-          ...(Platform.OS === "web" ? { mode: "cors" as const } : null),
+          ...(Platform.OS === "web" ? { mode: "cors" as const, credentials: "omit" as const } : null),
         };
 
         const attemptFetch = async (retryCount = 0): Promise<Response> => {
@@ -255,12 +257,12 @@ export const trpcClient = trpc.createClient({
             }
 
             console.error("[TRPC] All retry attempts failed. Backend might not be running.");
-            console.error("[TRPC] Debug info:", {
+            console.error("[TRPC] Debug info:", JSON.stringify({
               platform: Platform.OS,
               baseUrl,
               intendedTrpcUrl,
               finalUrl,
-            });
+            }));
             throw error;
           }
         };

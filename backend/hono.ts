@@ -23,12 +23,12 @@ app.use("*", async (c, next) => {
 app.options("*", (c) => {
   const origin = c.req.header("origin") ?? "*";
   c.header("Access-Control-Allow-Origin", origin);
+  c.header("Vary", "Origin");
   c.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   c.header(
     "Access-Control-Allow-Headers",
-    "content-type,authorization,x-client-info,apikey",
+    "content-type,authorization,x-client-info,apikey,trpc-batch-mode,x-trpc-source",
   );
-  c.header("Access-Control-Allow-Credentials", "true");
   return c.body(null, 204);
 });
 
@@ -41,25 +41,28 @@ app.use(
       "Authorization",
       "x-client-info",
       "apikey",
+      "trpc-batch-mode",
+      "x-trpc-source",
     ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
+    credentials: false,
   }),
 );
 
-app.use(
-  "/api/trpc/*",
-  trpcServer({
-    router: appRouter,
-    createContext,
-    onError({ error, path }) {
-      console.error(`[TRPC ERROR] Path: ${path}`);
-      console.error('[TRPC ERROR] Code:', error.code);
-      console.error('[TRPC ERROR] Message:', error.message);
-      console.error('[TRPC ERROR] Stack:', error.stack);
-    },
-  })
-);
+const trpcHandler = trpcServer({
+  router: appRouter,
+  createContext,
+  onError({ error, path }) {
+    console.error(`[TRPC ERROR] Path: ${path}`);
+    console.error("[TRPC ERROR] Code:", error.code);
+    console.error("[TRPC ERROR] Message:", error.message);
+    console.error("[TRPC ERROR] Stack:", error.stack);
+  },
+});
+
+app.use("/api/trpc", trpcHandler);
+app.use("/api/trpc/*", trpcHandler);
+
 
 app.get("/", (c) => {
   return c.json({ status: "ok", message: "API is running" });
