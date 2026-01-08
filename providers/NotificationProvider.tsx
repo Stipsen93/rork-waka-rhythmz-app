@@ -4,7 +4,7 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform, AppState as RNAppState } from "react-native";
 import { useAppState } from "@/providers/AppState";
-import { trpcClient } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -113,24 +113,37 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
     setIsLoading(true);
     console.log('📱 [PUSH] Registering for user:', currentUser.id);
-    
+
     try {
       const token = await registerForPushNotificationsAsync();
-      
+
       if (token) {
         setExpoPushToken(token);
-        
+
         try {
-          console.log('📱 [PUSH] Saving token to backend...');
-          await trpcClient.notifications.registerToken.mutate({
-            userId: currentUser.id,
-            token: token,
-            deviceType: Platform.OS as 'ios' | 'android',
-          });
-          console.log('✅ [PUSH] Token saved to backend');
+          console.log('📱 [PUSH] Saving token to Supabase...');
+
+          const { error } = await supabase
+            .from('push_tokens')
+            .upsert(
+              {
+                user_id: currentUser.id,
+                token,
+                device_type: Platform.OS as 'ios' | 'android',
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id,token' }
+            );
+
+          if (error) {
+            console.error('❌ [PUSH] Error saving token to Supabase:', error);
+          } else {
+            console.log('✅ [PUSH] Token saved to Supabase');
+          }
+
           setIsRegistered(true);
         } catch (error) {
-          console.error('❌ [PUSH] Error saving token to backend:', error);
+          console.error('❌ [PUSH] Error saving token to Supabase (exception):', error);
           setIsRegistered(true);
         }
       } else if (Platform.OS === 'web' || !Device.isDevice) {
@@ -150,16 +163,23 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
     }
 
     try {
-      console.log('📱 [PUSH] Unregistering token...');
-      await trpcClient.notifications.unregisterToken.mutate({
-        userId: currentUser.id,
-        token: expoPushToken,
-      });
-      console.log('✅ [PUSH] Token unregistered');
-      setExpoPushToken(null);
-      setIsRegistered(false);
+      console.log('📱 [PUSH] Unregistering token (Supabase)...');
+
+      const { error } = await supabase
+        .from('push_tokens')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('token', expoPushToken);
+
+      if (error) {
+        console.error('❌ [PUSH] Error unregistering token from Supabase:', error);
+      } else {
+        console.log('✅ [PUSH] Token unregistered from Supabase');
+        setExpoPushToken(null);
+        setIsRegistered(false);
+      }
     } catch (error) {
-      console.error('❌ [PUSH] Error unregistering token:', error);
+      console.error('❌ [PUSH] Error unregistering token (exception):', error);
     }
   }, [currentUser, expoPushToken]);
 
