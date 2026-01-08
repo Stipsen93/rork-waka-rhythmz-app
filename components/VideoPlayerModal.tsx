@@ -100,6 +100,10 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio =
       
       if (isAudio) {
         loadAudio();
+      } else {
+        setTimeout(() => {
+          videoRef.current?.playAsync();
+        }, 100);
       }
     } else {
       setIsPlaying(false);
