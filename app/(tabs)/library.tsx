@@ -49,7 +49,6 @@ export default function LibraryScreen() {
     syncAllData,
     refreshStorageUsage: refreshStorageUsageFromApp,
     createFolder,
-    uploadMedia: uploadMediaFromAppState,
     currentUser,
   } = useAppState();
   const { startUpload, updateProgress, completeUpload, cancelUpload } = useUploadProgress();
@@ -411,65 +410,67 @@ export default function LibraryScreen() {
       console.log('[UPLOAD WEB] Starting upload...', file.name);
       
       uploadId = startUpload(file.name);
+      updateProgress(uploadId, 10);
+
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBytes = new Uint8Array(arrayBuffer);
       
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const base64String = reader.result as string;
-          const base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const folder = currentPath.trim().replace(/^\/+|\/+$/g, '');
+      const storagePath = folder ? `${folder}/${timestamp}_${safeName}` : `${timestamp}_${safeName}`;
 
-          let fileType = 'other';
-          if (file.type.startsWith('video/')) fileType = 'video';
-          else if (file.type.startsWith('image/')) fileType = 'image';
-          else if (file.type.startsWith('audio/')) fileType = 'audio';
+      console.log('[UPLOAD WEB] Uploading to Supabase Storage:', storagePath);
+      updateProgress(uploadId, 30);
 
-          if (!uploadMediaFromAppState) {
-            throw new Error('Upload functie niet beschikbaar');
-          }
-          
-          await uploadMediaFromAppState({
-            name: file.name,
-            folderPath: currentPath,
-            fileType,
-            fileSize: file.size,
-            mimeType: file.type,
-            base64Data,
-            onProgress: (progress) => {
-              if (uploadId) {
-                updateProgress(uploadId, progress);
-              }
-            },
-          });
+      const { error: uploadError } = await supabase.storage
+        .from('media-library')
+        .upload(storagePath, fileBytes, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false,
+        });
 
-          if (uploadId) {
-            completeUpload(uploadId);
-          }
-          
-          setIsUploading(false);
-          setErrorMessage('Upload succesvol!');
-          setTimeout(() => setErrorMessage(null), 3000);
-          itemsCacheRef.current.clear();
-          await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
-        } catch (error: any) {
-          console.error('[UPLOAD WEB] Error:', error);
-          if (uploadId) {
-            cancelUpload(uploadId);
-          }
-          setIsUploading(false);
-          const message = error?.message || 'Onbekende fout';
-          setErrorMessage(`Upload mislukt: ${message}`);
-          setTimeout(() => setErrorMessage(null), 5000);
-        }
-      };
-      reader.onerror = () => {
-        if (uploadId) {
-          cancelUpload(uploadId);
-        }
-        setIsUploading(false);
-        setErrorMessage('Bestand lezen mislukt');
-        setTimeout(() => setErrorMessage(null), 5000);
-      };
-      reader.readAsDataURL(file);
+      if (uploadError) {
+        console.error('[UPLOAD WEB] Storage error:', uploadError);
+        throw new Error(`Upload error: ${uploadError.message}`);
+      }
+
+      updateProgress(uploadId, 70);
+
+      let fileType = 'other';
+      if (file.type.startsWith('video/')) fileType = 'video';
+      else if (file.type.startsWith('image/')) fileType = 'image';
+      else if (file.type.startsWith('audio/')) fileType = 'audio';
+
+      const { error: dbError } = await supabase
+        .from('media_library')
+        .insert({
+          name: file.name,
+          path: storagePath,
+          folder_path: folder,
+          file_type: fileType,
+          file_size: file.size,
+          mime_type: file.type || 'application/octet-stream',
+          storage_path: storagePath,
+          uploaded_by: currentUser?.id || null,
+          visible_to_all: true,
+          visible_to_user_ids: [],
+        });
+
+      if (dbError) {
+        console.error('[UPLOAD WEB] DB error, cleaning up storage:', dbError);
+        await supabase.storage.from('media-library').remove([storagePath]);
+        throw new Error(`Database error: ${dbError.message}`);
+      }
+
+      updateProgress(uploadId, 100);
+      completeUpload(uploadId);
+      
+      setIsUploading(false);
+      setErrorMessage('Upload succesvol!');
+      setTimeout(() => setErrorMessage(null), 3000);
+      itemsCacheRef.current.clear();
+      await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
     } catch (error: any) {
       console.error('[UPLOAD WEB] Error:', error);
       if (uploadId) {
@@ -575,6 +576,7 @@ export default function LibraryScreen() {
       console.log('[UPLOAD NATIVE] Type:', mimeType);
 
       uploadId = startUpload(fileName);
+      updateProgress(uploadId, 10);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 600000);
@@ -588,49 +590,62 @@ export default function LibraryScreen() {
       console.log('[UPLOAD NATIVE] Reading file...');
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      
-      let base64String = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.slice(i, i + chunkSize);
-        const binaryString = Array.from(chunk)
-          .map(byte => String.fromCharCode(byte))
-          .join('');
-        base64String += btoa(binaryString);
-      }
+      const fileBytes = new Uint8Array(buffer);
 
       console.log('[UPLOAD NATIVE] File size:', blob.size, 'bytes');
+      updateProgress(uploadId, 30);
+
+      const timestamp = Date.now();
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const folder = currentPath.trim().replace(/^\/+|\/+$/g, '');
+      const storagePath = folder ? `${folder}/${timestamp}_${safeName}` : `${timestamp}_${safeName}`;
+
+      console.log('[UPLOAD NATIVE] Uploading to Supabase Storage:', storagePath);
+      
+      const { error: uploadError } = await supabase.storage
+        .from('media-library')
+        .upload(storagePath, fileBytes, {
+          contentType: mimeType || 'application/octet-stream',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('[UPLOAD NATIVE] Storage error:', uploadError);
+        throw new Error(`Upload error: ${uploadError.message}`);
+      }
+
+      updateProgress(uploadId, 70);
 
       let fileType = 'other';
       if (mimeType?.startsWith('video/')) fileType = 'video';
       else if (mimeType?.startsWith('image/')) fileType = 'image';
       else if (mimeType?.startsWith('audio/')) fileType = 'audio';
 
-      if (!uploadMediaFromAppState) {
-        throw new Error('Upload functie niet beschikbaar');
+      const { error: dbError } = await supabase
+        .from('media_library')
+        .insert({
+          name: fileName,
+          path: storagePath,
+          folder_path: folder,
+          file_type: fileType,
+          file_size: blob.size,
+          mime_type: mimeType || 'application/octet-stream',
+          storage_path: storagePath,
+          uploaded_by: currentUser?.id || null,
+          visible_to_all: true,
+          visible_to_user_ids: [],
+        });
+
+      if (dbError) {
+        console.error('[UPLOAD NATIVE] DB error, cleaning up storage:', dbError);
+        await supabase.storage.from('media-library').remove([storagePath]);
+        throw new Error(`Database error: ${dbError.message}`);
       }
-      
-      console.log('[UPLOAD NATIVE] Uploading via tRPC...');
-      await uploadMediaFromAppState({
-        name: fileName,
-        folderPath: currentPath,
-        fileType,
-        fileSize: blob.size,
-        mimeType: mimeType || 'application/octet-stream',
-        base64Data: base64String,
-        onProgress: (progress) => {
-          if (uploadId) {
-            updateProgress(uploadId, progress);
-          }
-        },
-      });
 
       console.log('[UPLOAD NATIVE] Upload successful!');
 
-      if (uploadId) {
-        completeUpload(uploadId);
-      }
+      updateProgress(uploadId, 100);
+      completeUpload(uploadId);
       
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
