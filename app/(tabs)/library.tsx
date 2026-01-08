@@ -12,6 +12,8 @@ import AudioPlayerModal from '@/components/AudioPlayerModal';
 import ImageViewerModal from '@/components/ImageViewerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { uploadUriToSupabaseStorage } from '@/lib/supabaseUpload';
 import { useAppState } from "@/providers/AppState";
 import { useUploadProgress } from "@/providers/UploadProgressProvider";
 
