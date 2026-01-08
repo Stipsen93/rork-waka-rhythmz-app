@@ -98,19 +98,28 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
     try {
       setIsUploading(true);
 
+      console.log('[ASSIGNMENT MEDIA] Opening document picker...');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'video/*', 'audio/*'],
         copyToCacheDirectory: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
+        console.log('[ASSIGNMENT MEDIA] User cancelled or no file selected');
         setIsUploading(false);
         return;
       }
 
       const file = result.assets[0];
+      console.log('[ASSIGNMENT MEDIA] File selected:', {
+        name: file.name,
+        size: file.size,
+        type: file.mimeType,
+        uri: file.uri
+      });
 
       if (file.size && file.size > MAX_FILE_SIZE) {
+        console.log('[ASSIGNMENT MEDIA] File too large:', file.size);
         Alert.alert(
           "Bestand te groot",
           `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
@@ -119,16 +128,30 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
         return;
       }
 
-      console.log('[ASSIGNMENT MEDIA] Reading file bytes...');
-      const response = await fetch(file.uri);
+      console.log('[ASSIGNMENT MEDIA] Reading file from URI...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[ASSIGNMENT MEDIA] Fetch timeout, aborting...');
+        controller.abort();
+      }, 120000);
+      
+      const response = await fetch(file.uri, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to read file: ${response.status} ${response.statusText}`);
+      }
+      
+      console.log('[ASSIGNMENT MEDIA] Converting to binary data...');
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
       const fileBytes = new Uint8Array(buffer);
+      console.log('[ASSIGNMENT MEDIA] Binary data size:', fileBytes.length, 'bytes');
 
       const fileName = `${Date.now()}-${file.name}`;
       const filePath = `assignments/${fileName}`;
       
-      console.log('[ASSIGNMENT MEDIA] Uploading directly to Supabase Storage...');
+      console.log('[ASSIGNMENT MEDIA] Uploading to Supabase Storage:', filePath);
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('assignment-submissions')
         .upload(filePath, fileBytes, {
@@ -141,6 +164,7 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
         throw new Error(`Upload error: ${uploadError.message}`);
       }
 
+      console.log('[ASSIGNMENT MEDIA] Upload successful, getting public URL...');
       const { data } = supabase.storage
         .from('assignment-submissions')
         .getPublicUrl(uploadData.path);
@@ -153,11 +177,19 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
       else if (mimeType.startsWith('audio/')) setMediaType('audio');
       else setMediaType(undefined);
 
-      console.log('[ASSIGNMENT MEDIA] Upload successful!');
+      console.log('[ASSIGNMENT MEDIA] Upload complete!');
       Alert.alert("Succes", "Media is succesvol geüpload!");
-    } catch (error) {
-      console.error('[ASSIGNMENT MEDIA] Upload error:', error);
-      Alert.alert("Fout", "Er is een fout opgetreden bij het uploaden van media");
+    } catch (error: any) {
+      console.error('[ASSIGNMENT MEDIA] Upload failed:', error);
+      console.error('[ASSIGNMENT MEDIA] Error details:', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      });
+      Alert.alert(
+        "Fout", 
+        `Er is een fout opgetreden bij het uploaden van media: ${error?.message || 'Onbekende fout'}`
+      );
     } finally {
       setIsUploading(false);
     }
@@ -1031,34 +1063,61 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
   const handleUploadNewMedia = async () => {
     try {
       setIsUploadingMedia(true);
+      
+      console.log('[MEMBER UPLOAD] Opening document picker...');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'video/*', 'audio/*'],
         copyToCacheDirectory: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
+        console.log('[MEMBER UPLOAD] User cancelled or no file selected');
         setIsUploadingMedia(false);
         return;
       }
 
       const file = result.assets[0];
+      console.log('[MEMBER UPLOAD] File selected:', {
+        name: file.name,
+        size: file.size,
+        type: file.mimeType,
+        uri: file.uri
+      });
       
       if (file.size && file.size > MAX_FILE_SIZE) {
-        Alert.alert("Bestand te groot", `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        console.log('[MEMBER UPLOAD] File too large:', file.size);
+        Alert.alert(
+          "Bestand te groot", 
+          `Het bestand is te groot. Maximum toegestane grootte is ${MAX_FILE_SIZE / (1024 * 1024)}MB`
+        );
         setIsUploadingMedia(false);
         return;
       }
       
-      console.log('[MEMBER UPLOAD] File size:', file.size, 'bytes');
-      console.log('[MEMBER UPLOAD] Preparing binary payload...');
-      const response = await fetch(file.uri);
+      console.log('[MEMBER UPLOAD] Reading file from URI...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[MEMBER UPLOAD] Fetch timeout, aborting...');
+        controller.abort();
+      }, 120000);
+      
+      const response = await fetch(file.uri, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to read file: ${response.status} ${response.statusText}`);
+      }
+      
+      console.log('[MEMBER UPLOAD] Converting to binary data...');
       const blob = await response.blob();
       const buffer = await blob.arrayBuffer();
       const fileBytes = new Uint8Array(buffer);
+      console.log('[MEMBER UPLOAD] Binary data size:', fileBytes.length, 'bytes');
 
       const fileName = `${Date.now()}-${file.name}`;
       const filePath = `assignments/${fileName}`;
       
+      console.log('[MEMBER UPLOAD] Uploading to Supabase Storage:', filePath);
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('assignment-submissions')
         .upload(filePath, fileBytes, {
@@ -1067,9 +1126,11 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         });
       
       if (uploadError) {
+        console.error('[MEMBER UPLOAD] Upload error:', uploadError);
         throw new Error(`Upload error: ${uploadError.message}`);
       }
       
+      console.log('[MEMBER UPLOAD] Upload successful, getting public URL...');
       const { data } = supabase.storage
         .from('assignment-submissions')
         .getPublicUrl(uploadData.path);
@@ -1084,10 +1145,19 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         setUploadedMediaType('audio');
       }
 
+      console.log('[MEMBER UPLOAD] Upload complete!');
       Alert.alert("Succes", "Media is succesvol geüpload!");
-    } catch (error) {
-      console.error('Upload error:', error);
-      Alert.alert("Fout", "Er is een fout opgetreden bij het uploaden van media");
+    } catch (error: any) {
+      console.error('[MEMBER UPLOAD] Upload failed:', error);
+      console.error('[MEMBER UPLOAD] Error details:', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      });
+      Alert.alert(
+        "Fout", 
+        `Er is een fout opgetreden bij het uploaden van media: ${error?.message || 'Onbekende fout'}`
+      );
     } finally {
       setIsUploadingMedia(false);
     }
