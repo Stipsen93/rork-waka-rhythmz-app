@@ -5,7 +5,6 @@ import type { Database } from "@/lib/database.types";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from "@/constants/translations";
 import { translations } from "@/constants/translations";
-import { trpcClient } from "@/lib/trpc";
 import { AppState } from 'react-native';
 
 export type Role = "admin" | "member";
@@ -374,20 +373,12 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [clearedMediaIds, setClearedMediaIds] = useState<Set<string>>(new Set());
 
   const refreshStorageUsage = useCallback(async () => {
-    console.log('💾 Refreshing storage usage via tRPC...');
-    try {
-      const usage = await trpcClient.media.getStorageUsage.query();
-      
-      setStorageUsage({
-        usageGB: usage.usageGB,
-        maxGB: usage.maxGB,
-        percentage: usage.percentage,
-      });
-      
-      console.log('✅ Storage usage refreshed:', usage);
-    } catch (error) {
-      console.error('Error refreshing storage usage:', error);
-    }
+    console.log('💾 Storage usage refresh (disabled - no backend)');
+    setStorageUsage({
+      usageGB: 0,
+      maxGB: 100,
+      percentage: 0,
+    });
   }, []);
 
   useEffect(() => {

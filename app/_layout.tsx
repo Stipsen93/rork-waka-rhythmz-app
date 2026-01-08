@@ -7,7 +7,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppStateProvider } from "@/providers/AppState";
 import { NotificationProvider } from "@/providers/NotificationProvider";
 import { UploadProgressProvider, UploadProgressOverlay } from "@/providers/UploadProgressProvider";
-import { trpc, trpcClient } from "@/lib/trpc";
 import { StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
 
@@ -33,20 +32,18 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={styles.container}>
-          <AppStateProvider>
-            <NotificationProvider>
-              <UploadProgressProvider>
-                <RootLayoutNav />
-                <UploadProgressOverlay />
-              </UploadProgressProvider>
-            </NotificationProvider>
-          </AppStateProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={styles.container}>
+        <AppStateProvider>
+          <NotificationProvider>
+            <UploadProgressProvider>
+              <RootLayoutNav />
+              <UploadProgressOverlay />
+            </UploadProgressProvider>
+          </NotificationProvider>
+        </AppStateProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }
 
