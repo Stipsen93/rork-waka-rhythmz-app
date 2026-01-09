@@ -128,46 +128,46 @@ function AddAssignmentModal({ visible, onClose, editingAssignment }: { visible: 
         return;
       }
 
-      console.log('[ASSIGNMENT MEDIA] Reading file from URI...');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log('[ASSIGNMENT MEDIA] Fetch timeout, aborting...');
-        controller.abort();
-      }, 120000);
-      
-      const response = await fetch(file.uri, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to read file: ${response.status} ${response.statusText}`);
-      }
-      
-      console.log('[ASSIGNMENT MEDIA] Converting to binary data...');
-      const blob = await response.blob();
-      const buffer = await blob.arrayBuffer();
-      const fileBytes = new Uint8Array(buffer);
-      console.log('[ASSIGNMENT MEDIA] Binary data size:', fileBytes.length, 'bytes');
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `assignments/${timestamp}_${safeName}`;
 
-      const fileName = `${Date.now()}-${file.name}`;
-      const filePath = `assignments/${fileName}`;
+      console.log('[ASSIGNMENT MEDIA] Creating FormData...');
+      const form = new FormData();
+      form.append('file', {
+        uri: file.uri,
+        name: safeName,
+        type: file.mimeType || 'application/octet-stream',
+      } as any);
+
+      const supabaseUrl = (supabase as any).supabaseUrl;
+      const anonKey = (supabase as any).supabaseKey;
+
+      if (!supabaseUrl || !anonKey) {
+        throw new Error('Supabase client mist URL of key');
+      }
+
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/assignment-submissions/${encodeURIComponent(storagePath)}`;
       
-      console.log('[ASSIGNMENT MEDIA] Uploading to Supabase Storage:', filePath);
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('assignment-submissions')
-        .upload(filePath, fileBytes, {
-          contentType: file.mimeType || 'application/octet-stream',
-          upsert: false,
-        });
-      
-      if (uploadError) {
-        console.error('[ASSIGNMENT MEDIA] Upload error:', uploadError);
-        throw new Error(`Upload error: ${uploadError.message}`);
+      console.log('[ASSIGNMENT MEDIA] Uploading to Supabase Storage:', uploadUrl);
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${anonKey}`,
+          'x-upsert': 'false',
+        },
+        body: form,
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Upload error: ${res.status} ${res.statusText} ${txt}`);
       }
 
       console.log('[ASSIGNMENT MEDIA] Upload successful, getting public URL...');
       const { data } = supabase.storage
         .from('assignment-submissions')
-        .getPublicUrl(uploadData.path);
+        .getPublicUrl(storagePath);
 
       setMediaUri(data.publicUrl);
 
@@ -1094,46 +1094,46 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
         return;
       }
       
-      console.log('[MEMBER UPLOAD] Reading file from URI...');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log('[MEMBER UPLOAD] Fetch timeout, aborting...');
-        controller.abort();
-      }, 120000);
-      
-      const response = await fetch(file.uri, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to read file: ${response.status} ${response.statusText}`);
-      }
-      
-      console.log('[MEMBER UPLOAD] Converting to binary data...');
-      const blob = await response.blob();
-      const buffer = await blob.arrayBuffer();
-      const fileBytes = new Uint8Array(buffer);
-      console.log('[MEMBER UPLOAD] Binary data size:', fileBytes.length, 'bytes');
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `assignments/${timestamp}_${safeName}`;
 
-      const fileName = `${Date.now()}-${file.name}`;
-      const filePath = `assignments/${fileName}`;
+      console.log('[MEMBER UPLOAD] Creating FormData...');
+      const form = new FormData();
+      form.append('file', {
+        uri: file.uri,
+        name: safeName,
+        type: file.mimeType || 'application/octet-stream',
+      } as any);
+
+      const supabaseUrl = (supabase as any).supabaseUrl;
+      const anonKey = (supabase as any).supabaseKey;
+
+      if (!supabaseUrl || !anonKey) {
+        throw new Error('Supabase client mist URL of key');
+      }
+
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/assignment-submissions/${encodeURIComponent(storagePath)}`;
       
-      console.log('[MEMBER UPLOAD] Uploading to Supabase Storage:', filePath);
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('assignment-submissions')
-        .upload(filePath, fileBytes, {
-          contentType: file.mimeType || 'application/octet-stream',
-          upsert: false,
-        });
-      
-      if (uploadError) {
-        console.error('[MEMBER UPLOAD] Upload error:', uploadError);
-        throw new Error(`Upload error: ${uploadError.message}`);
+      console.log('[MEMBER UPLOAD] Uploading to Supabase Storage:', uploadUrl);
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${anonKey}`,
+          'x-upsert': 'false',
+        },
+        body: form,
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Upload error: ${res.status} ${res.statusText} ${txt}`);
       }
       
       console.log('[MEMBER UPLOAD] Upload successful, getting public URL...');
       const { data } = supabase.storage
         .from('assignment-submissions')
-        .getPublicUrl(uploadData.path);
+        .getPublicUrl(storagePath);
 
       setUploadedMediaUri(data.publicUrl);
 
