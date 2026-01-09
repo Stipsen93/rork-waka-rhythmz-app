@@ -584,9 +584,6 @@ export default function CalendarScreen() {
                 const formattedDate = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()].slice(0, 3)} ${dateObj.getFullYear()}`;
                 const creator = users.find(u => u.id === item.createdBy);
                 const isCancelled = item.status === 'cancelled';
-                const isAdmin = currentUser?.role === 'admin' || isCrownAdmin;
-                const isCreator = currentUser?.id === item.createdBy;
-                const canEdit = isAdmin || isCreator;
                 
                 return (
                   <Pressable 
@@ -2312,6 +2309,7 @@ const styles = StyleSheet.create({
     fontWeight: '800' as const,
   },
   detailsScrollView: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 20,
   },
