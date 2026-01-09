@@ -2041,12 +2041,20 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       }
       console.log('💾 [DELETE_MEDIA] Database deletion completed');
       
+      setClearedMediaIds(prev => {
+        const newSet = new Set([...prev, ...ids]);
+        AsyncStorage.setItem('cleared_recent_media', JSON.stringify(Array.from(newSet))).catch(error => {
+          console.error('❌ [DELETE_MEDIA] Error saving cleared media:', error);
+        });
+        return newSet;
+      });
+      
       setMediaLibrary(prev => {
         const filtered = prev.filter(m => !ids.includes(m.id));
         console.log('💾 [DELETE_MEDIA] Updating local state, new length:', filtered.length);
         return filtered;
       });
-      console.log('✅ [DELETE_MEDIA] Media deleted successfully');
+      console.log('✅ [DELETE_MEDIA] Media deleted successfully and removed from recent widget');
     } catch (error) {
       console.error('❌ [DELETE_MEDIA] Delete media error:', error);
       throw error;
@@ -2138,7 +2146,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       m.id === id ? { ...m, name: newName } : m
     ));
     
-    console.log('✅ Media renamed');
+    console.log('✅ Media renamed and recent widget will reflect the change');
   }, [mediaLibrary]);
 
   const renameFolder = useCallback(async (oldPath: string, newPath: string) => {
