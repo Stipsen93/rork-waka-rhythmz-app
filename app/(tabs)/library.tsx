@@ -6,14 +6,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Folder, Video, Image as ImageIcon, ChevronRight, ArrowLeft, X, Plus, Upload, Trash2, CheckCircle2, RefreshCw, Edit2, Eye, EyeOff } from "lucide-react-native";
 import { Stack } from "expo-router";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseUrl, supabaseAnonKey } from "@/lib/supabase";
 import VideoPlayerModal from '@/components/VideoPlayerModal';
 import AudioPlayerModal from '@/components/AudioPlayerModal';
 import ImageViewerModal from '@/components/ImageViewerModal';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import { uploadUriToSupabaseStorage } from '@/lib/supabaseUpload';
 import { useAppState } from "@/providers/AppState";
 import { useUploadProgress } from "@/providers/UploadProgressProvider";
 
@@ -567,61 +565,51 @@ export default function LibraryScreen() {
 
   const uploadFileNative = async (uri: string, fileName: string, mimeType: string | undefined) => {
     let uploadId: string | null = null;
-    
+
     try {
       setIsUploading(true);
       setErrorMessage(null);
 
-      console.log('[UPLOAD NATIVE] Starting upload...');
-      console.log('[UPLOAD NATIVE] URI:', uri);
-      console.log('[UPLOAD NATIVE] Name:', fileName);
-      console.log('[UPLOAD NATIVE] Type:', mimeType);
-
       uploadId = startUpload(fileName);
       updateProgress(uploadId, 10);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 600000);
-      
-      const response = await fetch(uri, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`);
-      }
-      
-      console.log('[UPLOAD NATIVE] Reading file...');
-      const blob = await response.blob();
-      const buffer = await blob.arrayBuffer();
-      const fileBytes = new Uint8Array(buffer);
-
-      console.log('[UPLOAD NATIVE] File size:', blob.size, 'bytes');
-      updateProgress(uploadId, 30);
 
       const timestamp = Date.now();
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
       const folder = currentPath.trim().replace(/^\/+|\/+$/g, '');
       const storagePath = folder ? `${folder}/${timestamp}_${safeName}` : `${timestamp}_${safeName}`;
 
-      console.log('[UPLOAD NATIVE] Uploading to Supabase Storage:', storagePath);
-      
-      const { error: uploadError } = await supabase.storage
-        .from('media-library')
-        .upload(storagePath, fileBytes, {
-          contentType: mimeType || 'application/octet-stream',
-          upsert: false,
-        });
+      const form = new FormData();
+      form.append('file', {
+        uri,
+        name: safeName,
+        type: mimeType || 'application/octet-stream',
+      } as any);
 
-      if (uploadError) {
-        console.error('[UPLOAD NATIVE] Storage error:', uploadError);
-        throw new Error(`Upload error: ${uploadError.message}`);
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/media-library/${encodeURIComponent(storagePath)}`;
+      updateProgress(uploadId, 30);
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          'x-upsert': 'false',
+        },
+        body: form,
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Upload error: ${res.status} ${res.statusText} ${txt}`);
       }
 
       updateProgress(uploadId, 70);
 
-      let fileType = 'other';
+      let fileType: 'video' | 'image' | 'audio' | 'other' = 'other';
       if (mimeType?.startsWith('video/')) fileType = 'video';
       else if (mimeType?.startsWith('image/')) fileType = 'image';
       else if (mimeType?.startsWith('audio/')) fileType = 'audio';
+
+      const file_size = 0;
 
       const { error: dbError } = await supabase
         .from('media_library')
@@ -630,7 +618,7 @@ export default function LibraryScreen() {
           path: storagePath,
           folder_path: folder,
           file_type: fileType,
-          file_size: blob.size,
+          file_size,
           mime_type: mimeType || 'application/octet-stream',
           storage_path: storagePath,
           uploaded_by: currentUser?.id || null,
@@ -639,26 +627,20 @@ export default function LibraryScreen() {
         });
 
       if (dbError) {
-        console.error('[UPLOAD NATIVE] DB error, cleaning up storage:', dbError);
         await supabase.storage.from('media-library').remove([storagePath]);
         throw new Error(`Database error: ${dbError.message}`);
       }
 
-      console.log('[UPLOAD NATIVE] Upload successful!');
-
       updateProgress(uploadId, 100);
       completeUpload(uploadId);
-      
+
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
       itemsCacheRef.current.clear();
       await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
     } catch (error: any) {
-      console.error('[UPLOAD NATIVE] Error:', error);
-      if (uploadId) {
-        cancelUpload(uploadId);
-      }
+      if (uploadId) cancelUpload(uploadId);
       setIsUploading(false);
       const message = error?.message || 'Onbekende fout';
       setErrorMessage(`Upload mislukt: ${message}`);
