@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder, Platform, Alert, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { View, StyleSheet, Modal, Pressable, Animated, Text, PanResponder, Platform, Alert, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
 import { Pause, Play, X, Volume2, Download } from 'lucide-react-native';
 import { File, Paths } from 'expo-file-system';
@@ -16,6 +16,7 @@ type VideoPlayerModalProps = {
 };
 
 export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio = false }: VideoPlayerModalProps) {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const videoRef = useRef<Video>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const progressBarRef = useRef<View>(null);
@@ -275,6 +276,13 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio =
     showControlsTemporarily();
   };
 
+  const videoFillStyle = useMemo(() => {
+    return {
+      width: windowWidth,
+      height: windowHeight,
+    } as const;
+  }, [windowWidth, windowHeight]);
+
   const progressPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -326,7 +334,7 @@ export default function VideoPlayerModal({ visible, videoUrl, onClose, isAudio =
             <Video
               ref={videoRef}
               source={{ uri: videoUrl }}
-              style={styles.video}
+              style={[styles.video, videoFillStyle]}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay={isPlaying}
               isLooping
@@ -470,9 +478,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   video: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    maxHeight: '80%',
+    backgroundColor: 'transparent',
   },
   controlsOverlay: {
     position: 'absolute',
