@@ -1869,6 +1869,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
   },
+  textArea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+    paddingTop: 16,
+  },
   dropdownButton: {
     backgroundColor: Colors.light.darkGray,
     borderRadius: 12,
