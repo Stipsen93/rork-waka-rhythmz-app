@@ -52,6 +52,7 @@ export default function CalendarScreen() {
     date: string;
     time: string;
     location: string;
+    opmerkingen: string;
     memberIds: string[];
     forUserId?: string;
     confirmed: boolean;
@@ -61,6 +62,7 @@ export default function CalendarScreen() {
     date: formatDateToLocal(new Date()),
     time: '12:00',
     location: '',
+    opmerkingen: '',
     memberIds: [],
     forUserId: undefined,
     confirmed: false,
@@ -84,6 +86,7 @@ export default function CalendarScreen() {
     date: string;
     time: string;
     location: string;
+    opmerkingen: string;
     memberIds: string[];
     forUserId?: string;
     confirmed: boolean;
@@ -93,6 +96,7 @@ export default function CalendarScreen() {
     date: formatDateToLocal(new Date()),
     time: '12:00',
     location: '',
+    opmerkingen: '',
     memberIds: [],
     forUserId: undefined,
     confirmed: false,
@@ -297,6 +301,7 @@ export default function CalendarScreen() {
       date: formData.date,
       time: formData.time,
       location: formData.location.trim(),
+      opmerkingen: formData.opmerkingen.trim() ? formData.opmerkingen.trim() : undefined,
       memberIds: formData.memberIds,
       forUserId: formData.forUserId,
       confirmed: formData.confirmed,
@@ -308,6 +313,7 @@ export default function CalendarScreen() {
       date: formatDateToLocal(new Date()),
       time: '12:00',
       location: '',
+      opmerkingen: '',
       memberIds: [],
       forUserId: undefined,
       confirmed: false,
@@ -323,6 +329,7 @@ export default function CalendarScreen() {
       date: appointment.date,
       time: appointment.time,
       location: appointment.location,
+      opmerkingen: appointment.opmerkingen ?? '',
       memberIds: appointment.memberIds,
       forUserId: appointment.forUserId,
       confirmed: appointment.confirmed,
@@ -341,6 +348,7 @@ export default function CalendarScreen() {
       date: editFormData.date,
       time: editFormData.time,
       location: editFormData.location.trim(),
+      opmerkingen: editFormData.opmerkingen.trim() ? editFormData.opmerkingen.trim() : null,
       memberIds: editFormData.memberIds,
       forUserId: editFormData.forUserId,
       confirmed: editFormData.confirmed,
@@ -932,6 +940,19 @@ export default function CalendarScreen() {
               </View>
 
               <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Opmerkingen</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={formData.opmerkingen}
+                  onChangeText={(text) => setFormData({ ...formData, opmerkingen: text })}
+                  placeholder="Outfits, Verzamelplek..."
+                  placeholderTextColor={Colors.light.muted}
+                  multiline
+                  testID="appointment-notes-input"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
                 <View style={styles.membersSectionHeader}>
                   <Text style={styles.inputLabel}>Selecteer Leden</Text>
                   <Pressable 
@@ -1273,6 +1294,18 @@ export default function CalendarScreen() {
                   onChangeText={(text) => setEditFormData({ ...editFormData, location: text })}
                   placeholder="Locatie van de afspraak"
                   placeholderTextColor={Colors.light.muted}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Opmerkingen</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={editFormData.opmerkingen}
+                  onChangeText={(text) => setEditFormData({ ...editFormData, opmerkingen: text })}
+                  placeholder="Outfits, Verzamelplek..."
+                  placeholderTextColor={Colors.light.muted}
+                  multiline
                 />
               </View>
 

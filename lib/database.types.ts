@@ -259,6 +259,7 @@ export type Database = {
           date: string
           time: string
           location: string
+          opmerkingen: string | null
           member_ids: string[] | null
           created_by: string
           status: 'active' | 'cancelled'
@@ -274,6 +275,7 @@ export type Database = {
           date: string
           time: string
           location: string
+          opmerkingen?: string | null
           member_ids?: string[] | null
           created_by: string
           status?: 'active' | 'cancelled'
@@ -289,6 +291,7 @@ export type Database = {
           date?: string
           time?: string
           location?: string
+          opmerkingen?: string | null
           member_ids?: string[] | null
           created_by?: string
           status?: 'active' | 'cancelled'

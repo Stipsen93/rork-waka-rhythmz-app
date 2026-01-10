@@ -148,6 +148,7 @@ export interface Appointment {
   date: string;
   time: string;
   location: string;
+  opmerkingen?: string | null;
   memberIds: string[];
   createdAt: string;
   createdBy: string;
@@ -503,6 +504,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
           date: a.date,
           time: a.time,
           location: a.location,
+          opmerkingen: (a as any).opmerkingen ?? null,
           memberIds: a.member_ids ?? [],
           createdAt: a.created_at,
           createdBy: a.created_by,
@@ -761,6 +763,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
             date: a.date,
             time: a.time,
             location: a.location,
+            opmerkingen: (a as any).opmerkingen ?? null,
             memberIds: a.member_ids ?? [],
             createdAt: a.created_at,
             createdBy: a.created_by,
@@ -944,6 +947,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
               date: a.date,
               time: a.time,
               location: a.location,
+              opmerkingen: (a as any).opmerkingen ?? null,
               memberIds: a.member_ids ?? [],
               createdAt: a.created_at,
               createdBy: a.created_by,
@@ -1743,6 +1747,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       date: newAppointment.date,
       time: newAppointment.time,
       location: newAppointment.location,
+      opmerkingen: newAppointment.opmerkingen ?? null,
       member_ids: newAppointment.memberIds,
       created_by: newAppointment.createdBy,
       for_user_id: newAppointment.forUserId ?? null,
@@ -1791,6 +1796,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     if (appointment.date !== undefined) updateData.date = appointment.date;
     if (appointment.time !== undefined) updateData.time = appointment.time;
     if (appointment.location !== undefined) updateData.location = appointment.location;
+    if (appointment.opmerkingen !== undefined) updateData.opmerkingen = appointment.opmerkingen;
     if (appointment.memberIds !== undefined) updateData.member_ids = appointment.memberIds;
     if (appointment.status !== undefined) updateData.status = appointment.status;
     if (appointment.createdBy !== undefined) updateData.created_by = appointment.createdBy;
