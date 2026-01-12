@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
@@ -15,14 +15,14 @@ type TimeOption = { label: string; hours: number };
 export default function MeldingenScreen() {
   const insets = useSafeAreaInsets();
   const { notificationSettings, updateNotificationSettings, users, updateUserNotificationPreferences, language } = useAppState();
-  const { isRegistered, isLoading, permissionStatus, registerForPushNotifications, checkPermissionStatus } = useNotifications();
+  const { isRegistered, isLoading, permissionStatus, diagnostics, registerForPushNotifications, requestPermissions, refreshPushState } = useNotifications();
   const t = translations[language];
   const [showMenuModal, setShowMenuModal] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log('📱 [MELDINGEN] Checking permission status on mount...');
-    checkPermissionStatus();
-  }, [checkPermissionStatus]);
+    console.log('📱 [MELDINGEN] Refreshing push state on mount...');
+    refreshPushState();
+  }, [refreshPushState]);
   
   const currentUser = useAppState().currentUser;
   
@@ -174,22 +174,40 @@ export default function MeldingenScreen() {
               </Text>
             </View>
             {!isRegistered && !isLoading && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.activateButton}
                 onPress={async () => {
-                  await registerForPushNotifications();
+                  await requestPermissions();
                 }}
+                testID="push-activate"
               >
                 <Text style={styles.activateButtonText}>Activeren</Text>
               </TouchableOpacity>
             )}
           </View>
-          {(permissionStatus === 'denied' && !isRegistered) && (
-            <View style={styles.permissionWarning}>
+          {(!diagnostics.overallEnabled && !isRegistered) && (
+            <View style={styles.permissionWarning} testID="push-warning">
               <AlertCircle color="#FF6B6B" size={16} strokeWidth={2.5} />
-              <Text style={styles.permissionWarningText}>
-                Push notificaties zijn uitgeschakeld in je apparaat instellingen. Ga naar Instellingen → OneBand → Meldingen om ze in te schakelen.
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.permissionWarningText}>
+                  Push notificaties lijken op dit apparaat uit te staan.
+                  {Platform.OS === 'android' && diagnostics.androidChannel?.blocked
+                    ? ' (Android kanaal is geblokkeerd)'
+                    : ''}
+                </Text>
+                <TouchableOpacity
+                  style={styles.permissionCta}
+                  onPress={async () => {
+                    await refreshPushState();
+                    if (permissionStatus === 'granted') {
+                      await registerForPushNotifications();
+                    }
+                  }}
+                  testID="push-recheck"
+                >
+                  <Text style={styles.permissionCtaText}>Opnieuw controleren</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -1062,6 +1080,20 @@ const styles = StyleSheet.create({
     color: "#FF6B6B" as const,
     fontWeight: "500" as const,
     lineHeight: 16,
+  },
+  permissionCta: {
+    marginTop: 10,
+    alignSelf: "flex-start" as const,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "#FF6B6B" as const,
+  },
+  permissionCtaText: {
+    color: "#FFFFFF" as const,
+    fontSize: 12,
+    fontWeight: "800" as const,
+    letterSpacing: 0.2,
   },
   settingRow: {
     marginBottom: 16,
