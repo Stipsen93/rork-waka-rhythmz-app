@@ -1444,8 +1444,9 @@ export default function CalendarScreen() {
 
               return (
                 <ScrollView 
+                  style={styles.detailsScrollView}
                   contentContainerStyle={styles.detailsScrollContent}
-                  showsVerticalScrollIndicator={false}
+                  showsVerticalScrollIndicator={true}
                   nestedScrollEnabled={true}
                 >
                   {isCancelled && (
@@ -1498,6 +1499,13 @@ export default function CalendarScreen() {
                       <Text style={styles.detailsSectionValue}>{detailsAppointment.location}</Text>
                     </View>
                   </View>
+
+                  {detailsAppointment.opmerkingen && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.detailsSectionLabel}>Opmerkingen</Text>
+                      <Text style={styles.detailsSectionValue}>{detailsAppointment.opmerkingen}</Text>
+                    </View>
+                  )}
 
                   {selectedMembers.length > 0 && (
                     <View style={styles.detailsSection}>
@@ -2331,6 +2339,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 12,
+    overflow: 'hidden',
+  },
+  detailsScrollView: {
+    flex: 1,
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -2349,7 +2361,8 @@ const styles = StyleSheet.create({
   },
   detailsScrollContent: {
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
   detailsCancelledBanner: {
     backgroundColor: '#DC2626',
