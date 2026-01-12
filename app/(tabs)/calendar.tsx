@@ -2340,9 +2340,11 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
     overflow: 'hidden',
+    flexShrink: 1,
   },
   detailsScrollView: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   detailsHeader: {
     flexDirection: 'row',
