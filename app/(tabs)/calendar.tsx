@@ -20,7 +20,6 @@ interface LegendItem {
 
 const LEGEND_ITEMS: LegendItem[] = [
   { label: 'Training', color: Colors.light.primary, variant: 'dot' },
-  { label: 'Extra training', color: '#DC2626', variant: 'dot' },
   { label: 'Optreden', color: '#9333EA', variant: 'outline' },
   { label: 'Geannuleerd optreden', color: '#DC2626', variant: 'outline' },
   { label: 'Verjaardag', color: '#FACC15', variant: 'dot' },
