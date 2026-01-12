@@ -1444,8 +1444,9 @@ export default function CalendarScreen() {
 
               return (
                 <ScrollView 
-                  style={styles.detailsScrollView}
+                  contentContainerStyle={styles.detailsScrollContent}
                   showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled={true}
                 >
                   {isCancelled && (
                     <View style={styles.detailsCancelledBanner}>
@@ -2346,8 +2347,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800' as const,
   },
-  detailsScrollView: {
-    flex: 1,
+  detailsScrollContent: {
     paddingHorizontal: 24,
     paddingVertical: 20,
   },
