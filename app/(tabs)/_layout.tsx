@@ -1,7 +1,7 @@
 import { Tabs, useRouter } from "expo-router";
 import { CalendarDays, FolderOpen, LayoutDashboard, Settings, Menu, Trash2, ChevronRight, X, UserPlus, Shield, User as UserIcon, Users, CalendarCheck, Newspaper, BookOpen, Bell, LogOut, Crown } from "lucide-react-native";
-import React, { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity, ScrollView } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, View, Alert, TextInput, FlatList, TouchableOpacity, ScrollView, BackHandler, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppState, Role } from "@/providers/AppState";
@@ -346,6 +346,51 @@ export default function TabLayout() {
   const { currentUser, t } = useAppState();
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      try {
+        const state: unknown = (router as unknown as { getState?: () => unknown }).getState?.();
+        const currentRouteName =
+          (state as { routeNames?: string[]; index?: number } | undefined)?.routeNames?.[
+            (state as { index?: number } | undefined)?.index ?? 0
+          ];
+
+        const routeName = typeof currentRouteName === "string" ? currentRouteName : undefined;
+        console.log("[BACK] hardwareBackPress", { routeName });
+
+        if (routeName === "assignments") {
+          console.log("[BACK] exiting app from dashboard");
+          BackHandler.exitApp();
+          return true;
+        }
+
+        if (routeName === "calendar") {
+          console.log("[BACK] exiting app from calendar");
+          BackHandler.exitApp();
+          return true;
+        }
+
+        if (routeName === "instellingen") {
+          console.log("[BACK] from instellingen -> dashboard");
+          router.replace("/(tabs)/assignments");
+          return true;
+        }
+
+        return false;
+      } catch (e) {
+        console.error("[BACK] error in back handler", e);
+        return false;
+      }
+    });
+
+    return () => sub.remove();
+  }, [router]);
 
   return (
     <>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform, RefreshControl, ScrollView } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, BackHandler, ToastAndroid } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -89,6 +89,91 @@ export default function LibraryScreen() {
   const itemsCacheRef = useRef<Map<string, LibraryItem[]>>(new Map());
   const hasSyncedRef = useRef(false);
   const latestPathRef = useRef(currentPath);
+  const lastBackPressRef = useRef<number>(0);
+
+  useEffect(() => {
+    latestPathRef.current = currentPath;
+  }, [currentPath]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (showVisibilityDetailModal) {
+        setShowVisibilityDetailModal(false);
+        return true;
+      }
+      if (showVisibilityModal) {
+        setShowVisibilityModal(false);
+        return true;
+      }
+      if (imageViewerVisible) {
+        setImageViewerVisible(false);
+        return true;
+      }
+      if (audioPlayerVisible) {
+        setAudioPlayerVisible(false);
+        return true;
+      }
+      if (videoPlayerVisible) {
+        setVideoPlayerVisible(false);
+        return true;
+      }
+      if (showRenameModal) {
+        setShowRenameModal(false);
+        return true;
+      }
+      if (showFolderModal) {
+        setShowFolderModal(false);
+        return true;
+      }
+      if (showActionSheet) {
+        setShowActionSheet(false);
+        return true;
+      }
+      if (showMenuModal) {
+        setShowMenuModal(false);
+        return true;
+      }
+
+      if (latestPathRef.current) {
+        const parts = latestPathRef.current.split("/").filter(Boolean);
+        parts.pop();
+        const parent = parts.join("/");
+        console.log("[LIBRARY] Hardware back: going up one level", { from: latestPathRef.current, to: parent });
+        setCurrentPath(parent);
+        return true;
+      }
+
+      const now = Date.now();
+      const diff = now - lastBackPressRef.current;
+
+      if (diff < 2000) {
+        console.log("[LIBRARY] Hardware back: exiting app (double press)");
+        BackHandler.exitApp();
+        return true;
+      }
+
+      lastBackPressRef.current = now;
+      ToastAndroid.show("Klik nogmaals op terug om de app te sluiten", ToastAndroid.SHORT);
+      return true;
+    });
+
+    return () => sub.remove();
+  }, [
+    currentPath,
+    showVisibilityDetailModal,
+    showVisibilityModal,
+    imageViewerVisible,
+    audioPlayerVisible,
+    videoPlayerVisible,
+    showRenameModal,
+    showFolderModal,
+    showActionSheet,
+    showMenuModal,
+  ]);
 
   const loadItems = useCallback(async (options?: LoadItemsOptions) => {
     const forceSync = options?.forceSync ?? false;

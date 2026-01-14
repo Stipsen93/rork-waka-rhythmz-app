@@ -99,7 +99,7 @@ export default function LoginScreen() {
             <Music color={Colors.light.primary} size={48} strokeWidth={2.5} />
           </View>
           <Text style={styles.appName}>Waka Rythmz</Text>
-          <Text style={styles.appTagline}>Drumband Management</Text>
+          <Text style={styles.appTagline}>Band Management</Text>
         </View>
 
         <View style={styles.formContainer}>
