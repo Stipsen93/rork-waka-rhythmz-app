@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useState } from "react";
 import { User, Lock, LogOut, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { formatDateDisplay } from "@/constants/dateUtils";
 import { useAppState } from "@/providers/AppState";
 import { MenuButton, MenuModal } from "@/app/(tabs)/_layout";
 import { translations } from "@/constants/translations";
@@ -174,7 +175,7 @@ export default function AccountScreen() {
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>{t.account.birthdate}</Text>
                 <Text style={[styles.input, !isEditingProfile && styles.inputDisabled, styles.inputText]}>
-                  {birthDate || t.account.selectDate}
+                  {formatDateDisplay(birthDate) || t.account.selectDate}
                 </Text>
               </View>
             </Pressable>

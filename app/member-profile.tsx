@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { User, Mail, Phone, MapPin, Calendar, X, Crown, Trash2 } from "lucide-react-native";
+import { formatDateDisplay } from "@/constants/dateUtils";
 import { useAppState } from "@/providers/AppState";
 
 export default function MemberProfileScreen() {
@@ -117,7 +118,7 @@ export default function MemberProfileScreen() {
               </View>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Geboortedatum</Text>
-                <Text style={[styles.input, styles.inputText]}>{member.age || 'Niet ingevuld'}</Text>
+                <Text style={[styles.input, styles.inputText]}>{formatDateDisplay(member.age) || 'Niet ingevuld'}</Text>
               </View>
             </View>
 
