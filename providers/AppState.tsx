@@ -371,7 +371,26 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [groups, setGroups] = useState<Group[]>([]);
   const [language, setLanguageState] = useState<Language>('nl');
   const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(false);
-  const [clearedMediaIds, setClearedMediaIds] = useState<Set<string>>(new Set());
+  const [clearedMediaIds, setClearedMediaIds] = useState<Set<string>>(new Set<string>());
+
+  const getRecentMedia = useCallback((): MediaLibraryItem[] => {
+    const list = mediaLibrary
+      .filter((m) => !clearedMediaIds.has(m.id))
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return list.slice(0, 8);
+  }, [mediaLibrary, clearedMediaIds]);
+
+  const clearRecentMediaList = useCallback(async () => {
+    console.log('🧹 [RECENT_MEDIA] Clearing recent media hidden list');
+    setClearedMediaIds(new Set<string>());
+    try {
+      await AsyncStorage.removeItem('cleared_recent_media');
+    } catch (error) {
+      console.error('❌ [RECENT_MEDIA] Error clearing recent media storage:', error);
+    }
+  }, []);
 
   const refreshStorageUsage = useCallback(async () => {
     console.log('💾 Storage usage refresh (disabled - no backend)');
@@ -415,7 +434,10 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
       try {
         const saved = await AsyncStorage.getItem('cleared_recent_media');
         if (saved) {
-          setClearedMediaIds(new Set(JSON.parse(saved)));
+          const parsed: unknown = JSON.parse(saved);
+          const arr = Array.isArray(parsed) ? (parsed as unknown[]) : [];
+          const ids = arr.filter((v): v is string => typeof v === 'string');
+          setClearedMediaIds(new Set<string>(ids));
         }
       } catch (error) {
         console.error('Error loading cleared media:', error);
@@ -1509,37 +1531,6 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     console.log('✅ Practice schedule updated');
   }, [practiceSchedule]);
 
-  const getRecentMedia = useCallback((): MediaLibraryItem[] => {
-    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-    return mediaLibrary
-      .filter(m => {
-        const itemTime = new Date(m.created_at).getTime();
-        return itemTime >= tenMinutesAgo && !clearedMediaIds.has(m.id);
-      })
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5);
-  }, [mediaLibrary, clearedMediaIds]);
-
-  const clearRecentMediaList = useCallback(async () => {
-    console.log('🗑️ Clearing recent media list...');
-    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-    const recentIds = mediaLibrary
-      .filter(m => {
-        const itemTime = new Date(m.created_at).getTime();
-        return itemTime >= tenMinutesAgo;
-      })
-      .map(m => m.id);
-    const newClearedSet = new Set([...clearedMediaIds, ...recentIds]);
-    
-    setClearedMediaIds(newClearedSet);
-    
-    try {
-      await AsyncStorage.setItem('cleared_recent_media', JSON.stringify(Array.from(newClearedSet)));
-      console.log('✅ Recent media list cleared');
-    } catch (error) {
-      console.error('❌ Error saving cleared media:', error);
-    }
-  }, [mediaLibrary, clearedMediaIds]);
 
   const addAssignment = useCallback(async (assignment: Omit<Assignment, 'id' | 'createdAt' | 'submissions' | 'completedBy'>) => {
     console.log('💾 Adding assignment to Supabase...');

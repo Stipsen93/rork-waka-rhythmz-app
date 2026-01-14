@@ -554,6 +554,10 @@ export default function LibraryScreen() {
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
+
+      console.log('[UPLOAD] Triggering full app sync so recent media widget updates...');
+      await syncAllData();
+
       itemsCacheRef.current.clear();
       await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
     } catch (error: any) {
@@ -722,6 +726,10 @@ export default function LibraryScreen() {
       setIsUploading(false);
       setErrorMessage('Upload succesvol!');
       setTimeout(() => setErrorMessage(null), 3000);
+
+      console.log('[UPLOAD] Triggering full app sync so recent media widget updates...');
+      await syncAllData();
+
       itemsCacheRef.current.clear();
       await Promise.all([loadItems({ forceSync: true }), loadStorageUsage()]);
     } catch (error: any) {
