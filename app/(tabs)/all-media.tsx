@@ -147,7 +147,27 @@ export default function AllMediaScreen() {
     }
   }, [syncAllData]);
 
-  const getIcon = (type: string) => {
+  const inferFileType = useCallback((item: MediaLibraryItem): "audio" | "video" | "image" | null => {
+    const rawType = (item.file_type ?? "").toLowerCase().trim();
+    if (rawType === "audio" || rawType === "video" || rawType === "image") {
+      return rawType;
+    }
+
+    const mime = (item.mime_type ?? "").toLowerCase().trim();
+    if (mime.startsWith("audio/")) return "audio";
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("image/")) return "image";
+
+    const storagePath = (item.storage_path ?? item.path ?? "").toLowerCase();
+    const ext = storagePath.split("?")[0]?.split("#")[0]?.split(".").pop() ?? "";
+    if (["mp3", "wav", "m4a", "aac", "ogg", "flac"].includes(ext)) return "audio";
+    if (["mp4", "mov", "m4v", "webm", "mkv"].includes(ext)) return "video";
+    if (["jpg", "jpeg", "png", "gif", "webp", "heic"].includes(ext)) return "image";
+
+    return null;
+  }, []);
+
+  const getIcon = useCallback((type: "audio" | "video" | "image" | null) => {
     switch (type) {
       case "video":
         return Video;
@@ -158,7 +178,7 @@ export default function AllMediaScreen() {
       default:
         return Music;
     }
-  };
+  }, []);
 
   const handleMediaPress = useCallback((item: MediaLibraryItem) => {
     if (selectionMode) {
@@ -166,14 +186,14 @@ export default function AllMediaScreen() {
       return;
     }
 
-    const storagePath = (item.storage_path ?? "").trim();
+    const storagePath = (item.storage_path ?? item.path ?? "").trim();
     if (!storagePath) {
-      console.warn("⚠️ [RECENT_MEDIA_LIST] Missing storage_path for item", { id: item.id, item });
+      console.warn("⚠️ [RECENT_MEDIA_LIST] Missing storage path for item", { id: item.id, item });
       Alert.alert("Fout", "Dit bestand kan niet worden geopend (pad ontbreekt).");
       return;
     }
 
-    const { data } = supabase.storage.from('media-library').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from("media-library").getPublicUrl(storagePath);
     const publicUrl = data?.publicUrl;
 
     if (!publicUrl) {
@@ -182,28 +202,36 @@ export default function AllMediaScreen() {
       return;
     }
 
-    console.log("▶️ [RECENT_MEDIA_LIST] Opening media", { id: item.id, type: item.file_type, publicUrl });
+    const inferred = inferFileType(item);
 
-    if (item.file_type === 'audio') {
+    console.log("▶️ [RECENT_MEDIA_LIST] Opening media", {
+      id: item.id,
+      file_type: item.file_type,
+      mime_type: item.mime_type,
+      inferred,
+      publicUrl,
+    });
+
+    if (inferred === "audio") {
       setSelectedAudio({ uri: publicUrl, title: getDisplayName(item) });
       setAudioModalVisible(true);
       return;
     }
 
-    if (item.file_type === 'video') {
+    if (inferred === "video") {
       setSelectedVideoUrl(publicUrl);
       setVideoModalVisible(true);
       return;
     }
 
-    if (item.file_type === 'image') {
+    if (inferred === "image") {
       setSelectedImageUrl(publicUrl);
       setImageModalVisible(true);
       return;
     }
 
     Alert.alert("Niet ondersteund", "Dit bestandstype kan niet worden geopend.");
-  }, [getDisplayName, selectionMode, toggleSelected]);
+  }, [getDisplayName, inferFileType, selectionMode, toggleSelected]);
 
   const handleMediaLongPress = useCallback((item: MediaLibraryItem) => {
     console.log("⏱️ [RECENT_MEDIA_LIST] Long press:", item.id);
@@ -294,7 +322,8 @@ export default function AllMediaScreen() {
           />
         }
         renderItem={({ item }) => {
-          const Icon = getIcon(item.file_type);
+          const inferredType = inferFileType(item);
+          const Icon = getIcon(inferredType);
           const displayName = getDisplayName(item);
           const isSelected = selectedIds.has(item.id);
 
@@ -314,7 +343,7 @@ export default function AllMediaScreen() {
                 <Text style={styles.cardTitle} numberOfLines={2}>
                   {displayName}
                 </Text>
-                <Text style={styles.cardMeta}>{item.file_type.toUpperCase()}</Text>
+                <Text style={styles.cardMeta}>{(inferredType ?? item.file_type ?? "").toString().toUpperCase()}</Text>
                 <Text style={styles.folderPath} numberOfLines={1}>
                   {item.folder_path || "Root"}
                 </Text>
