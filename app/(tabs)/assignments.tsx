@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/providers/AppState";
@@ -7,6 +7,101 @@ import { useTrainings } from "@/hooks/useTrainings";
 import { Clock, Video, Music, Calendar, AlertCircle, Image as ImageIcon } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+
+function MarqueeText({
+  text,
+  style,
+  testID,
+}: {
+  text: string;
+  style?: any;
+  testID?: string;
+}) {
+  const translateX = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [textWidth, setTextWidth] = useState<number>(0);
+
+  useEffect(() => {
+    if (!containerWidth || !textWidth) {
+      return;
+    }
+
+    const overflow = textWidth - containerWidth;
+    if (overflow <= 8) {
+      translateX.setValue(0);
+      return;
+    }
+
+    const distance = overflow + 16;
+    const durationMs = Math.max(4500, Math.min(14000, distance * 35));
+
+    console.log("📰 [MarqueeText] Starting marquee", {
+      containerWidth,
+      textWidth,
+      overflow,
+      distance,
+      durationMs,
+    });
+
+    translateX.setValue(0);
+
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.delay(600),
+        Animated.timing(translateX, {
+          toValue: -distance,
+          duration: durationMs,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.delay(800),
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    anim.start();
+
+    return () => {
+      console.log("📰 [MarqueeText] Stopping marquee");
+      anim.stop();
+    };
+  }, [containerWidth, textWidth, translateX]);
+
+  return (
+    <View
+      style={styles.marqueeContainer}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w !== containerWidth) {
+          console.log("📰 [MarqueeText] container width", w);
+          setContainerWidth(w);
+        }
+      }}
+      testID={testID}
+    >
+      <Animated.View style={[styles.marqueeInner, { transform: [{ translateX }] }]}>
+        <Text
+          style={style}
+          numberOfLines={1}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            if (w !== textWidth) {
+              console.log("📰 [MarqueeText] text width", w, { text });
+              setTextWidth(w);
+            }
+          }}
+        >
+          {text}
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function AssignmentsScreen() {
   const { assignments, getRecentMedia, practiceSchedule, announcements, appointments, currentUser, syncAllData, users } = useAppState();
@@ -217,7 +312,11 @@ export default function AssignmentsScreen() {
                   {recentMedia[0].file_type === 'video' && <Video color={Colors.light.primary} size={18} strokeWidth={2} />}
                   {recentMedia[0].file_type === 'image' && <ImageIcon color={Colors.light.primary} size={18} strokeWidth={2} />}
                   {recentMedia[0].file_type === 'audio' && <Music color={Colors.light.primary} size={18} strokeWidth={2} />}
-                  <Text style={styles.latestMediaText} numberOfLines={1}>{recentMedia[0].name}</Text>
+                  <MarqueeText
+                    text={recentMedia[0].name}
+                    style={styles.latestMediaText}
+                    testID="recente-media-widget-filename"
+                  />
                 </View>
               )}
               {recentMedia.length === 0 && (
@@ -825,10 +924,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
+  marqueeContainer: {
+    flex: 1,
+    overflow: "hidden" as const,
+  },
+  marqueeInner: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+  },
   latestMediaText: {
     color: Colors.light.text,
     fontSize: 14,
     fontWeight: "600" as const,
-    flex: 1,
   },
 });
