@@ -1,21 +1,25 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, View, Pressable, RefreshControl } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, View, Pressable, RefreshControl } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, MediaLibraryItem } from "@/providers/AppState";
-import { Video, Image as ImageIcon, Music, ArrowLeft } from "lucide-react-native";
+import { Video, Image as ImageIcon, Music, ArrowLeft, Trash2, Check, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import AudioPlayerModal from "@/components/AudioPlayerModal";
 import { supabase } from "@/lib/supabase";
 
 export default function AllMediaScreen() {
-  const { mediaLibrary, syncAllData } = useAppState();
+  const { mediaLibrary, syncAllData, currentUser, clearRecentMediaList, hideRecentMediaItems } = useAppState();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [audioModalVisible, setAudioModalVisible] = useState<boolean>(false);
   const [selectedAudio, setSelectedAudio] = useState<{ uri: string; title: string } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [selectionMode, setSelectionMode] = useState<boolean>(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set<string>());
+  const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
+  const isAdmin = currentUser?.role === "admin";
 
   const getDisplayName = useCallback((item: MediaLibraryItem): string => {
     const raw = (item.name ?? "").trim();
@@ -48,6 +52,82 @@ export default function AllMediaScreen() {
       .slice(0, 50);
   }, [mediaLibrary]);
 
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set<string>());
+  }, []);
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set<string>(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const confirmClearAll = useCallback(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    Alert.alert(
+      "Recente media wissen",
+      "Weet je zeker dat je de lijst met recente media wilt wissen?",
+      [
+        { text: "Annuleren", style: "cancel" },
+        {
+          text: "Wissen",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("🧹 [RECENT_MEDIA_LIST] Admin clear all");
+              await clearRecentMediaList();
+            } catch (error) {
+              console.error("❌ [RECENT_MEDIA_LIST] clearRecentMediaList error:", error);
+              Alert.alert("Fout", "Wissen is mislukt. Probeer opnieuw.");
+            }
+          },
+        },
+      ]
+    );
+  }, [clearRecentMediaList, isAdmin]);
+
+  const confirmDeleteSelected = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      return;
+    }
+
+    Alert.alert(
+      "Verwijderen",
+      `Weet je zeker dat je ${ids.length} item(s) uit de lijst wilt verwijderen?`,
+      [
+        { text: "Annuleren", style: "cancel" },
+        {
+          text: "Verwijderen",
+          style: "destructive",
+          onPress: async () => {
+            setIsBulkDeleting(true);
+            try {
+              console.log("🧹 [RECENT_MEDIA_LIST] Hiding selected items:", ids);
+              await hideRecentMediaItems(ids);
+              exitSelectionMode();
+            } catch (error) {
+              console.error("❌ [RECENT_MEDIA_LIST] hideRecentMediaItems error:", error);
+              Alert.alert("Fout", "Verwijderen is mislukt. Probeer opnieuw.");
+            } finally {
+              setIsBulkDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [exitSelectionMode, hideRecentMediaItems, selectedIds]);
+
   const onRefresh = useCallback(async () => {
     console.log("🔄 [RECENT_MEDIA_LIST] Pull-to-refresh starting...");
     setIsRefreshing(true);
@@ -74,7 +154,12 @@ export default function AllMediaScreen() {
     }
   };
 
-  const handleMediaPress = (item: MediaLibraryItem) => {
+  const handleMediaPress = useCallback((item: MediaLibraryItem) => {
+    if (selectionMode) {
+      toggleSelected(item.id);
+      return;
+    }
+
     if (item.file_type === 'audio') {
       const { data } = supabase.storage
         .from('media-library')
@@ -82,7 +167,17 @@ export default function AllMediaScreen() {
       setSelectedAudio({ uri: data.publicUrl, title: getDisplayName(item) });
       setAudioModalVisible(true);
     }
-  };
+  }, [getDisplayName, selectionMode, toggleSelected]);
+
+  const handleMediaLongPress = useCallback((item: MediaLibraryItem) => {
+    console.log("⏱️ [RECENT_MEDIA_LIST] Long press:", item.id);
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedIds(new Set<string>([item.id]));
+      return;
+    }
+    toggleSelected(item.id);
+  }, [selectionMode, toggleSelected]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="all-media-screen">
@@ -93,15 +188,61 @@ export default function AllMediaScreen() {
       />
       
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} testID="recent-media-back">
+        <Pressable
+          onPress={() => {
+            if (selectionMode) {
+              exitSelectionMode();
+              return;
+            }
+            router.back();
+          }}
+          style={styles.backButton}
+          testID="recent-media-back"
+        >
           <ArrowLeft color={Colors.light.primary} size={24} strokeWidth={2.5} />
         </Pressable>
+
         <View style={styles.headerTextContainer}>
           <Text style={styles.appName}>Waka Rythmz</Text>
           <Text style={styles.title}>Recente Media</Text>
-          <Text style={styles.subtitle}>{recentMedia.length} items</Text>
+          <Text style={styles.subtitle}>
+            {selectionMode ? `${selectedIds.size} geselecteerd` : `${recentMedia.length} items`}
+          </Text>
         </View>
 
+        {isAdmin && !selectionMode && (
+          <Pressable
+            onPress={confirmClearAll}
+            style={styles.headerIconButton}
+            testID="recent-media-clear-all"
+          >
+            <Trash2 color={Colors.light.text} size={22} strokeWidth={2.5} />
+          </Pressable>
+        )}
+
+        {selectionMode && (
+          <View style={styles.selectionHeaderActions}>
+            <Pressable
+              onPress={exitSelectionMode}
+              style={[styles.headerIconButton, styles.headerIconButtonSecondary]}
+              testID="recent-media-exit-selection"
+            >
+              <X color={Colors.light.text} size={22} strokeWidth={2.5} />
+            </Pressable>
+
+            <Pressable
+              onPress={confirmDeleteSelected}
+              disabled={selectedIds.size === 0 || isBulkDeleting}
+              style={[
+                styles.headerIconButton,
+                selectedIds.size === 0 || isBulkDeleting ? styles.headerIconButtonDisabled : styles.headerIconButtonDanger,
+              ]}
+              testID="recent-media-delete-selected"
+            >
+              <Trash2 color={Colors.light.text} size={22} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -119,12 +260,20 @@ export default function AllMediaScreen() {
         renderItem={({ item }) => {
           const Icon = getIcon(item.file_type);
           const displayName = getDisplayName(item);
+          const isSelected = selectedIds.has(item.id);
 
           return (
-            <Pressable style={styles.card} testID={`recent-media-${item.id}`} onPress={() => handleMediaPress(item)}>
+            <Pressable
+              style={[styles.card, selectionMode && styles.cardSelectable, isSelected && styles.cardSelected]}
+              testID={`recent-media-${item.id}`}
+              onPress={() => handleMediaPress(item)}
+              onLongPress={() => handleMediaLongPress(item)}
+              delayLongPress={250}
+            >
               <View style={styles.iconContainer}>
                 <Icon color={Colors.light.text} size={24} strokeWidth={2} />
               </View>
+
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle} numberOfLines={2}>
                   {displayName}
@@ -134,11 +283,20 @@ export default function AllMediaScreen() {
                   {item.folder_path || "Root"}
                 </Text>
               </View>
-              {item.file_type === "audio" && (
+
+              {selectionMode ? (
+                <View style={[styles.selectPill, isSelected ? styles.selectPillSelected : styles.selectPillUnselected]}>
+                  {isSelected ? (
+                    <Check color={Colors.light.text} size={16} strokeWidth={3} />
+                  ) : (
+                    <View style={styles.selectDot} />
+                  )}
+                </View>
+              ) : item.file_type === "audio" ? (
                 <View style={styles.playBadge}>
                   <Text style={styles.playBadgeText}>▶</Text>
                 </View>
-              )}
+              ) : null}
             </Pressable>
           );
         }}
@@ -185,6 +343,34 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 16,
   },
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+  },
+  headerIconButtonSecondary: {
+    backgroundColor: Colors.light.surface,
+  },
+  headerIconButtonDanger: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  headerIconButtonDisabled: {
+    opacity: 0.5,
+  },
+  selectionHeaderActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
   backButton: {
     paddingTop: 8,
   },
@@ -229,6 +415,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
   },
+  cardSelectable: {
+    borderColor: Colors.light.primary,
+  },
+  cardSelected: {
+    borderColor: Colors.light.primary,
+    shadowOpacity: 0.18,
+  },
   iconContainer: {
     width: 52,
     height: 52,
@@ -257,6 +450,27 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     fontSize: 12,
     fontWeight: "600" as const,
+  },
+  selectPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectPillSelected: {
+    backgroundColor: Colors.light.primary,
+  },
+  selectPillUnselected: {
+    backgroundColor: Colors.light.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.light.surfaceLight,
+  },
+  selectDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.light.muted,
   },
   playBadge: {
     width: 32,

@@ -259,6 +259,7 @@ export interface AppStateValue {
   practiceSchedule: PracticeSchedule;
   updatePracticeSchedule: (schedule: PracticeSchedule) => void;
   getRecentMedia: () => MediaLibraryItem[];
+  hideRecentMediaItems: (ids: string[]) => Promise<void>;
   clearRecentMediaList: () => Promise<void>;
   announcements: Announcement[];
   addAnnouncement: (announcement: Omit<Announcement, 'id' | 'createdAt'>) => void;
@@ -388,15 +389,48 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     return list.slice(0, 8);
   }, [mediaLibrary, clearedMediaIds]);
 
-  const clearRecentMediaList = useCallback(async () => {
-    console.log('🧹 [RECENT_MEDIA] Clearing recent media hidden list');
-    setClearedMediaIds(new Set<string>());
+  const persistClearedRecentMediaIds = useCallback(async (ids: Set<string>) => {
     try {
-      await AsyncStorage.removeItem('cleared_recent_media');
+      await AsyncStorage.setItem('cleared_recent_media', JSON.stringify(Array.from(ids)));
     } catch (error) {
-      console.error('❌ [RECENT_MEDIA] Error clearing recent media storage:', error);
+      console.error('❌ [RECENT_MEDIA] Error persisting cleared recent media ids:', error);
     }
   }, []);
+
+  const hideRecentMediaItems = useCallback(async (ids: string[]) => {
+    console.log('🧹 [RECENT_MEDIA] Hiding recent media items:', ids.length);
+    if (ids.length === 0) {
+      return;
+    }
+
+    setClearedMediaIds((prev) => {
+      const next = new Set<string>(prev);
+      ids.forEach((id) => next.add(id));
+      persistClearedRecentMediaIds(next);
+      return next;
+    });
+  }, [persistClearedRecentMediaIds]);
+
+  const clearRecentMediaList = useCallback(async () => {
+    console.log('🧹 [RECENT_MEDIA] Clearing recent media list (hide all within 7 days)');
+
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const idsToHide = mediaLibrary
+      .filter((m) => {
+        const ts = new Date(m.created_at).getTime();
+        return Number.isFinite(ts) && ts >= oneWeekAgo;
+      })
+      .map((m) => m.id);
+
+    console.log('🧹 [RECENT_MEDIA] IDs to hide:', idsToHide.length);
+
+    setClearedMediaIds((prev) => {
+      const next = new Set<string>(prev);
+      idsToHide.forEach((id) => next.add(id));
+      persistClearedRecentMediaIds(next);
+      return next;
+    });
+  }, [mediaLibrary, persistClearedRecentMediaIds]);
 
   const refreshStorageUsage = useCallback(async () => {
     console.log('💾 Storage usage refresh (disabled - no backend)');
@@ -2407,6 +2441,7 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
     practiceSchedule,
     updatePracticeSchedule,
     getRecentMedia,
+    hideRecentMediaItems,
     clearRecentMediaList,
     announcements,
     addAnnouncement,
