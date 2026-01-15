@@ -308,15 +308,31 @@ export default function AssignmentsScreen() {
             </View>
             <View style={styles.widgetContent}>
               {recentMedia.length > 0 && (
-                <View style={styles.latestMediaContainer}>
-                  {recentMedia[0].file_type === 'video' && <Video color={Colors.light.primary} size={18} strokeWidth={2} />}
-                  {recentMedia[0].file_type === 'image' && <ImageIcon color={Colors.light.primary} size={18} strokeWidth={2} />}
-                  {recentMedia[0].file_type === 'audio' && <Music color={Colors.light.primary} size={18} strokeWidth={2} />}
-                  <MarqueeText
-                    text={recentMedia[0].name}
-                    style={styles.latestMediaText}
-                    testID="recente-media-widget-filename"
-                  />
+                <View style={styles.recentMediaList} testID="recente-media-widget-list">
+                  {recentMedia.slice(0, 3).map((item, idx) => (
+                    <View
+                      key={item.id ?? `${item.created_at ?? "unknown"}-${idx}`}
+                      style={styles.recentMediaRow}
+                      testID={`recente-media-widget-item-${idx}`}
+                    >
+                      <View style={styles.recentMediaIcon}>
+                        {item.file_type === "video" && (
+                          <Video color={Colors.light.primary} size={16} strokeWidth={2.3} />
+                        )}
+                        {item.file_type === "image" && (
+                          <ImageIcon color={Colors.light.primary} size={16} strokeWidth={2.3} />
+                        )}
+                        {item.file_type === "audio" && (
+                          <Music color={Colors.light.primary} size={16} strokeWidth={2.3} />
+                        )}
+                      </View>
+                      <MarqueeText
+                        text={item.name}
+                        style={styles.recentMediaText}
+                        testID={idx === 0 ? "recente-media-widget-filename" : undefined}
+                      />
+                    </View>
+                  ))}
                 </View>
               )}
               {recentMedia.length === 0 && (
@@ -560,6 +576,31 @@ const styles = StyleSheet.create({
   },
   widgetContent: {
     gap: 10,
+  },
+  recentMediaList: {
+    gap: 8,
+  },
+  recentMediaRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    backgroundColor: Colors.light.darkGray,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  recentMediaIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    backgroundColor: Colors.light.surfaceLight,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+  },
+  recentMediaText: {
+    color: Colors.light.text,
+    fontSize: 14,
+    fontWeight: "600" as const,
   },
   mediaItem: {
     flexDirection: "row",
