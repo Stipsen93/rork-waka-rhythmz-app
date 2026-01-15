@@ -1659,49 +1659,62 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   }, []);
 
   const completeAssignment = useCallback(async (assignmentId: string, userId: string, submission?: { mediaUri?: string; notes?: string }) => {
-    console.log('💾 Completing assignment in Supabase...', assignmentId);
-    
-    const completion = {
-      userId,
-      completedAt: new Date().toISOString(),
-      ...(submission?.mediaUri && { mediaUri: submission.mediaUri }),
-    };
-    
+    console.log('💾 Completing assignment in Supabase...', { assignmentId, userId, hasSubmission: !!submission });
+
+    const nowIso = new Date().toISOString();
+
     const assignment = assignments.find(a => a.id === assignmentId);
     if (!assignment) {
       console.error('❌ Assignment not found:', assignmentId);
       throw new Error('Assignment not found');
     }
-    
-    const updatedCompletedBy = [...assignment.completedBy, completion];
-    
+
+    const completion = {
+      userId,
+      completedAt: nowIso,
+      ...(submission?.mediaUri ? { mediaUri: submission.mediaUri } : {}),
+    };
+
+    const updatedCompletedBy = [
+      ...assignment.completedBy.filter((c) => c.userId !== userId),
+      completion,
+    ];
+
     const newSubmission: AssignmentSubmission = {
       userId,
-      createdAt: new Date().toISOString(),
-      ...(submission?.mediaUri && { mediaUri: submission.mediaUri }),
-      ...(submission?.notes && { notes: submission.notes }),
+      createdAt: nowIso,
+      ...(submission?.mediaUri ? { mediaUri: submission.mediaUri } : {}),
+      ...(submission?.notes ? { notes: submission.notes } : {}),
     };
-    
-    const updatedSubmissions = [...assignment.submissions, newSubmission];
-    
+
+    const updatedSubmissions = [
+      ...assignment.submissions.filter((s) => s.userId !== userId),
+      newSubmission,
+    ];
+
     const updateData: Database['public']['Tables']['assignments']['Update'] = {
       completed_by: updatedCompletedBy as any,
       submissions: updatedSubmissions as any,
     };
-    
+
+    console.log('💾 [ASSIGNMENT COMPLETE] Writing update:', {
+      completedByCount: updatedCompletedBy.length,
+      submissionsCount: updatedSubmissions.length,
+    });
+
     const { error } = await supabase.from('assignments').update(updateData).eq('id', assignmentId);
     if (error) {
       console.error('❌ Error completing assignment:', error);
       throw error;
     }
-    
+
     setAssignments((prev) => prev.map((a) => {
       if (a.id === assignmentId) {
         return { ...a, completedBy: updatedCompletedBy, submissions: updatedSubmissions };
       }
       return a;
     }));
-    
+
     console.log('✅ Assignment completed:', assignmentId);
   }, [assignments]);
 
