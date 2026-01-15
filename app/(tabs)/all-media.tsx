@@ -36,8 +36,14 @@ export default function AllMediaScreen() {
   }, []);
 
   const recentMedia = useMemo(() => {
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
     return mediaLibrary
       .slice()
+      .filter((m) => {
+        const ts = new Date(m.created_at).getTime();
+        return Number.isFinite(ts) && ts >= oneWeekAgo;
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 50);
   }, [mediaLibrary]);
@@ -73,7 +79,7 @@ export default function AllMediaScreen() {
       const { data } = supabase.storage
         .from('media-library')
         .getPublicUrl(item.storage_path);
-      setSelectedAudio({ uri: data.publicUrl, title: item.name });
+      setSelectedAudio({ uri: data.publicUrl, title: getDisplayName(item) });
       setAudioModalVisible(true);
     }
   };

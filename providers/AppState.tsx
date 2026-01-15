@@ -374,8 +374,14 @@ export const [AppStateProvider, useAppState] = createContextHook<AppStateValue>(
   const [clearedMediaIds, setClearedMediaIds] = useState<Set<string>>(new Set<string>());
 
   const getRecentMedia = useCallback((): MediaLibraryItem[] => {
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
     const list = mediaLibrary
       .filter((m) => !clearedMediaIds.has(m.id))
+      .filter((m) => {
+        const ts = new Date(m.created_at).getTime();
+        return Number.isFinite(ts) && ts >= oneWeekAgo;
+      })
       .slice()
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 

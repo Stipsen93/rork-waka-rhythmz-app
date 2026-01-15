@@ -993,6 +993,25 @@ export default function LibraryScreen() {
         throw deleteError;
       }
 
+      console.log('[RENAME] Updating DB record so recent media reflects the renamed title...');
+
+      try {
+        const { error: dbError } = await supabase
+          .from('media_library')
+          .update({
+            name: newFileName.trim(),
+            path: newPath,
+            storage_path: newPath,
+          })
+          .eq('path', renameItem.path);
+
+        if (dbError) {
+          console.error('[RENAME] DB update error:', dbError);
+        }
+      } catch (dbUpdateError) {
+        console.error('[RENAME] DB update exception:', dbUpdateError);
+      }
+
       console.log('[RENAME] Success!');
 
       setShowRenameModal(false);
@@ -1003,7 +1022,10 @@ export default function LibraryScreen() {
       
       setErrorMessage('Bestand hernoemd!');
       setTimeout(() => setErrorMessage(null), 3000);
-      
+
+      console.log('[RENAME] Triggering full app sync so recent media widget + list update...');
+      await syncAllData();
+
       itemsCacheRef.current.clear();
       await loadItems({ forceSync: true });
     } catch (error: any) {
