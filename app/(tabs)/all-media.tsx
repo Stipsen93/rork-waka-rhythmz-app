@@ -7,6 +7,8 @@ import { Video, Image as ImageIcon, Music, ArrowLeft, Trash2, Check, X } from "l
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import AudioPlayerModal from "@/components/AudioPlayerModal";
+import VideoPlayerModal from "@/components/VideoPlayerModal";
+import ImageViewerModal from "@/components/ImageViewerModal";
 import { supabase } from "@/lib/supabase";
 
 export default function AllMediaScreen() {
@@ -15,6 +17,10 @@ export default function AllMediaScreen() {
   const router = useRouter();
   const [audioModalVisible, setAudioModalVisible] = useState<boolean>(false);
   const [selectedAudio, setSelectedAudio] = useState<{ uri: string; title: string } | null>(null);
+  const [videoModalVisible, setVideoModalVisible] = useState<boolean>(false);
+  const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
+  const [imageModalVisible, setImageModalVisible] = useState<boolean>(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set<string>());
@@ -160,13 +166,43 @@ export default function AllMediaScreen() {
       return;
     }
 
-    if (item.file_type === 'audio') {
-      const { data } = supabase.storage
-        .from('media-library')
-        .getPublicUrl(item.storage_path);
-      setSelectedAudio({ uri: data.publicUrl, title: getDisplayName(item) });
-      setAudioModalVisible(true);
+    const storagePath = (item.storage_path ?? "").trim();
+    if (!storagePath) {
+      console.warn("⚠️ [RECENT_MEDIA_LIST] Missing storage_path for item", { id: item.id, item });
+      Alert.alert("Fout", "Dit bestand kan niet worden geopend (pad ontbreekt).");
+      return;
     }
+
+    const { data } = supabase.storage.from('media-library').getPublicUrl(storagePath);
+    const publicUrl = data?.publicUrl;
+
+    if (!publicUrl) {
+      console.warn("⚠️ [RECENT_MEDIA_LIST] Missing publicUrl for item", { id: item.id, storagePath, data });
+      Alert.alert("Fout", "Dit bestand kan niet worden geopend (URL ontbreekt).");
+      return;
+    }
+
+    console.log("▶️ [RECENT_MEDIA_LIST] Opening media", { id: item.id, type: item.file_type, publicUrl });
+
+    if (item.file_type === 'audio') {
+      setSelectedAudio({ uri: publicUrl, title: getDisplayName(item) });
+      setAudioModalVisible(true);
+      return;
+    }
+
+    if (item.file_type === 'video') {
+      setSelectedVideoUrl(publicUrl);
+      setVideoModalVisible(true);
+      return;
+    }
+
+    if (item.file_type === 'image') {
+      setSelectedImageUrl(publicUrl);
+      setImageModalVisible(true);
+      return;
+    }
+
+    Alert.alert("Niet ondersteund", "Dit bestandstype kan niet worden geopend.");
   }, [getDisplayName, selectionMode, toggleSelected]);
 
   const handleMediaLongPress = useCallback((item: MediaLibraryItem) => {
@@ -315,6 +351,28 @@ export default function AllMediaScreen() {
           onClose={() => {
             setAudioModalVisible(false);
             setSelectedAudio(null);
+          }}
+        />
+      )}
+
+      {selectedVideoUrl && (
+        <VideoPlayerModal
+          visible={videoModalVisible}
+          videoUrl={selectedVideoUrl}
+          onClose={() => {
+            setVideoModalVisible(false);
+            setSelectedVideoUrl(null);
+          }}
+        />
+      )}
+
+      {selectedImageUrl && (
+        <ImageViewerModal
+          visible={imageModalVisible}
+          imageUrl={selectedImageUrl}
+          onClose={() => {
+            setImageModalVisible(false);
+            setSelectedImageUrl(null);
           }}
         />
       )}
