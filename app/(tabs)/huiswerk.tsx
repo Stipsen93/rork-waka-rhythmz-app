@@ -1473,6 +1473,19 @@ function AssignmentDetailModal({ visible, assignment, onClose, currentUserId }: 
 }
 
 type AdminTab = 'leden' | 'persoonlijk';
+type MemberTab = 'open' | 'voltooid';
+
+function sortAssignmentsByCreatedAtDesc(list: Assignment[]): Assignment[] {
+  return list
+    .slice()
+    .sort((a, b) => {
+      const at = new Date(a.createdAt).getTime();
+      const bt = new Date(b.createdAt).getTime();
+      const aSafe = Number.isFinite(at) ? at : 0;
+      const bSafe = Number.isFinite(bt) ? bt : 0;
+      return bSafe - aSafe;
+    });
+}
 
 export default function HuiswerkScreen() {
   const insets = useSafeAreaInsets();
@@ -1486,41 +1499,67 @@ export default function HuiswerkScreen() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [detailAssignment, setDetailAssignment] = useState<Assignment | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AdminTab>('leden');
+  const [memberTab, setMemberTab] = useState<MemberTab>('open');
 
   const ledenAssignments = useMemo(() => {
     if (!currentUser) return [];
-    return assignments.filter(assignment => {
-      if (assignment.assignedUserIds.length === 0) {
-        return true;
-      }
-      return !assignment.assignedUserIds.includes(currentUser.id);
-    });
+    return sortAssignmentsByCreatedAtDesc(
+      assignments.filter((assignment) => {
+        if (assignment.assignedUserIds.length === 0) {
+          return true;
+        }
+        return !assignment.assignedUserIds.includes(currentUser.id);
+      })
+    );
   }, [assignments, currentUser]);
 
   const persoonlijkAssignments = useMemo(() => {
     if (!currentUser) return [];
-    return assignments.filter(assignment => {
-      if (assignment.assignedUserIds.length === 0) {
-        return false;
-      }
-      return assignment.assignedUserIds.includes(currentUser.id);
-    });
+    return sortAssignmentsByCreatedAtDesc(
+      assignments.filter((assignment) => {
+        if (assignment.assignedUserIds.length === 0) {
+          return false;
+        }
+        return assignment.assignedUserIds.includes(currentUser.id);
+      })
+    );
   }, [assignments, currentUser]);
+
+  const memberAllAssignments = useMemo(() => {
+    if (!currentUser) return [];
+    return sortAssignmentsByCreatedAtDesc(
+      assignments.filter((assignment) => {
+        if (assignment.assignedUserIds.length === 0) {
+          return true;
+        }
+        return assignment.assignedUserIds.includes(currentUser.id);
+      })
+    );
+  }, [assignments, currentUser]);
+
+  const memberOpenAssignments = useMemo(() => {
+    if (!currentUser) return [];
+    return memberAllAssignments.filter(
+      (assignment) => !assignment.completedBy.some((c) => c.userId === currentUser.id)
+    );
+  }, [memberAllAssignments, currentUser]);
+
+  const memberCompletedAssignments = useMemo(() => {
+    if (!currentUser) return [];
+    return memberAllAssignments.filter((assignment) =>
+      assignment.completedBy.some((c) => c.userId === currentUser.id)
+    );
+  }, [memberAllAssignments, currentUser]);
 
   const filteredAssignments = useMemo(() => {
     if (!currentUser) return [];
-    
+
     if (currentUser.role === 'admin') {
       return activeTab === 'leden' ? ledenAssignments : persoonlijkAssignments;
     }
-    
-    return assignments.filter(assignment => {
-      if (assignment.assignedUserIds.length === 0) {
-        return true;
-      }
-      return assignment.assignedUserIds.includes(currentUser.id);
-    });
-  }, [assignments, currentUser, activeTab, ledenAssignments, persoonlijkAssignments]);
+
+    return memberTab === 'open' ? memberOpenAssignments : memberCompletedAssignments;
+  }, [activeTab, currentUser, ledenAssignments, memberCompletedAssignments, memberOpenAssignments, memberTab, persoonlijkAssignments]);
 
   return (
     <>
@@ -1548,6 +1587,7 @@ export default function HuiswerkScreen() {
             <Pressable
               style={[styles.tab, activeTab === 'leden' && styles.tabActive]}
               onPress={() => setActiveTab('leden')}
+              testID="huiswerk-admin-tab-leden"
             >
               <Text style={[styles.tabText, activeTab === 'leden' && styles.tabTextActive]}>
                 Leden
@@ -1562,6 +1602,7 @@ export default function HuiswerkScreen() {
             <Pressable
               style={[styles.tab, activeTab === 'persoonlijk' && styles.tabActive]}
               onPress={() => setActiveTab('persoonlijk')}
+              testID="huiswerk-admin-tab-persoonlijk"
             >
               <Text style={[styles.tabText, activeTab === 'persoonlijk' && styles.tabTextActive]}>
                 Persoonlijk
@@ -1569,6 +1610,40 @@ export default function HuiswerkScreen() {
               <View style={[styles.badge, activeTab === 'persoonlijk' && styles.badgeActive]}>
                 <Text style={[styles.badgeText, activeTab === 'persoonlijk' && styles.badgeTextActive]}>
                   {persoonlijkAssignments.length}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        )}
+
+        {currentUser?.role !== 'admin' && currentUser && (
+          <View style={styles.tabsContainer}>
+            <Pressable
+              style={[styles.tab, memberTab === 'open' && styles.tabActive]}
+              onPress={() => setMemberTab('open')}
+              testID="huiswerk-member-tab-open"
+            >
+              <Text style={[styles.tabText, memberTab === 'open' && styles.tabTextActive]}>
+                Open
+              </Text>
+              <View style={[styles.badge, memberTab === 'open' && styles.badgeActive]}>
+                <Text style={[styles.badgeText, memberTab === 'open' && styles.badgeTextActive]}>
+                  {memberOpenAssignments.length}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={[styles.tab, memberTab === 'voltooid' && styles.tabActive]}
+              onPress={() => setMemberTab('voltooid')}
+              testID="huiswerk-member-tab-voltooid"
+            >
+              <Text style={[styles.tabText, memberTab === 'voltooid' && styles.tabTextActive]}>
+                Voltooid
+              </Text>
+              <View style={[styles.badge, memberTab === 'voltooid' && styles.badgeActive]}>
+                <Text style={[styles.badgeText, memberTab === 'voltooid' && styles.badgeTextActive]}>
+                  {memberCompletedAssignments.length}
                 </Text>
               </View>
             </Pressable>
