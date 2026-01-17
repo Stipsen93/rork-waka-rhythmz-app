@@ -1,12 +1,11 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, TouchableWithoutFeedback, Keyboard } from "react-native";
+import {Pressable, ScrollView, Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, Keyboard, TouchableWithoutFeedback } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment, Training } from "@/providers/AppState";
 import { useTrainings } from "@/hooks/useTrainings";
 import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight, Check } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import {Pressable, ScrollView, } from "react-native-gesture-handler"
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag', 'Overig'];
@@ -698,19 +697,18 @@ export default function CalendarScreen() {
           </LinearGradient>
         </Pressable>
       </View>
-
+             
+            
       <Modal
         visible={showAddModal}
         transparent
         animationType="fade"
         onRequestClose={() => setShowAddModal(false)}
       >
-
-        <Pressable 
+        <View 
           style={styles.detailsModalOverlay}
-          onPress={() => setShowAddModal(false)}
         >
-          <Pressable 
+          <View 
             style={styles.detailsModalContent}
           >
             <View style={styles.detailsHeader}>
@@ -1092,10 +1090,9 @@ export default function CalendarScreen() {
                 </Pressable>
               </View>
           </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
-
 
       <Modal
         visible={showEditModal}
@@ -1105,11 +1102,10 @@ export default function CalendarScreen() {
       >
         
 
-        <Pressable 
+        <View 
           style={styles.detailsModalOverlay}
-          onPress={() => setShowEditModal(false)}
         >
-          <Pressable 
+          <View 
             style={styles.detailsModalContent}
           >
             <View style={styles.detailsHeader}>
@@ -1504,8 +1500,8 @@ export default function CalendarScreen() {
                 </Pressable>
               </View>
           </ScrollView>
-          </Pressable>
-          </Pressable>
+          </View>
+          </View>
       </Modal>
 
       <Modal
@@ -1514,11 +1510,10 @@ export default function CalendarScreen() {
         animationType="fade"
         onRequestClose={() => setShowDetailsModal(false)}
       >
-        <Pressable 
+        <View 
           style={styles.detailsModalOverlay}
-          onPress={() => setShowDetailsModal(false)}
         >
-          <Pressable 
+          <View 
             style={styles.detailsModalContent}
           >
             <View style={styles.detailsHeader}>
@@ -1637,8 +1632,8 @@ export default function CalendarScreen() {
                 </ScrollView>
               );
             })()}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
