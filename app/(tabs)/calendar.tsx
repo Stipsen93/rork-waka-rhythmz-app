@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from "react-native";
+import React, { useState, useMemo, useEffect } from "react";
+import { Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, TouchableWithoutFeedback, Keyboard } from "react-native";
 import Colors from "@/constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState, Appointment, Training } from "@/providers/AppState";
 import { useTrainings } from "@/hooks/useTrainings";
 import { Calendar as CalendarIcon, MapPin, Users, Plus, X, ChevronLeft, ChevronRight, Check } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-
+import {Pressable, ScrollView, } from "react-native-gesture-handler"
 const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 const MONTHS = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 const CATEGORIES: ('Feestje' | 'Verrassingsfeest' | 'Huwelijk' | 'Verjaardag' | 'Overig')[] = ['Feestje', 'Verrassingsfeest', 'Huwelijk', 'Verjaardag', 'Overig'];
@@ -42,7 +42,8 @@ export default function CalendarScreen() {
   const isCrownAdmin = currentUser?.isCrownAdmin ?? false;
   const { trainings } = useTrainings();
   const insets = useSafeAreaInsets();
-  
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [formData, setFormData] = useState<{
@@ -457,6 +458,26 @@ export default function CalendarScreen() {
     return days;
   };
 
+
+ useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardWillShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardWillHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, [])
   return (
     <>
       <View style={[styles.container, { paddingTop: insets.top * 0.0 }]} testID="calendar-screen">
@@ -684,20 +705,28 @@ export default function CalendarScreen() {
         animationType="fade"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <ScrollView 
-            contentContainerStyle={styles.modalScrollContent}
-            bounces={false}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nieuwe optreden</Text>
-                <Pressable onPress={() => setShowAddModal(false)} testID="close-modal">
-                  <X color={Colors.light.muted} size={24} />
-                </Pressable>
-              </View>
 
+        <Pressable 
+          style={styles.detailsModalOverlay}
+          onPress={() => setShowAddModal(false)}
+        >
+          <Pressable 
+            style={styles.detailsModalContent}
+          >
+            <View style={styles.detailsHeader}>
+              <Text style={styles.detailsTitle}>Nieuwe optreden</Text>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <X color={Colors.light.muted} size={24} />
+              </Pressable>
+            </View>
+
+            <ScrollView 
+                  style={styles.detailsScrollView}
+                  contentContainerStyle={[styles.detailsScrollContent, { paddingBottom: isKeyboardVisible ?  250 : 24}]}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                >
+    
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Naam</Text>
                 <TextInput
@@ -727,10 +756,15 @@ export default function CalendarScreen() {
                 {showCategoryDropdown && (
                   <View style={styles.dropdownMenu}>
                     {CATEGORIES.map((category) => (
-                      <TouchableOpacity
+                      <Pressable
                         key={category}
-                        style={styles.dropdownItem}
-                        onPress={() => {
+                        style={({ pressed }) => [
+                          styles.dropdownItem,
+                          {
+                            opacity: pressed ? 0.3 : 1,
+                          },
+                        ]}
+                                          onPress={() => {
                           setFormData({ ...formData, category });
                           setShowCategoryDropdown(false);
                         }}
@@ -741,7 +775,7 @@ export default function CalendarScreen() {
                         ]}>
                           {category}
                         </Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     ))}
                   </View>
                 )}
@@ -773,21 +807,31 @@ export default function CalendarScreen() {
                 {showDatePicker && (
                   <View style={styles.calendarPickerContainer}>
                     <View style={styles.calendarPickerHeader}>
-                      <TouchableOpacity 
+                      <Pressable 
                         onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
-                        style={styles.calendarPickerButton}
+                        style={({ pressed }) => [
+                          styles.calendarPickerButton,
+                          {
+                            opacity: pressed ? 0.3 : 1,
+                          },
+                        ]}
                       >
                         <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
+                      </Pressable>
                       <Text style={styles.calendarPickerMonth}>
                         {MONTHS[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
                       </Text>
-                      <TouchableOpacity 
+                      <Pressable 
                         onPress={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))}
-                        style={styles.calendarPickerButton}
+                        style={({ pressed }) => [
+                          styles.calendarPickerButton,
+                          {
+                            opacity: pressed ? 0.3 : 1,
+                          },
+                        ]}
                       >
                         <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
+                      </Pressable>
                     </View>
                     <View style={styles.calendarPickerWeekDays}>
                       {DAYS.map((day) => (
@@ -796,9 +840,14 @@ export default function CalendarScreen() {
                     </View>
                     <View style={styles.calendarPickerGrid}>
                       {getDatePickerDays(pickerMonth).map((day, index) => (
-                        <TouchableOpacity
+                        <Pressable
                           key={`${day.fullDate}-${index}`}
-                          style={styles.calendarPickerDay}
+                          style={({ pressed }) => [
+                            styles.calendarPickerDay,
+                            {
+                              opacity: pressed ? 0.3 : 1,
+                            },
+                          ]}
                           onPress={() => {
                             if (day.isCurrentMonth) {
                               setFormData({ ...formData, date: day.fullDate });
@@ -820,7 +869,7 @@ export default function CalendarScreen() {
                               {day.date}
                             </Text>
                           </View>
-                        </TouchableOpacity>
+                        </Pressable>
                       ))}
                     </View>
                   </View>
@@ -859,11 +908,14 @@ export default function CalendarScreen() {
                             const hour = String(i).padStart(2, '0');
                             const isSelected = formData.time.split(':')[0] === hour;
                             return (
-                              <TouchableOpacity
+                              <Pressable
                                 key={hour}
-                                style={[
+                                style={({ pressed }) => [
                                   styles.timePickerItem,
-                                  isSelected && styles.timePickerItemSelected
+                                  isSelected && styles.timePickerItemSelected,
+                                  {
+                                    opacity: pressed ? 0.3 : 1,
+                                  },
                                 ]}
                                 onPress={() => {
                                   const currentMinute = formData.time.split(':')[1];
@@ -876,7 +928,7 @@ export default function CalendarScreen() {
                                 ]}>
                                   {hour}
                                 </Text>
-                              </TouchableOpacity>
+                              </Pressable>
                             );
                           })}
                         </ScrollView>
@@ -893,11 +945,14 @@ export default function CalendarScreen() {
                             const minute = String(i * 5).padStart(2, '0');
                             const isSelected = formData.time.split(':')[1] === minute;
                             return (
-                              <TouchableOpacity
+                              <Pressable
                                 key={minute}
-                                style={[
+                                style={({ pressed }) => [
                                   styles.timePickerItem,
-                                  isSelected && styles.timePickerItemSelected
+                                  isSelected && styles.timePickerItemSelected,
+                                  {
+                                    opacity: pressed ? 0.3 : 1,
+                                  },
                                 ]}
                                 onPress={() => {
                                   const currentHour = formData.time.split(':')[0];
@@ -910,18 +965,18 @@ export default function CalendarScreen() {
                                 ]}>
                                   {minute}
                                 </Text>
-                              </TouchableOpacity>
+                              </Pressable>
                             );
                           })}
                         </ScrollView>
                       </View>
                     </View>
-                    <TouchableOpacity
+                    <Pressable
                       style={styles.timePickerDoneButton}
                       onPress={() => setShowHourPicker(false)}
                     >
                       <Text style={styles.timePickerDoneButtonText}>Klaar</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 )}
               </View>
@@ -1036,10 +1091,11 @@ export default function CalendarScreen() {
                   </LinearGradient>
                 </Pressable>
               </View>
-            </View>
           </ScrollView>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
+
 
       <Modal
         visible={showEditModal}
@@ -1047,20 +1103,30 @@ export default function CalendarScreen() {
         animationType="fade"
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <ScrollView 
-            contentContainerStyle={styles.modalScrollContent}
-            bounces={false}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Afspraak Bewerken</Text>
-                <Pressable onPress={() => setShowEditModal(false)}>
-                  <X color={Colors.light.muted} size={24} />
-                </Pressable>
-              </View>
+        
 
+        <Pressable 
+          style={styles.detailsModalOverlay}
+          onPress={() => setShowEditModal(false)}
+        >
+          <Pressable 
+            style={styles.detailsModalContent}
+          >
+            <View style={styles.detailsHeader}>
+              <Text style={styles.detailsTitle}>Afspraak Bewerken</Text>
+              <Pressable onPress={() => setShowEditModal(false)}>
+                <X color={Colors.light.muted} size={24} />
+              </Pressable>
+            </View>
+
+            <ScrollView 
+                  style={styles.detailsScrollView}
+                  contentContainerStyle={[styles.detailsScrollContent, { paddingBottom: isKeyboardVisible ?  250 : 24}]}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                >
+    
+        
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Naam</Text>
                 <TextInput
@@ -1088,9 +1154,14 @@ export default function CalendarScreen() {
                 {showCategoryDropdown && (
                   <View style={styles.dropdownMenu}>
                     {CATEGORIES.map((category) => (
-                      <TouchableOpacity
+                      <Pressable
                         key={category}
-                        style={styles.dropdownItem}
+                        style={({ pressed }) => [
+                          styles.dropdownItem,
+                          {
+                            opacity: pressed ? 0.3 : 1,
+                          },
+                        ]}
                         onPress={() => {
                           setEditFormData({ ...editFormData, category });
                           setShowCategoryDropdown(false);
@@ -1102,7 +1173,7 @@ export default function CalendarScreen() {
                         ]}>
                           {category}
                         </Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     ))}
                   </View>
                 )}
@@ -1133,21 +1204,31 @@ export default function CalendarScreen() {
                 {showEditDatePicker && (
                   <View style={styles.calendarPickerContainer}>
                     <View style={styles.calendarPickerHeader}>
-                      <TouchableOpacity 
+                      <Pressable 
                         onPress={() => setEditPickerMonth(new Date(editPickerMonth.getFullYear(), editPickerMonth.getMonth() - 1, 1))}
-                        style={styles.calendarPickerButton}
+                        style={({ pressed }) => [
+                          styles.calendarPickerButton,
+                          {
+                            opacity: pressed ? 0.3 : 1,
+                          },
+                        ]}
                       >
                         <ChevronLeft color={Colors.light.text} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
+                      </Pressable>
                       <Text style={styles.calendarPickerMonth}>
                         {MONTHS[editPickerMonth.getMonth()]} {editPickerMonth.getFullYear()}
                       </Text>
-                      <TouchableOpacity 
+                      <Pressable 
                         onPress={() => setEditPickerMonth(new Date(editPickerMonth.getFullYear(), editPickerMonth.getMonth() + 1, 1))}
-                        style={styles.calendarPickerButton}
+                        style={({ pressed }) => [
+                          styles.calendarPickerButton,
+                          {
+                            opacity: pressed ? 0.3 : 1,
+                          },
+                        ]}
                       >
                         <ChevronRight color={Colors.light.text} size={20} strokeWidth={2.5} />
-                      </TouchableOpacity>
+                      </Pressable>
                     </View>
                     <View style={styles.calendarPickerWeekDays}>
                       {DAYS.map((day) => (
@@ -1156,9 +1237,14 @@ export default function CalendarScreen() {
                     </View>
                     <View style={styles.calendarPickerGrid}>
                       {getDatePickerDays(editPickerMonth).map((day, index) => (
-                        <TouchableOpacity
+                        <Pressable
                           key={`${day.fullDate}-${index}`}
-                          style={styles.calendarPickerDay}
+                          style={({ pressed }) => [
+                            styles.calendarPickerDay,
+                            {
+                              opacity: pressed ? 0.3 : 1,
+                            },
+                          ]}
                           onPress={() => {
                             if (day.isCurrentMonth) {
                               setEditFormData({ ...editFormData, date: day.fullDate });
@@ -1180,7 +1266,7 @@ export default function CalendarScreen() {
                               {day.date}
                             </Text>
                           </View>
-                        </TouchableOpacity>
+                        </Pressable>
                       ))}
                     </View>
                   </View>
@@ -1218,11 +1304,14 @@ export default function CalendarScreen() {
                             const hour = String(i).padStart(2, '0');
                             const isSelected = editFormData.time.split(':')[0] === hour;
                             return (
-                              <TouchableOpacity
+                              <Pressable
                                 key={hour}
-                                style={[
+                                style={({ pressed }) => [
                                   styles.timePickerItem,
-                                  isSelected && styles.timePickerItemSelected
+                                  isSelected && styles.timePickerItemSelected,
+                                  {
+                                    opacity: pressed ? 0.3 : 1,
+                                  },
                                 ]}
                                 onPress={() => {
                                   const currentMinute = editFormData.time.split(':')[1];
@@ -1235,7 +1324,7 @@ export default function CalendarScreen() {
                                 ]}>
                                   {hour}
                                 </Text>
-                              </TouchableOpacity>
+                              </Pressable>
                             );
                           })}
                         </ScrollView>
@@ -1252,11 +1341,14 @@ export default function CalendarScreen() {
                             const minute = String(i * 5).padStart(2, '0');
                             const isSelected = editFormData.time.split(':')[1] === minute;
                             return (
-                              <TouchableOpacity
+                              <Pressable
                                 key={minute}
-                                style={[
+                                style={({ pressed }) => [
                                   styles.timePickerItem,
-                                  isSelected && styles.timePickerItemSelected
+                                  isSelected && styles.timePickerItemSelected,
+                                  {
+                                    opacity: pressed ? 0.3 : 1,
+                                  },
                                 ]}
                                 onPress={() => {
                                   const currentHour = editFormData.time.split(':')[0];
@@ -1269,18 +1361,23 @@ export default function CalendarScreen() {
                                 ]}>
                                   {minute}
                                 </Text>
-                              </TouchableOpacity>
+                              </Pressable>
                             );
                           })}
                         </ScrollView>
                       </View>
                     </View>
-                    <TouchableOpacity
-                      style={styles.timePickerDoneButton}
+                    <Pressable
+                     style={({ pressed }) => [
+                      styles.timePickerDoneButton,
+                      {
+                        opacity: pressed ? 0.3 : 1,
+                      },
+                    ]}
                       onPress={() => setShowMinutePicker(false)}
                     >
                       <Text style={styles.timePickerDoneButtonText}>Klaar</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 )}
               </View>
@@ -1406,9 +1503,9 @@ export default function CalendarScreen() {
                   <Text style={styles.dangerButtonText}>Afspraak verwijderen</Text>
                 </Pressable>
               </View>
-            </View>
           </ScrollView>
-        </View>
+          </Pressable>
+          </Pressable>
       </Modal>
 
       <Modal
@@ -1423,7 +1520,6 @@ export default function CalendarScreen() {
         >
           <Pressable 
             style={styles.detailsModalContent}
-            onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.detailsHeader}>
               <Text style={styles.detailsTitle}>Afspraak Details</Text>
@@ -1838,16 +1934,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: '100%',
   },
-  modalContent: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderColor: Colors.light.surfaceLight,
-  },
+
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2330,7 +2417,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     width: '100%',
     maxWidth: 400,
-    maxHeight: '80%',
+    maxHeight: '90%',
     borderWidth: 1,
     borderColor: Colors.light.surfaceLight,
     shadowColor: Colors.light.primary,
