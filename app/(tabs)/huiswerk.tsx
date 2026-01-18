@@ -1683,7 +1683,7 @@ export default function HuiswerkScreen() {
                     }
                   }}
                   onLongPress={() => {
-                    if (!selectionMode && currentUser?.role === "admin") {
+                    if (!selectionMode && (currentUser?.role === "admin" || isCrownAdmin)) {
                       setSelectionMode(true);
                       setSelectedIds(new Set([assignment.id]));
                     }
