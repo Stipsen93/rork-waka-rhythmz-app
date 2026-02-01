@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "195838383509",
+    "project_id": "oneband-50a72",
+    "storage_bucket": "oneband-50a72.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:195838383509:android:631af31a2532dd85f3529c",
+        "android_client_info": {
+          "package_name": "com.oneband"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQRCixjKUhH-Kpi2_7vSEgxJ7mHdQSpUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

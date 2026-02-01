@@ -181,14 +181,17 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       return null;
     }
 
-    if (!isPhysicalDevice) {
-      console.log("📱 [PUSH] Not a physical device, skipping registration");
+    if (!isPhysicalDevice && Platform.OS === 'ios') {
+      console.log("📱 [PUSH] iOS Simulator detected, skipping registration (not supported)");
       return null;
+    }
+
+    if (!isPhysicalDevice) {
+      console.log("📱 [PUSH] Emulator detected, attempting registration anyway...");
     }
 
     try {
       await ensureAndroidChannel();
-
       const perms = await Notifications.getPermissionsAsync();
       const status = (perms.status ?? "undetermined") as PushPermissionStatus;
       console.log("📱 [PUSH] Permission status before token:", status);
@@ -260,7 +263,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
       userId: currentUser?.id,
     });
 
-    if (Platform.OS === "web" || !isPhysicalDevice) {
+    if (Platform.OS === "web") {
       setPermissionStatus("granted");
       setIsRegistered(true);
       setCheckedAt(Date.now());
@@ -271,7 +274,6 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
     try {
       await ensureAndroidChannel();
-
       const perms = await Notifications.getPermissionsAsync();
       console.log("📱 [PUSH] getPermissionsAsync result:", perms);
 
@@ -284,7 +286,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
       const overallEnabled = computeOverallEnabled(osStatus, channelDiag);
       console.log("📱 [PUSH] overallEnabled computed:", overallEnabled);
-
+      
       if (overallEnabled) {
         if (!isRegistered && !isLoading && currentUser) {
           console.log("📱 [PUSH] Enabled but not registered -> registering...");
@@ -397,12 +399,15 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   useEffect(() => {
     if (Platform.OS !== "web") {
       notificationListener.current = Notifications.addNotificationReceivedListener((n) => {
-        console.log("📱 [PUSH] Notification received:", n);
+        console.warn("� NOTIFICATION RECEIVED!", n);
+        console.warn("Title:", n.request.content.title);
+        console.warn("Body:", n.request.content.body);
+        console.warn("Data:", n.request.content.data);
         setNotification(n);
       });
 
       responseListener.current = Notifications.addNotificationResponseReceivedListener((r) => {
-        console.log("📱 [PUSH] Notification tapped:", r);
+        console.warn("� NOTIFICATION TAPPED!", r);
       });
 
       appStateListener.current = RNAppState.addEventListener("change", (nextAppState) => {

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Platform, Linking } from "react-native";
 import { Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
@@ -21,6 +21,7 @@ export default function MeldingenScreen() {
 
   useEffect(() => {
     console.log('📱 [MELDINGEN] Refreshing push state on mount...');
+    console.log("HELLO")
     refreshPushState();
   }, [refreshPushState]);
   
@@ -147,7 +148,6 @@ export default function MeldingenScreen() {
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: "800" as const,
-            letterSpacing: 1,
           },
           headerLeft: () => <MenuButton onPress={() => setShowMenuModal(true)} />,
           headerStyle: { backgroundColor: Colors.light.background },
@@ -177,7 +177,18 @@ export default function MeldingenScreen() {
               <TouchableOpacity
                 style={styles.activateButton}
                 onPress={async () => {
+                  // First try to request permission
                   await requestPermissions();
+                  
+                  // After requesting, check if we need to redirect to settings
+                  // Only redirect if permission is denied AND we can't ask again
+                  if (permissionStatus === 'denied' && diagnostics.canAskAgain === false) {
+                    if (Platform.OS === 'ios') {
+                      Linking.openURL('app-settings:');
+                    } else {
+                      Linking.openSettings();
+                    }
+                  }
                 }}
                 testID="push-activate"
               >
@@ -199,7 +210,13 @@ export default function MeldingenScreen() {
                   style={styles.permissionCta}
                   onPress={async () => {
                     await refreshPushState();
-                    if (permissionStatus === 'granted') {
+                    if (permissionStatus === 'denied' || !diagnostics.overallEnabled) {
+                      if (Platform.OS === 'ios') {
+                        Linking.openURL('app-settings:');
+                      } else {
+                        Linking.openSettings();
+                      }
+                    } else if (permissionStatus === 'granted') {
                       await registerForPushNotifications();
                     }
                   }}

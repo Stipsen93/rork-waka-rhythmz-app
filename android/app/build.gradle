@@ -92,7 +92,7 @@ android {
         applicationId 'com.oneband'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 6
+        versionCode 7
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -195,3 +195,6 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Apply Google Services plugin for Firebase
+apply plugin: 'com.google.gms.google-services'
